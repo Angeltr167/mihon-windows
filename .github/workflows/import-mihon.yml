@@ -3,8 +3,6 @@ name: Import Mihon upstream
 on:
   push:
     branches: [main]
-    paths:
-      - .github/workflows/import-mihon.yml
   workflow_dispatch:
 
 permissions:
