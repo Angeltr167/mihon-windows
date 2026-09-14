@@ -1,0 +1,27 @@
+name: Import Mihon upstream
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - .github/workflows/import-mihon.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  import:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Mirror Mihon branches and tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TARGET_REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          git clone --mirror https://github.com/mihonapp/mihon.git upstream.git
+          cd upstream.git
+          git remote add target "https://x-access-token:${GH_TOKEN}@github.com/${TARGET_REPO}.git"
+          git push --force target 'refs/heads/*:refs/heads/*'
+          git push --force target 'refs/tags/*:refs/tags/*'
