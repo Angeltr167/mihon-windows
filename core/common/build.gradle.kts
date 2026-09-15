@@ -20,6 +20,8 @@ kotlin {
 }
 
 dependencies {
+    api(projects.core.shared)
+
     implementation(projects.core.metro)
     implementation(projects.i18n)
 
