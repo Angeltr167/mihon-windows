@@ -22,7 +22,7 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 implementation(compose.material3)
                 implementation(libs.metro.runtime)
-                implementation("dev.icerock.mobile:multiplatform-resources-compose:0.26.4")
+                implementation("dev.icerock.moko:resources-compose:0.26.4")
             }
         }
     }
