@@ -67,3 +67,8 @@ jobs:
 
       - name: Assemble Desktop JVM artifact
         run: .\gradlew.bat :desktopApp:desktopJar
+
+      - name: Smoke Desktop entrypoint
+        env:
+          MIHON_DESKTOP_SMOKE_TEST: "1"
+        run: .\gradlew.bat :desktopApp:run --quiet
