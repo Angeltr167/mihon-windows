@@ -1,8 +1,8 @@
 plugins {
-    alias(libs.plugins.kotlin.multiplatform)
-    alias(libs.plugins.kotlin.compose.compiler)
+    id("org.jetbrains.kotlin.multiplatform")
+    id("org.jetbrains.kotlin.plugin.compose")
     id("org.jetbrains.compose") version "1.12.0"
-    alias(libs.plugins.moko.resources)
+    id("dev.icerock.mobile.multiplatform-resources")
     alias(mihonx.plugins.spotless)
 }
 
