@@ -44,3 +44,26 @@ jobs:
 
       - name: Assemble Android baseline
         run: ./gradlew assembleDebug
+
+  desktop-bootstrap:
+    name: Windows Desktop bootstrap
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version-file: .github/.java-version
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: Compile Desktop target
+        run: .\gradlew.bat :desktopApp:compileKotlinDesktop
+
+      - name: Assemble Desktop JVM artifact
+        run: .\gradlew.bat :desktopApp:desktopJar
