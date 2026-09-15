@@ -3,7 +3,6 @@
 package eu.kanade.tachiyomi.source.model
 
 import kotlinx.serialization.json.JsonObject
-import mihon.core.common.extensions.EMPTY
 
 class SChapterImpl : SChapter {
 
@@ -17,5 +16,5 @@ class SChapterImpl : SChapter {
 
     override var date_upload: Long = 0
 
-    override var memo: JsonObject = JsonObject.EMPTY
+    override var memo: JsonObject = JsonObject(emptyMap())
 }
