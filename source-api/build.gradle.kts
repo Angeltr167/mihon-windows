@@ -1,28 +1,46 @@
 plugins {
-    alias(mihonx.plugins.android.library)
+    alias(mihonx.plugins.kotlin.multiplatform)
     alias(mihonx.plugins.spotless)
 
     alias(libs.plugins.kotlin.serialization)
 }
 
-android {
-    namespace = "eu.kanade.tachiyomi.source"
-
-    defaultConfig {
-        consumerProguardFiles("consumer-proguard.pro")
+kotlin {
+    android {
+        namespace = "eu.kanade.tachiyomi.source"
     }
-}
 
-dependencies {
-    implementation(projects.core.common)
+    sourceSets {
+        val jvmLikeMainDirectory = "src/jvmLikeMain/kotlin"
 
-    implementation(libs.kotlinx.serialization.json)
-    implementation(libs.injekt)
-    implementation(libs.rxJava)
-    implementation(libs.jsoup)
+        androidMain {
+            kotlin.srcDir(jvmLikeMainDirectory)
+            dependencies {
+                api(projects.core.shared)
+                implementation(projects.core.common)
 
-    implementation(libs.androidx.preference)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.injekt)
+                implementation(libs.rxJava)
+                implementation(libs.jsoup)
 
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.compose.runtime)
+                implementation(libs.androidx.preference)
+                implementation(platform(libs.androidx.compose.bom))
+                implementation(libs.androidx.compose.runtime)
+            }
+        }
+
+        jvmMain {
+            kotlin.srcDir(jvmLikeMainDirectory)
+            dependencies {
+                api(projects.core.shared)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.rxJava)
+            }
+        }
+
+        jvmTest.dependencies {
+            implementation(libs.bundles.test)
+        }
+    }
 }
