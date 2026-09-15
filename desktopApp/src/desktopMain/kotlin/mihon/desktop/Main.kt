@@ -15,12 +15,19 @@ import androidx.compose.ui.window.application
 import dev.icerock.moko.resources.compose.stringResource
 import tachiyomi.i18n.MR
 
-fun main() = application {
-    Window(
-        onCloseRequest = ::exitApplication,
-        title = "Mihon",
-    ) {
-        MihonDesktopBootstrap()
+fun main() {
+    if (System.getenv(DESKTOP_SMOKE_ENV) == "1") {
+        println("MIHON_DESKTOP_BOOTSTRAP_OK")
+        return
+    }
+
+    application {
+        Window(
+            onCloseRequest = ::exitApplication,
+            title = "Mihon",
+        ) {
+            MihonDesktopBootstrap()
+        }
     }
 }
 
@@ -45,3 +52,5 @@ private fun MihonDesktopBootstrap() {
         }
     }
 }
+
+private const val DESKTOP_SMOKE_ENV = "MIHON_DESKTOP_SMOKE_TEST"
