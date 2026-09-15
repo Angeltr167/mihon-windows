@@ -1,0 +1,46 @@
+name: Windows Port Guardrails
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - '**'
+  workflow_dispatch:
+
+concurrency:
+  group: windows-port-guardrails-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  baseline-regression:
+    name: Baseline regression gate
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version-file: .github/.java-version
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
+
+      - name: Run Android/JVM unit tests
+        run: ./gradlew testDebugUnitTest
+
+      - name: Verify SQLDelight migrations
+        run: ./gradlew verifySqlDelightMigration
+
+      - name: Assemble Android baseline
+        run: ./gradlew assembleDebug
