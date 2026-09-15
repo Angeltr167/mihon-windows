@@ -23,10 +23,7 @@ kotlin {
                 implementation(libs.injekt)
                 implementation(libs.rxJava)
                 implementation(libs.jsoup)
-
                 implementation(libs.androidx.preference)
-                implementation(platform(libs.androidx.compose.bom))
-                implementation(libs.androidx.compose.runtime)
             }
         }
 
