@@ -89,7 +89,9 @@ class AndroidAppMetadataService(
         return AppMetadata(
             name = context.applicationInfo.loadLabel(context.packageManager).toString(),
             versionName = info.versionName.orEmpty(),
-            buildType = if ((context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) != 0) {
+            buildType = if ((context.applicationInfo.flags and android.content.pm.ApplicationInfo.FLAG_DEBUGGABLE) !=
+                0
+            ) {
                 "debug"
             } else {
                 "release"
