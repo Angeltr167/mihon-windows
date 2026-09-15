@@ -37,6 +37,8 @@ class PluginKotlinMultiplatform : Plugin<Project> {
                 }
                 enableCoreLibraryDesugaring = true
             }
+
+            jvm()
         }
 
         dependencies {
