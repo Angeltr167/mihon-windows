@@ -17,6 +17,8 @@ kotlin {
 }
 
 dependencies {
+    api(projects.domain.shared)
+
     implementation(projects.sourceApi)
     implementation(projects.core.common)
 

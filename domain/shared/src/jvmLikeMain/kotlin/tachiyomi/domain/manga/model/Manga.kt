@@ -1,21 +1,16 @@
 package tachiyomi.domain.manga.model
 
-import android.annotation.SuppressLint
-import androidx.compose.runtime.Immutable
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
-import mihon.core.common.extensions.EMPTY
 import tachiyomi.core.common.preference.TriState
 import java.io.ObjectStreamException
 import kotlin.time.Instant
 import java.io.Serializable as JavaSerializable
 
-@SuppressLint("UnsafeOptInUsageError")
 @Serializable
-@Immutable
 data class Manga(
     val id: Long,
     val source: Long,
@@ -83,31 +78,24 @@ data class Manga(
     }
 
     companion object {
-        // Generic filter that does not filter anything
         const val SHOW_ALL = 0x00000000L
-
         const val CHAPTER_SORT_DESC = 0x00000000L
         const val CHAPTER_SORT_ASC = 0x00000001L
         const val CHAPTER_SORT_DIR_MASK = 0x00000001L
-
         const val CHAPTER_SHOW_UNREAD = 0x00000002L
         const val CHAPTER_SHOW_READ = 0x00000004L
         const val CHAPTER_UNREAD_MASK = 0x00000006L
-
         const val CHAPTER_SHOW_DOWNLOADED = 0x00000008L
         const val CHAPTER_SHOW_NOT_DOWNLOADED = 0x00000010L
         const val CHAPTER_DOWNLOADED_MASK = 0x00000018L
-
         const val CHAPTER_SHOW_BOOKMARKED = 0x00000020L
         const val CHAPTER_SHOW_NOT_BOOKMARKED = 0x00000040L
         const val CHAPTER_BOOKMARKED_MASK = 0x00000060L
-
         const val CHAPTER_SORTING_SOURCE = 0x00000000L
         const val CHAPTER_SORTING_NUMBER = 0x00000100L
         const val CHAPTER_SORTING_UPLOAD_DATE = 0x00000200L
         const val CHAPTER_SORTING_ALPHABET = 0x00000300L
         const val CHAPTER_SORTING_MASK = 0x00000300L
-
         const val CHAPTER_DISPLAY_NAME = 0x00000000L
         const val CHAPTER_DISPLAY_NUMBER = 0x00100000L
         const val CHAPTER_DISPLAY_MASK = 0x00100000L
@@ -137,7 +125,7 @@ data class Manga(
             favoriteModifiedAt = null,
             version = 0L,
             notes = "",
-            memo = JsonObject.EMPTY,
+            memo = JsonObject(emptyMap()),
         )
     }
 
@@ -147,7 +135,6 @@ data class Manga(
     }
 
     class JavaToKotlinXSerializable(private val data: String) : JavaSerializable {
-
         @Throws(ObjectStreamException::class)
         private fun readResolve(): Any {
             return Json.decodeFromString<Manga>(data)
