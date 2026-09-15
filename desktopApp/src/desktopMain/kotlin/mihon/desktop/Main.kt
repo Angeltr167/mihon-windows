@@ -13,11 +13,20 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import dev.icerock.moko.resources.compose.stringResource
+import dev.zacsweers.metro.createGraphFactory
+import mihon.platform.desktop.DesktopPlatformGraph
 import tachiyomi.i18n.MR
 
 fun main() {
+    val graph = createGraphFactory<DesktopPlatformGraph.Factory>().create()
+
     if (System.getenv(DESKTOP_SMOKE_ENV) == "1") {
-        println("MIHON_DESKTOP_BOOTSTRAP_OK")
+        graph.keyValueStore.putString(SMOKE_PREFERENCE_KEY, "ok")
+        check(graph.keyValueStore.getString(SMOKE_PREFERENCE_KEY) == "ok")
+        graph.keyValueStore.remove(SMOKE_PREFERENCE_KEY)
+        check(graph.appDirectories.cache.isNotBlank())
+        check(graph.localeService.currentLanguageTag().isNotBlank())
+        println("MIHON_DESKTOP_PLATFORM_GRAPH_OK")
         return
     }
 
@@ -26,13 +35,14 @@ fun main() {
             onCloseRequest = ::exitApplication,
             title = "Mihon",
         ) {
-            MihonDesktopBootstrap()
+            MihonDesktopBootstrap(graph)
         }
     }
 }
 
 @Composable
-private fun MihonDesktopBootstrap() {
+private fun MihonDesktopBootstrap(graph: DesktopPlatformGraph) {
+    val metadata = graph.appMetadataService.current()
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Column(
@@ -47,10 +57,11 @@ private fun MihonDesktopBootstrap() {
                     text = stringResource(MR.strings.app_name),
                     style = MaterialTheme.typography.headlineMedium,
                 )
-                Text("Windows desktop bootstrap")
+                Text("${metadata.platform} · ${metadata.versionName}")
             }
         }
     }
 }
 
 private const val DESKTOP_SMOKE_ENV = "MIHON_DESKTOP_SMOKE_TEST"
+private const val SMOKE_PREFERENCE_KEY = "__platform_smoke_test"
