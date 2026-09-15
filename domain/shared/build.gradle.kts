@@ -17,6 +17,7 @@ kotlin {
             dependencies {
                 api(projects.sourceApi)
                 api(projects.core.shared)
+                implementation(libs.bundles.kotlinx.coroutines)
                 implementation(libs.kotlinx.serialization.json)
             }
         }
@@ -26,12 +27,14 @@ kotlin {
             dependencies {
                 api(projects.sourceApi)
                 api(projects.core.shared)
+                implementation(libs.bundles.kotlinx.coroutines)
                 implementation(libs.kotlinx.serialization.json)
             }
         }
 
         jvmTest.dependencies {
             implementation(libs.bundles.test)
+            implementation(libs.kotlinx.coroutines.test)
             runtimeOnly(libs.junit.platform.launcher)
         }
     }
