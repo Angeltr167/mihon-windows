@@ -22,7 +22,9 @@ class SourceContractJvmTest {
 
             override suspend fun getLatestUpdates(page: Int): MangasPage = error("not called")
 
-            override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage = error("not called")
+            override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage = error(
+                "not called",
+            )
 
             override suspend fun getMangaUpdate(
                 manga: SManga,
