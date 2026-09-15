@@ -14,8 +14,11 @@ import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import dev.icerock.moko.resources.compose.stringResource
 import dev.zacsweers.metro.createGraphFactory
+import mihon.desktop.data.DesktopDatabaseDriver
 import mihon.platform.desktop.DesktopPlatformGraph
+import tachiyomi.domain.manga.model.Manga
 import tachiyomi.i18n.MR
+import java.nio.file.Path
 
 fun main() {
     val graph = createGraphFactory<DesktopPlatformGraph.Factory>().create()
@@ -26,7 +29,13 @@ fun main() {
         graph.keyValueStore.remove(SMOKE_PREFERENCE_KEY)
         check(graph.appDirectories.cache.isNotBlank())
         check(graph.localeService.currentLanguageTag().isNotBlank())
+
+        val databasePath = Path.of(graph.appDirectories.database).resolve(DATABASE_FILE_NAME)
+        DesktopDatabaseDriver.open(databasePath).use { }
+        check(Manga.create().id == -1L)
+
         println("MIHON_DESKTOP_PLATFORM_GRAPH_OK")
+        println("MIHON_DESKTOP_DATABASE_OK")
         return
     }
 
@@ -65,3 +74,4 @@ private fun MihonDesktopBootstrap(graph: DesktopPlatformGraph) {
 
 private const val DESKTOP_SMOKE_ENV = "MIHON_DESKTOP_SMOKE_TEST"
 private const val SMOKE_PREFERENCE_KEY = "__platform_smoke_test"
+private const val DATABASE_FILE_NAME = "tachiyomi.db"

@@ -13,13 +13,16 @@ kotlin {
     sourceSets {
         val desktopMain by getting {
             dependencies {
+                implementation(projects.data.shared)
+                implementation(projects.domain.shared)
+                implementation(projects.sourceApi)
                 implementation(projects.i18n)
                 implementation(projects.platformApi)
                 implementation(projects.platformDesktop)
                 implementation(compose.desktop.currentOs)
                 implementation(compose.material3)
                 implementation(libs.metro.runtime)
-                implementation("dev.icerock.moko:resources-compose:0.26.4")
+                implementation("dev.icerock.mobile:multiplatform-resources-compose:0.26.4")
             }
         }
     }
