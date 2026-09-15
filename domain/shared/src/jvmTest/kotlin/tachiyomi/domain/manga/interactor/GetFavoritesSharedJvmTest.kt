@@ -30,13 +30,16 @@ class GetFavoritesSharedJvmTest {
     ) : MangaRepository {
         override suspend fun getMangaById(id: Long): Manga = favorites.first { it.id == id }
 
-        override fun getMangaByIdAsFlow(id: Long): Flow<Manga> = flowOf(favorites.first { it.id == id })
+        override fun getMangaByIdAsFlow(id: Long): Flow<Manga> =
+            flowOf(favorites.first { it.id == id })
 
         override suspend fun getMangaByUrlAndSourceId(url: String, sourceId: Long): Manga? =
             favorites.firstOrNull { it.url == url && it.source == sourceId }
 
-        override fun getMangaByUrlAndSourceIdAsFlow(url: String, sourceId: Long): Flow<Manga?> =
-            flowOf(favorites.firstOrNull { it.url == url && it.source == sourceId })
+        override fun getMangaByUrlAndSourceIdAsFlow(
+            url: String,
+            sourceId: Long,
+        ): Flow<Manga?> = flowOf(favorites.firstOrNull { it.url == url && it.source == sourceId })
 
         override suspend fun getFavorites(): List<Manga> = favorites
 
@@ -49,7 +52,10 @@ class GetFavoritesSharedJvmTest {
         override fun getFavoritesBySourceId(sourceId: Long): Flow<List<Manga>> =
             MutableStateFlow(favorites.filter { it.source == sourceId })
 
-        override suspend fun getDuplicateLibraryManga(id: Long, title: String): List<MangaWithChapterCount> = emptyList()
+        override suspend fun getDuplicateLibraryManga(
+            id: Long,
+            title: String,
+        ): List<MangaWithChapterCount> = emptyList()
 
         override suspend fun getUpcomingManga(
             statuses: Set<Long>,
