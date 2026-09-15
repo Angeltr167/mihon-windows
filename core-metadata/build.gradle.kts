@@ -1,16 +1,33 @@
 plugins {
-    alias(mihonx.plugins.android.library)
+    alias(mihonx.plugins.kotlin.multiplatform)
     alias(mihonx.plugins.spotless)
-
     alias(libs.plugins.kotlin.serialization)
 }
 
-android {
-    namespace = "tachiyomi.core.metadata"
-}
+kotlin {
+    android {
+        namespace = "tachiyomi.core.metadata"
+    }
 
-dependencies {
-    implementation(projects.sourceApi)
+    sourceSets {
+        val jvmLikeMainDirectory = "src/main/java"
 
-    implementation(libs.bundles.serialization)
+        androidMain {
+            kotlin.srcDir(jvmLikeMainDirectory)
+            dependencies {
+                implementation(projects.sourceApi)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.xmlutil.serialization)
+            }
+        }
+
+        jvmMain {
+            kotlin.srcDir(jvmLikeMainDirectory)
+            dependencies {
+                implementation(projects.sourceApi)
+                implementation(libs.kotlinx.serialization.json)
+                implementation(libs.xmlutil.serialization)
+            }
+        }
+    }
 }
