@@ -48,10 +48,11 @@ class DesktopLocalSourceTest {
         assertEquals("Author", update.manga.author)
         assertEquals("Local summary", update.manga.description)
         assertTrue(update.manga.thumbnail_url!!.startsWith("file:"))
-        assertEquals(listOf("Chapter 10", "Chapter Two"), update.chapters.map { it.name })
-        assertEquals(10f, update.chapters[0].chapter_number)
-        assertEquals(2f, update.chapters[1].chapter_number)
-        assertEquals("Local Team", update.chapters[1].scanlator)
+        // Match Android LocalSource: ComicInfo metadata updates the display name before the final natural sort.
+        assertEquals(listOf("Chapter Two", "Chapter 10"), update.chapters.map { it.name })
+        assertEquals(2f, update.chapters[0].chapter_number)
+        assertEquals(10f, update.chapters[1].chapter_number)
+        assertEquals("Local Team", update.chapters[0].scanlator)
     }
 
     private fun createCbz(path: Path, comicInfo: String) {
