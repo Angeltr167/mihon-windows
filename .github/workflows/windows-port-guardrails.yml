@@ -77,6 +77,11 @@ jobs:
       - name: Test Desktop storage, archives, local source and backup
         run: .\gradlew.bat :core:archive-desktop:test :source-local-desktop:test :backup-shared:jvmTest
 
+      - name: Test Desktop networking and browser challenge flow
+        env:
+          MIHON_BROWSER_CHANNEL: msedge
+        run: .\gradlew.bat :core:network-desktop:test
+
       - name: Compile Desktop target
         run: .\gradlew.bat :desktopApp:compileKotlinDesktop
 

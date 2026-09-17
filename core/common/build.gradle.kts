@@ -21,6 +21,7 @@ kotlin {
 
 dependencies {
     api(projects.core.shared)
+    api(projects.core.networkApi)
 
     implementation(projects.core.metro)
     implementation(projects.i18n)

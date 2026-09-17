@@ -1,11 +1,11 @@
 package eu.kanade.tachiyomi.network
 
 import android.webkit.CookieManager
+import mihon.core.network.CookieStore
 import okhttp3.Cookie
-import okhttp3.CookieJar
 import okhttp3.HttpUrl
 
-class AndroidCookieJar : CookieJar {
+class AndroidCookieJar : CookieStore {
 
     private val manager = CookieManager.getInstance()
 
@@ -19,7 +19,7 @@ class AndroidCookieJar : CookieJar {
         return get(url)
     }
 
-    fun get(url: HttpUrl): List<Cookie> {
+    override fun get(url: HttpUrl): List<Cookie> {
         val cookies = manager.getCookie(url.toString())
 
         return if (cookies != null && cookies.isNotEmpty()) {
@@ -29,7 +29,7 @@ class AndroidCookieJar : CookieJar {
         }
     }
 
-    fun remove(url: HttpUrl, cookieNames: List<String>? = null, maxAge: Int = -1): Int {
+    override fun remove(url: HttpUrl, cookieNames: List<String>?, maxAge: Int): Int {
         val urlString = url.toString()
         val cookies = manager.getCookie(urlString) ?: return 0
 
@@ -48,7 +48,7 @@ class AndroidCookieJar : CookieJar {
             .count()
     }
 
-    fun removeAll() {
+    override fun removeAll() {
         manager.removeAllCookies {}
     }
 }
