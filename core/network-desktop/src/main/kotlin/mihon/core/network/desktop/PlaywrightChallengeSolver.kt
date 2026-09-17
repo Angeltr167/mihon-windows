@@ -98,20 +98,29 @@ class PlaywrightChallengeSolver(
             }
         }
 
-    private fun toOkHttpCookie(cookie: BrowserCookie): Cookie? = runCatching {
-        Cookie.Builder()
-            .name(cookie.name)
-            .value(cookie.value)
-            .apply {
-                val normalizedDomain = cookie.domain.removePrefix(".")
-                if (cookie.domain.startsWith('.')) domain(normalizedDomain) else hostOnlyDomain(normalizedDomain)
-                path(cookie.path)
-                if (cookie.expires > 0) expiresAt((cookie.expires * 1000).toLong())
-                if (cookie.secure) secure()
-                if (cookie.httpOnly) httpOnly()
-            }
-            .build()
-    }.getOrNull()
+    private fun toOkHttpCookie(cookie: BrowserCookie): Cookie? {
+        val name = cookie.name ?: return null
+        val value = cookie.value ?: return null
+        val browserDomain = cookie.domain ?: return null
+        val normalizedDomain = browserDomain.removePrefix(".")
+        if (normalizedDomain.isBlank()) return null
+        val path = cookie.path ?: "/"
+        val expires = cookie.expires
+
+        return runCatching {
+            Cookie.Builder()
+                .name(name)
+                .value(value)
+                .apply {
+                    if (browserDomain.startsWith('.')) domain(normalizedDomain) else hostOnlyDomain(normalizedDomain)
+                    path(path)
+                    if (expires != null && expires > 0.0) expiresAt((expires * 1000).toLong())
+                    if (cookie.secure == true) secure()
+                    if (cookie.httpOnly == true) httpOnly()
+                }
+                .build()
+        }.getOrNull()
+    }
 
     private companion object {
         const val CLEARANCE_COOKIE = "cf_clearance"
