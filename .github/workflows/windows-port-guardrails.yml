@@ -39,6 +39,9 @@ jobs:
       - name: Run Android/JVM unit tests
         run: ./gradlew testDebugUnitTest
 
+      - name: Verify shared JVM contracts
+        run: ./gradlew :source-api:jvmTest :domain:shared:jvmTest :data:shared:jvmTest
+
       - name: Verify SQLDelight migrations
         run: ./gradlew verifySqlDelightMigration
 
@@ -68,13 +71,16 @@ jobs:
       - name: Test Desktop platform foundation
         run: .\gradlew.bat :platform-desktop:test
 
+      - name: Test shared JVM foundation
+        run: .\gradlew.bat :source-api:jvmTest :domain:shared:jvmTest :data:shared:jvmTest
+
       - name: Compile Desktop target
         run: .\gradlew.bat :desktopApp:compileKotlinDesktop
 
       - name: Assemble Desktop JVM artifact
         run: .\gradlew.bat :desktopApp:desktopJar
 
-      - name: Smoke Desktop entrypoint
+      - name: Smoke Desktop entrypoint and database
         env:
           MIHON_DESKTOP_SMOKE_TEST: "1"
         run: .\gradlew.bat :desktopApp:run --quiet

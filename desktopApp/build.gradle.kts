@@ -13,6 +13,9 @@ kotlin {
     sourceSets {
         val desktopMain by getting {
             dependencies {
+                implementation(projects.data.shared)
+                implementation(projects.domain.shared)
+                implementation(projects.sourceApi)
                 implementation(projects.i18n)
                 implementation(projects.platformApi)
                 implementation(projects.platformDesktop)
