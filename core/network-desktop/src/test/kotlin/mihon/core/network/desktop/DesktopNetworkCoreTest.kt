@@ -60,7 +60,9 @@ class DesktopNetworkCoreTest {
                 userAgentProvider = { "Mihon-Windows-Test" },
                 proxy = Proxy(Proxy.Type.HTTP, server.address),
             ).create()
-            proxyClient.newCall(Request.Builder().url("http://example.invalid/proxy").build()).execute().use { response ->
+            proxyClient.newCall(
+                Request.Builder().url("http://example.invalid/proxy").build(),
+            ).execute().use { response ->
                 assertEquals(200, response.code)
                 assertEquals("proxy-ok", response.body.string())
             }
@@ -70,7 +72,10 @@ class DesktopNetworkCoreTest {
             val limiter = RateLimiter(
                 minimumIntervalMillis = 100L,
                 clock = { now },
-                sleeper = { delay -> sleeps += delay; now += delay },
+                sleeper = { delay ->
+                    sleeps += delay
+                    now += delay
+                },
             )
             limiter.acquire()
             limiter.acquire()
