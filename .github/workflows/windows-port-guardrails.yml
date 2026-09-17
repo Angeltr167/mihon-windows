@@ -74,6 +74,9 @@ jobs:
       - name: Test shared JVM foundation
         run: .\gradlew.bat :source-api:jvmTest :domain:shared:jvmTest :data:shared:jvmTest
 
+      - name: Test Desktop storage, archives, local source and backup
+        run: .\gradlew.bat :core:archive-desktop:test :source-local-desktop:test :backup-shared:jvmTest
+
       - name: Compile Desktop target
         run: .\gradlew.bat :desktopApp:compileKotlinDesktop
 
