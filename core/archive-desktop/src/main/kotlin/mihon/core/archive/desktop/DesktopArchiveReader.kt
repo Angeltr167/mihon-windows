@@ -1,6 +1,5 @@
 package mihon.core.archive.desktop
 
-import com.github.junrar.Archive as RarArchive
 import mihon.core.archive.api.ArchiveEntry
 import mihon.core.archive.api.ArchiveReader
 import org.apache.commons.compress.archivers.sevenz.SevenZFile
@@ -11,6 +10,7 @@ import java.io.FilterInputStream
 import java.io.InputStream
 import java.nio.file.Path
 import kotlin.io.path.extension
+import com.github.junrar.Archive as RarArchive
 
 class DesktopArchiveReader(
     private val path: Path,
