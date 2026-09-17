@@ -4,11 +4,11 @@ import com.microsoft.playwright.Browser
 import com.microsoft.playwright.BrowserType
 import com.microsoft.playwright.Page
 import com.microsoft.playwright.Playwright
-import com.microsoft.playwright.options.Cookie as BrowserCookie
 import mihon.core.network.ChallengeSolver
 import okhttp3.Cookie
 import okhttp3.HttpUrl
 import java.io.IOException
+import com.microsoft.playwright.options.Cookie as BrowserCookie
 
 class PlaywrightChallengeSolver(
     private val preferredChannel: String = System.getenv("MIHON_BROWSER_CHANNEL") ?: "msedge",
@@ -61,7 +61,9 @@ class PlaywrightChallengeSolver(
     }
 
     private fun launchBrowser(playwright: Playwright): Browser {
-        val channels = listOf(preferredChannel, "msedge", "chrome").filter(String::isNotBlank).distinct()
+        val channels = listOf(preferredChannel, "msedge", "chrome")
+            .filter(String::isNotBlank)
+            .distinct()
         var lastError: RuntimeException? = null
         for (channel in channels) {
             try {
@@ -78,7 +80,10 @@ class PlaywrightChallengeSolver(
         return try {
             playwright.chromium().launch(BrowserType.LaunchOptions().setHeadless(true))
         } catch (e: RuntimeException) {
-            throw IOException("No supported Chromium/Edge browser is available for challenge solving", lastError ?: e)
+            throw IOException(
+                "No supported Chromium/Edge browser is available for challenge solving",
+                lastError ?: e,
+            )
         }
     }
 
