@@ -65,7 +65,11 @@ class BrowserChallengeIntegrationTest {
             val page = source.getPopularManga(1)
 
             assertEquals("Mihon Challenge Source", page.mangas.single().title)
-            assertTrue(store.loadForRequest(Request.Builder().url(endpoint).build().url).any { it.name == "cf_clearance" })
+            assertTrue(
+                store.loadForRequest(Request.Builder().url(endpoint).build().url).any {
+                    it.name == "cf_clearance"
+                },
+            )
             assertTrue(Files.size(root.resolve("cookies.json")) > 0L)
         } finally {
             server.stop(0)
@@ -93,7 +97,9 @@ class BrowserChallengeIntegrationTest {
 
         override suspend fun getLatestUpdates(page: Int): MangasPage = error("not used")
 
-        override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage = error("not used")
+        override suspend fun getSearchManga(page: Int, query: String, filters: FilterList): MangasPage = error(
+            "not used",
+        )
 
         override suspend fun getMangaUpdate(
             manga: SManga,
