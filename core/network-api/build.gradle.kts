@@ -9,6 +9,7 @@ kotlin {
 
 dependencies {
     api(libs.okhttp.core)
+    implementation(libs.okhttp.logging)
 
     testImplementation(libs.bundles.test)
     testRuntimeOnly(libs.junit.platform.launcher)

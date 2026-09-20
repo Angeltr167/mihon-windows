@@ -3,6 +3,7 @@ package mihon.core.network
 import okhttp3.Cookie
 import okhttp3.CookieJar
 import okhttp3.HttpUrl
+import okhttp3.Request
 
 interface CookieStore : CookieJar {
     fun get(url: HttpUrl): List<Cookie> = loadForRequest(url)
@@ -18,7 +19,7 @@ interface CookieStore : CookieJar {
 
 fun interface ChallengeSolver {
     fun solve(
-        url: HttpUrl,
+        request: Request,
         userAgent: String,
         cookies: List<Cookie>,
         timeoutMillis: Long,

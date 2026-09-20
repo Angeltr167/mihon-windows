@@ -6,13 +6,9 @@ import dev.zacsweers.metro.Inject
 import dev.zacsweers.metro.SingleIn
 import eu.kanade.tachiyomi.network.interceptor.CloudflareInterceptor
 import eu.kanade.tachiyomi.network.interceptor.UncaughtExceptionInterceptor
-import eu.kanade.tachiyomi.network.interceptor.UserAgentInterceptor
-import okhttp3.Cache
+import mihon.core.network.NetworkClientFactory
 import okhttp3.OkHttpClient
-import okhttp3.logging.HttpLoggingInterceptor
 import java.io.File
-import kotlin.time.Duration.Companion.minutes
-import kotlin.time.Duration.Companion.seconds
 
 @Inject
 @SingleIn(AppScope::class)
@@ -23,50 +19,29 @@ class NetworkHelper(
 
     val cookieJar = AndroidCookieJar()
 
-    private val clientBuilder: OkHttpClient.Builder = run {
-        val builder = OkHttpClient.Builder()
-            .cookieJar(cookieJar)
-            .connectTimeout(30.seconds)
-            .readTimeout(30.seconds)
-            .callTimeout(2.minutes)
-            .cache(
-                Cache(
-                    directory = File(context.cacheDir, "network_cache"),
-                    maxSize = 5L * 1024 * 1024, // 5 MiB
-                ),
-            )
-            .addInterceptor(UncaughtExceptionInterceptor())
-            .addInterceptor(UserAgentInterceptor(::defaultUserAgentProvider))
-
-        if (preferences.verboseLogging.get()) {
-            val httpLoggingInterceptor = HttpLoggingInterceptor().apply {
-                level = HttpLoggingInterceptor.Level.HEADERS
-            }
-            builder.addNetworkInterceptor(httpLoggingInterceptor)
-        }
-
+    val client = NetworkClientFactory(
+        cookieStore = cookieJar,
+        cacheDirectory = File(context.cacheDir, "network_cache"),
+        userAgentProvider = ::defaultUserAgentProvider,
+        challengeSolver = CloudflareInterceptor(context, cookieJar, ::defaultUserAgentProvider),
+        verboseLogging = preferences.verboseLogging.get(),
+        additionalInterceptors = listOf(UncaughtExceptionInterceptor()),
+    ) {
         when (preferences.dohProvider.get()) {
-            PREF_DOH_CLOUDFLARE -> builder.dohCloudflare()
-            PREF_DOH_GOOGLE -> builder.dohGoogle()
-            PREF_DOH_ADGUARD -> builder.dohAdGuard()
-            PREF_DOH_QUAD9 -> builder.dohQuad9()
-            PREF_DOH_ALIDNS -> builder.dohAliDNS()
-            PREF_DOH_DNSPOD -> builder.dohDNSPod()
-            PREF_DOH_360 -> builder.doh360()
-            PREF_DOH_QUAD101 -> builder.dohQuad101()
-            PREF_DOH_MULLVAD -> builder.dohMullvad()
-            PREF_DOH_CONTROLD -> builder.dohControlD()
-            PREF_DOH_NJALLA -> builder.dohNajalla()
-            PREF_DOH_SHECAN -> builder.dohShecan()
-            else -> builder
+            PREF_DOH_CLOUDFLARE -> dohCloudflare()
+            PREF_DOH_GOOGLE -> dohGoogle()
+            PREF_DOH_ADGUARD -> dohAdGuard()
+            PREF_DOH_QUAD9 -> dohQuad9()
+            PREF_DOH_ALIDNS -> dohAliDNS()
+            PREF_DOH_DNSPOD -> dohDNSPod()
+            PREF_DOH_360 -> doh360()
+            PREF_DOH_QUAD101 -> dohQuad101()
+            PREF_DOH_MULLVAD -> dohMullvad()
+            PREF_DOH_CONTROLD -> dohControlD()
+            PREF_DOH_NJALLA -> dohNajalla()
+            PREF_DOH_SHECAN -> dohShecan()
         }
-    }
-
-    val client = clientBuilder
-        .addInterceptor(
-            CloudflareInterceptor(context, cookieJar, ::defaultUserAgentProvider),
-        )
-        .build()
+    }.create()
 
     /**
      * @deprecated Since extension-lib 1.5

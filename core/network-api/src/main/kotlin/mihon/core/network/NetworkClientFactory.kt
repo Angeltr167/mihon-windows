@@ -5,6 +5,7 @@ import okhttp3.Dns
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import okhttp3.Response
+import okhttp3.logging.HttpLoggingInterceptor
 import java.io.File
 import java.net.Proxy
 import java.util.concurrent.TimeUnit
@@ -17,6 +18,9 @@ class NetworkClientFactory(
     private val proxy: Proxy? = null,
     private val dns: Dns = Dns.SYSTEM,
     private val rateLimiter: RateLimiter? = null,
+    private val verboseLogging: Boolean = false,
+    private val additionalInterceptors: List<Interceptor> = emptyList(),
+    private val configure: OkHttpClient.Builder.() -> Unit = {},
 ) {
     fun create(): OkHttpClient {
         cacheDirectory.mkdirs()
@@ -30,8 +34,16 @@ class NetworkClientFactory(
             .dns(dns)
             .apply {
                 this@NetworkClientFactory.proxy?.let { proxy(it) }
+                additionalInterceptors.forEach(::addInterceptor)
                 rateLimiter?.let { addInterceptor(RateLimitInterceptor(it)) }
                 addInterceptor(UserAgentInterceptor(userAgentProvider))
+                if (verboseLogging) {
+                    addNetworkInterceptor(
+                        HttpLoggingInterceptor().apply {
+                            level = HttpLoggingInterceptor.Level.HEADERS
+                        },
+                    )
+                }
                 challengeSolver?.let {
                     addInterceptor(
                         ChallengeInterceptor(
@@ -41,6 +53,7 @@ class NetworkClientFactory(
                         ),
                     )
                 }
+                configure()
             }
             .build()
     }
@@ -60,7 +73,7 @@ class ChallengeInterceptor(
         response.close()
         cookieStore.remove(request.url, listOf(CLEARANCE_COOKIE), 0)
         val solvedCookies = solver.solve(
-            url = request.url,
+            request = request,
             userAgent = userAgentProvider(),
             cookies = cookieStore.get(request.url),
             timeoutMillis = timeoutMillis,

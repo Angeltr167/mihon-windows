@@ -6,7 +6,7 @@ import com.microsoft.playwright.Page
 import com.microsoft.playwright.Playwright
 import mihon.core.network.ChallengeSolver
 import okhttp3.Cookie
-import okhttp3.HttpUrl
+import okhttp3.Request
 import java.io.IOException
 import com.microsoft.playwright.options.Cookie as BrowserCookie
 
@@ -14,7 +14,7 @@ class PlaywrightChallengeSolver(
     private val preferredChannel: String = System.getenv("MIHON_BROWSER_CHANNEL") ?: "msedge",
 ) : ChallengeSolver {
     override fun solve(
-        url: HttpUrl,
+        request: Request,
         userAgent: String,
         cookies: List<Cookie>,
         timeoutMillis: Long,
@@ -34,7 +34,7 @@ class PlaywrightChallengeSolver(
 
                     val page = context.newPage()
                     page.navigate(
-                        url.toString(),
+                        request.url.toString(),
                         Page.NavigateOptions().setTimeout(timeoutMillis.toDouble()),
                     )
 
@@ -43,10 +43,10 @@ class PlaywrightChallengeSolver(
                         if (Thread.currentThread().isInterrupted) {
                             throw InterruptedException("Challenge solve cancelled")
                         }
-                        val solved = context.cookies(url.toString())
+                        val solved = context.cookies(request.url.toString())
                             .firstOrNull { it.name == CLEARANCE_COOKIE }
                         if (solved != null) {
-                            return context.cookies(url.toString()).mapNotNull(::toOkHttpCookie)
+                            return context.cookies(request.url.toString()).mapNotNull(::toOkHttpCookie)
                         }
                         Thread.sleep(POLL_INTERVAL_MS)
                     }
@@ -99,8 +99,8 @@ class PlaywrightChallengeSolver(
         }
 
     private fun toOkHttpCookie(cookie: BrowserCookie): Cookie? {
-        val name = cookie.name ?: return null
-        val value = cookie.value ?: return null
+        val name = cookie.name
+        val value = cookie.value
         val browserDomain = cookie.domain ?: return null
         val normalizedDomain = browserDomain.removePrefix(".")
         if (normalizedDomain.isBlank()) return null
