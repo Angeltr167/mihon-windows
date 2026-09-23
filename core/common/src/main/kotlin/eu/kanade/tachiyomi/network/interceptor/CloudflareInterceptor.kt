@@ -12,6 +12,7 @@ import androidx.core.content.ContextCompat
 import eu.kanade.tachiyomi.network.AndroidCookieJar
 import eu.kanade.tachiyomi.util.system.isOutdated
 import eu.kanade.tachiyomi.util.system.toast
+import mihon.core.network.ChallengeSolver
 import okhttp3.Cookie
 import okhttp3.HttpUrl.Companion.toHttpUrl
 import okhttp3.Interceptor
@@ -26,9 +27,26 @@ class CloudflareInterceptor(
     private val context: Context,
     private val cookieManager: AndroidCookieJar,
     defaultUserAgentProvider: () -> String,
-) : WebViewInterceptor(context, defaultUserAgentProvider) {
+) : WebViewInterceptor(context, defaultUserAgentProvider), ChallengeSolver {
 
     private val executor = ContextCompat.getMainExecutor(context)
+
+    override fun solve(
+        request: Request,
+        userAgent: String,
+        cookies: List<Cookie>,
+        timeoutMillis: Long,
+    ): List<Cookie> {
+        val oldCookie = cookies.firstOrNull { it.name == "cf_clearance" }
+        try {
+            resolveWithWebView(request, oldCookie)
+        } catch (e: CloudflareBypassException) {
+            throw IOException(context.stringResource(MR.strings.information_cloudflare_bypass_failure), e)
+        } catch (e: Exception) {
+            throw IOException(e)
+        }
+        return cookieManager.get(request.url)
+    }
 
     override fun shouldIntercept(response: Response): Boolean {
         // Check if Cloudflare anti-bot is on
@@ -45,9 +63,12 @@ class CloudflareInterceptor(
         try {
             response.close()
             cookieManager.remove(request.url, COOKIE_NAMES, 0)
-            val oldCookie = cookieManager.get(request.url)
-                .firstOrNull { it.name == "cf_clearance" }
-            resolveWithWebView(request, oldCookie)
+            solve(
+                request = request,
+                userAgent = request.header("User-Agent").orEmpty(),
+                cookies = cookieManager.get(request.url),
+                timeoutMillis = 30_000L,
+            )
 
             return chain.proceed(request)
         }
