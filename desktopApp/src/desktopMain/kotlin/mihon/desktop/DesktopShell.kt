@@ -1,6 +1,7 @@
 package mihon.desktop
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -10,6 +11,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.HorizontalDivider
@@ -20,12 +23,15 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -63,6 +69,8 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
     val session = remember { DesktopSession(graph) }
     DisposableEffect(session) { onDispose(session::close) }
     val scope = rememberCoroutineScope()
+    val focusRequester = remember { FocusRequester() }
+    LaunchedEffect(focusRequester) { focusRequester.requestFocus() }
     var screen by remember { mutableStateOf(Screen.LIBRARY) }
     var sources by remember { mutableStateOf(session.sources()) }
     var library by remember { mutableStateOf(session.library.library()) }
@@ -123,9 +131,10 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                     screen = Screen.entries[index]
                     selectedManga = null
                     chapters = emptyList()
+                    message = ""
                     if (screen == Screen.LIBRARY) refreshLibrary()
                     true
-                },
+                }.focusRequester(focusRequester).focusable(),
             ) {
                 Column(Modifier.width(190.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text("Mihon", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(8.dp))
@@ -135,6 +144,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                                 screen = item
                                 selectedManga = null
                                 chapters = emptyList()
+                                message = ""
                                 if (item == Screen.LIBRARY) refreshLibrary()
                             },
                             modifier = Modifier.fillMaxWidth(),
@@ -147,7 +157,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                         style = MaterialTheme.typography.headlineMedium,
                     )
                     HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                    if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.error)
+                    if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     when {
                         selectedManga != null -> {
                             val item = requireNotNull(selectedManga)
@@ -280,71 +290,84 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                             }
                         }
                         screen == Screen.EXTENSIONS -> {
-                            Text("Desktop .mihonext packages only. Trust authors before installing their code.")
-                            OutlinedTextField(fingerprint, {
-                                fingerprint = it
-                            }, label = { Text("Signing fingerprint") })
-                            Button(onClick = {
-                                runCatching { session.extensions.trust(fingerprint.trim()) }
-                                    .onSuccess { message = "Fingerprint trusted" }
-                                    .onFailure { message = it.message ?: "Trust failed" }
-                            }) { Text("Trust fingerprint") }
-                            OutlinedTextField(packagePath, { packagePath = it }, label = { Text(".mihonext path") })
-                            TextButton(onClick = {
-                                graph.fileDialogService.chooseOpenFile(
-                                    OpenFileRequest("Install Desktop extension", extensions = setOf("mihonext")),
-                                )?.let { packagePath = it }
-                            }) { Text("Choose package…") }
-                            Button(onClick = {
-                                runCatching { session.extensions.install(Path.of(packagePath.trim())) }
-                                    .onSuccess { result ->
-                                        message = result.toString()
-                                        sources = session.sources()
-                                    }
-                                    .onFailure { message = it.message ?: "Install failed" }
-                            }) { Text("Install") }
-                            session.extensions.installedExtensions().forEach { installed ->
-                                Text("${installed.id} · ${installed.versionCode}")
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                            OutlinedTextField(indexUrl, { indexUrl = it }, label = { Text("HTTPS repository index") })
-                            Button(onClick = {
-                                scope.launch {
-                                    runCatching {
-                                        withContext(Dispatchers.IO) {
-                                            session.extensionRepository.discover(URI(indexUrl.trim()))
+                            Column(Modifier.verticalScroll(rememberScrollState())) {
+                                Text("Desktop .mihonext packages only. Trust authors before installing their code.")
+                                OutlinedTextField(fingerprint, {
+                                    fingerprint = it
+                                }, label = { Text("Signing fingerprint") })
+                                Button(onClick = {
+                                    runCatching { session.extensions.trust(fingerprint.trim()) }
+                                        .onSuccess { message = "Fingerprint trusted" }
+                                        .onFailure { message = it.message ?: "Trust failed" }
+                                }) { Text("Trust fingerprint") }
+                                OutlinedTextField(
+                                    packagePath,
+                                    { packagePath = it },
+                                    label = { Text(".mihonext path") },
+                                )
+                                TextButton(onClick = {
+                                    graph.fileDialogService.chooseOpenFile(
+                                        OpenFileRequest(
+                                            "Install Desktop extension",
+                                            extensions = setOf("mihonext"),
+                                        ),
+                                    )?.let { packagePath = it }
+                                }) { Text("Choose package…") }
+                                Button(onClick = {
+                                    runCatching { session.extensions.install(Path.of(packagePath.trim())) }
+                                        .onSuccess { result ->
+                                            message = result.toString()
+                                            sources = session.sources()
                                         }
-                                    }.onSuccess {
-                                        availableExtensions = it
-                                        message = "Repository loaded"
-                                    }
-                                        .onFailure { message = it.message ?: "Repository failed" }
+                                        .onFailure { message = it.message ?: "Install failed" }
+                                }) { Text("Install") }
+                                session.extensions.installedExtensions().forEach { installed ->
+                                    Text("${installed.id} · ${installed.versionCode}")
                                 }
-                            }) { Text("Discover") }
-                            availableExtensions.forEach { entry ->
-                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                    Text("${entry.name} · ${entry.versionCode}")
-                                    TextButton(onClick = {
-                                        fingerprint = entry.fingerprint
-                                    }) { Text("Show fingerprint") }
-                                    TextButton(onClick = {
-                                        scope.launch {
-                                            runCatching {
-                                                withContext(Dispatchers.IO) {
-                                                    session.extensionRepository.install(
-                                                        URI(indexUrl.trim()),
-                                                        entry,
-                                                        session.extensions,
-                                                    )
-                                                }
-                                            }.onSuccess { result ->
-                                                message = result.toString()
-                                                sources =
-                                                    session.sources()
+                                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                                OutlinedTextField(
+                                    indexUrl,
+                                    { indexUrl = it },
+                                    label = { Text("HTTPS repository index") },
+                                )
+                                Button(onClick = {
+                                    scope.launch {
+                                        runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                session.extensionRepository.discover(URI(indexUrl.trim()))
                                             }
-                                                .onFailure { message = it.message ?: "Update failed" }
+                                        }.onSuccess {
+                                            availableExtensions = it
+                                            message = "Repository loaded"
                                         }
-                                    }) { Text("Install / Update") }
+                                            .onFailure { message = it.message ?: "Repository failed" }
+                                    }
+                                }) { Text("Discover") }
+                                availableExtensions.forEach { entry ->
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text("${entry.name} · ${entry.versionCode}")
+                                        TextButton(onClick = {
+                                            fingerprint = entry.fingerprint
+                                        }) { Text("Show fingerprint") }
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching {
+                                                    withContext(Dispatchers.IO) {
+                                                        session.extensionRepository.install(
+                                                            URI(indexUrl.trim()),
+                                                            entry,
+                                                            session.extensions,
+                                                        )
+                                                    }
+                                                }.onSuccess { result ->
+                                                    message = result.toString()
+                                                    sources =
+                                                        session.sources()
+                                                }
+                                                    .onFailure { message = it.message ?: "Update failed" }
+                                            }
+                                        }) { Text("Install / Update") }
+                                    }
                                 }
                             }
                         }
