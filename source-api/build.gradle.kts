@@ -33,6 +33,8 @@ kotlin {
                 api(projects.core.shared)
                 implementation(libs.kotlinx.serialization.json)
                 implementation(libs.rxJava)
+                implementation(libs.okhttp.core)
+                implementation(libs.jsoup)
             }
         }
 

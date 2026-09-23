@@ -15,6 +15,7 @@ kotlin {
             dependencies {
                 implementation(projects.data.shared)
                 implementation(projects.core.extensionDesktop)
+                implementation(projects.core.networkDesktop)
                 implementation(projects.domain.shared)
                 implementation(projects.sourceApi)
                 implementation(projects.sourceLocalDesktop)
@@ -24,6 +25,7 @@ kotlin {
                 implementation(compose.desktop.currentOs)
                 implementation(compose.material3)
                 implementation(libs.metro.runtime)
+                implementation(libs.okhttp.core)
                 implementation("dev.icerock.moko:resources-compose:0.26.4")
             }
         }

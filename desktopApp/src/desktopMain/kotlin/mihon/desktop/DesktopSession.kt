@@ -1,9 +1,11 @@
 package mihon.desktop
 
+import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.Source
 import mihon.core.extension.desktop.DesktopExtensionLoadResult
 import mihon.core.extension.desktop.DesktopExtensionManager
 import mihon.core.extension.desktop.DesktopExtensionRepository
+import mihon.core.network.desktop.DesktopNetworkHelper
 import mihon.desktop.data.DesktopMangaRepository
 import mihon.platform.desktop.DesktopPlatformGraph
 import tachiyomi.source.local.desktop.DesktopLocalSource
@@ -13,6 +15,13 @@ import java.nio.file.Path
 
 /** Desktop composition root for the existing source and database contracts. */
 class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
+    private val userAgentProvider = { "Mihon Windows/${graph.appMetadataService.current().versionName}" }
+    private val network = DesktopNetworkHelper(graph.appDirectories, userAgentProvider)
+
+    init {
+        NetworkHelper.install(network.client, userAgentProvider)
+    }
+
     val library = DesktopMangaRepository.open(Path.of(graph.appDirectories.database).resolve("tachiyomi.db"))
     val extensions = DesktopExtensionManager(graph.appDirectories)
     val extensionRepository = DesktopExtensionRepository(Path.of(graph.appDirectories.temp))

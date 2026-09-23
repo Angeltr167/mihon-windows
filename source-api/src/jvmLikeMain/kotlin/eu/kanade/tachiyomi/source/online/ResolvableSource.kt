@@ -5,7 +5,7 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 
 /**
- * A source that may handle opening an SManga or SChapter for a given URI.
+ * A source that may handle opening an SManga or SChapter for a given URI on either JVM platform.
  *
  * @since extensions-lib 1.5
  */

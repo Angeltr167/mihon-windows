@@ -52,6 +52,7 @@ private enum class Screen(val title: String) {
     UPDATES("Updates"),
     HISTORY("History"),
     SOURCES("Browse / Sources"),
+    SEARCH("Search"),
     EXTENSIONS("Extensions"),
     CATEGORIES("Categories"),
     SETTINGS("Settings"),
@@ -84,7 +85,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
         source = selectedSource
         selectedManga = null
         chapters = emptyList()
-        screen = Screen.SOURCES
+        screen = if (screen == Screen.SEARCH) Screen.SEARCH else Screen.SOURCES
         scope.launch {
             message = "Loading ${selectedSource.name}…"
             runCatching {
@@ -116,6 +117,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                         Key.Five -> 4
                         Key.Six -> 5
                         Key.Seven -> 6
+                        Key.Eight -> 7
                         else -> return@onPreviewKeyEvent false
                     }
                     screen = Screen.entries[index]
@@ -151,6 +153,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                             val item = requireNotNull(selectedManga)
                             val selectedSource = source
                             val stored = selectedSource?.let { session.library.find(it.id, item.url) }
+                            DesktopCover(item.thumbnail_url, selectedSource)
                             Text(item.description.orEmpty())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                 Button(onClick = {
@@ -191,8 +194,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                             if (library.isEmpty()) Text("Your library is empty. Browse a source to add manga.")
                             LazyColumn {
                                 items(library, key = Mangas::_id) { item ->
-                                    Text(
-                                        item.title,
+                                    Row(
                                         modifier = Modifier.fillMaxWidth().clickable {
                                             source = sources.firstOrNull { it.id == item.source }
                                             selectedManga = SManga.create().apply {
@@ -220,11 +222,15 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                                                 }
                                             }
                                         }.padding(12.dp),
-                                    )
+                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    ) {
+                                        DesktopCover(item.thumbnail_url, sources.firstOrNull { it.id == item.source })
+                                        Text(item.title)
+                                    }
                                 }
                             }
                         }
-                        screen == Screen.SOURCES -> {
+                        screen == Screen.SOURCES || screen == Screen.SEARCH -> {
                             if (source == null) {
                                 Text("Select a source")
                                 sources.forEach { available ->
@@ -241,8 +247,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                                 }
                                 LazyColumn {
                                     items(browseItems, key = SManga::url) { item ->
-                                        Text(
-                                            item.title,
+                                        Row(
                                             modifier = Modifier.fillMaxWidth().clickable {
                                                 selectedManga = item
                                                 chapters = emptyList()
@@ -265,7 +270,11 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                                                     }
                                                 }
                                             }.padding(12.dp),
-                                        )
+                                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                        ) {
+                                            DesktopCover(item.thumbnail_url, source)
+                                            Text(item.title)
+                                        }
                                     }
                                 }
                             }
