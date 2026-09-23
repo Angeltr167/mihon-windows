@@ -29,6 +29,12 @@ data class InstalledExtension(
     val fingerprint: String,
 )
 
+data class ExpectedDesktopExtension(
+    val id: String,
+    val versionCode: Long,
+    val fingerprint: String,
+)
+
 @Serializable
 enum class ContentWarning { SAFE, MIXED, NSFW }
 
@@ -42,6 +48,8 @@ sealed interface DesktopExtensionInstallResult {
         UNTRUSTED,
         DOWNGRADE,
         SIGNATURE_CHANGED,
+        UNSUPPORTED_LIB_VERSION,
+        INDEX_MISMATCH,
     }
 }
 
@@ -53,5 +61,5 @@ sealed interface DesktopExtensionLoadResult {
 
     data class NotLoaded(val id: String, val reason: Reason, val message: String? = null) : DesktopExtensionLoadResult
 
-    enum class Reason { MALFORMED, UNSIGNED, UNTRUSTED, UNSUPPORTED_LIB_VERSION, FAILED }
+    enum class Reason { MALFORMED, UNSIGNED, UNTRUSTED, NOT_INSTALLED, UNSUPPORTED_LIB_VERSION, FILTERED, FAILED }
 }

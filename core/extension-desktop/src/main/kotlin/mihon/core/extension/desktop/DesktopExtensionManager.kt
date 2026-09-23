@@ -4,6 +4,8 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.SourceFactory
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import mihon.core.extension.policy.ExtensionPolicy
+import mihon.core.extension.policy.ReplacementIssue
 import mihon.platform.api.AppDirectories
 import java.net.URL
 import java.net.URLClassLoader
@@ -22,7 +24,8 @@ import java.util.zip.ZipFile
 /** JVM-native extension installation and discovery for the versioned `.mihonext` container. */
 class DesktopExtensionManager(
     directories: AppDirectories,
-    private val supportedLibVersions: Set<Double> = setOf(1.4, 1.6),
+    private val supportedLibVersions: Set<Double> = ExtensionPolicy.supportedLibVersions,
+    private val enabledContentWarnings: Set<ContentWarning> = ContentWarning.entries.toSet(),
 ) {
     private val root = Path.of(directories.extensions)
     private val packages = root.resolve("packages")
@@ -32,15 +35,18 @@ class DesktopExtensionManager(
         ignoreUnknownKeys = false
         encodeDefaults = true
     }
-    private val loaders = mutableListOf<ExtensionClassLoader>()
+    private val loaders = mutableMapOf<String, ExtensionClassLoader>()
 
     fun trust(fingerprint: String) {
+        require(fingerprint.matches(Regex("[0-9a-f]{64}"))) { "Invalid extension fingerprint" }
         val trusted = readList(trustFile).toMutableSet()
         trusted += fingerprint
         write(trustFile, json.encodeToString(trusted.sorted()))
     }
 
-    fun install(packageFile: Path): DesktopExtensionInstallResult {
+    fun installedExtensions(): List<InstalledExtension> = readInstalled()
+
+    fun install(packageFile: Path, expected: ExpectedDesktopExtension? = null): DesktopExtensionInstallResult {
         val archive =
             readArchive(packageFile)
                 ?: return DesktopExtensionInstallResult.Rejected(DesktopExtensionInstallResult.Reason.MALFORMED)
@@ -54,6 +60,17 @@ class DesktopExtensionManager(
         ) {
             return DesktopExtensionInstallResult.Rejected(DesktopExtensionInstallResult.Reason.UNSIGNED)
         }
+        if (archive.manifest.libVersion !in supportedLibVersions) {
+            return DesktopExtensionInstallResult.Rejected(DesktopExtensionInstallResult.Reason.UNSUPPORTED_LIB_VERSION)
+        }
+        if (expected != null && (
+                expected.id != archive.manifest.id ||
+                    expected.versionCode != archive.manifest.versionCode ||
+                    expected.fingerprint != signed.fingerprint
+                )
+        ) {
+            return DesktopExtensionInstallResult.Rejected(DesktopExtensionInstallResult.Reason.INDEX_MISMATCH)
+        }
         if (signed.fingerprint !in
             readList(trustFile)
         ) {
@@ -62,11 +79,23 @@ class DesktopExtensionManager(
 
         val installed = readInstalled().associateBy { it.id }.toMutableMap()
         installed[archive.manifest.id]?.let { current ->
-            if (archive.manifest.versionCode < current.versionCode) {
-                return DesktopExtensionInstallResult.Rejected(DesktopExtensionInstallResult.Reason.DOWNGRADE)
-            }
-            if (current.fingerprint != signed.fingerprint) {
-                return DesktopExtensionInstallResult.Rejected(DesktopExtensionInstallResult.Reason.SIGNATURE_CHANGED)
+            when (
+                ExtensionPolicy.replacementIssue(
+                    installedVersionCode = current.versionCode,
+                    installedFingerprints = setOf(current.fingerprint),
+                    candidateVersionCode = archive.manifest.versionCode,
+                    candidateFingerprints = setOf(signed.fingerprint),
+                )
+            ) {
+                ReplacementIssue.DOWNGRADE ->
+                    return DesktopExtensionInstallResult.Rejected(DesktopExtensionInstallResult.Reason.DOWNGRADE)
+                ReplacementIssue.UNSIGNED ->
+                    return DesktopExtensionInstallResult.Rejected(DesktopExtensionInstallResult.Reason.UNSIGNED)
+                ReplacementIssue.SIGNATURE_CHANGED ->
+                    return DesktopExtensionInstallResult.Rejected(
+                        DesktopExtensionInstallResult.Reason.SIGNATURE_CHANGED,
+                    )
+                null -> Unit
             }
         }
 
@@ -78,11 +107,14 @@ class DesktopExtensionManager(
         return DesktopExtensionInstallResult.Installed(archive.manifest)
     }
 
-    fun loadInstalled(): List<DesktopExtensionLoadResult> = Files.list(packages).use { files ->
-        files.filter { it.fileName.toString().endsWith(".mihonext") }
-            .sorted()
-            .map(::load)
-            .toList()
+    fun loadInstalled(): List<DesktopExtensionLoadResult> {
+        if (!Files.isDirectory(packages)) return emptyList()
+        return Files.list(packages).use { files ->
+            files.filter { it.fileName.toString().endsWith(".mihonext") }
+                .sorted()
+                .map(::load)
+                .toList()
+        }
     }
 
     fun load(packageFile: Path): DesktopExtensionLoadResult {
@@ -97,25 +129,45 @@ class DesktopExtensionManager(
         ) {
             return archive.notLoaded(DesktopExtensionLoadResult.Reason.UNTRUSTED)
         }
+        val installed = readInstalled().singleOrNull { it.id == archive.manifest.id }
+        if (installed == null || installed.versionCode != archive.manifest.versionCode ||
+            installed.fingerprint != signed.fingerprint ||
+            packageFile.toAbsolutePath().normalize() !=
+            packages.resolve("${archive.manifest.id}.mihonext").toAbsolutePath().normalize()
+        ) {
+            return archive.notLoaded(DesktopExtensionLoadResult.Reason.NOT_INSTALLED)
+        }
         if (archive.manifest.libVersion !in supportedLibVersions) {
             return archive.notLoaded(DesktopExtensionLoadResult.Reason.UNSUPPORTED_LIB_VERSION)
+        }
+        if (!ExtensionPolicy.allowsContentWarning(
+                archive.manifest.contentWarning.name,
+                enabledContentWarnings.map(ContentWarning::name).toSet(),
+            )
+        ) {
+            return archive.notLoaded(DesktopExtensionLoadResult.Reason.FILTERED)
         }
 
         return runCatching {
             val jarFile = root.resolve("runtime").resolve("${archive.manifest.id}-${archive.manifest.jarSha256}.jar")
-            if (!Files.isRegularFile(jarFile)) {
+            if (!Files.isRegularFile(jarFile) || sha256(Files.readAllBytes(jarFile)) != archive.manifest.jarSha256) {
                 Files.createDirectories(jarFile.parent)
                 Files.write(jarFile, archive.jar)
             }
             val loader = ExtensionClassLoader(jarFile.toUri().toURL(), javaClass.classLoader)
-            loaders += loader
-            val sources = archive.manifest.sourceClasses.flatMap { className ->
-                when (val instance = loader.loadClass(className).getDeclaredConstructor().newInstance()) {
-                    is Source -> listOf(instance)
-                    is SourceFactory -> instance.createSources()
-                    else -> error("$className is not a Source or SourceFactory")
+            val sources = try {
+                archive.manifest.sourceClasses.flatMap { className ->
+                    when (val instance = loader.loadClass(className).getDeclaredConstructor().newInstance()) {
+                        is Source -> listOf(instance)
+                        is SourceFactory -> instance.createSources()
+                        else -> error("$className is not a Source or SourceFactory")
+                    }
                 }
+            } catch (failure: Throwable) {
+                loader.close()
+                throw failure
             }
+            loaders.put(archive.manifest.id, loader)?.close()
             DesktopExtensionLoadResult.Loaded(archive.manifest, sources)
         }.getOrElse { archive.notLoaded(DesktopExtensionLoadResult.Reason.FAILED, it.message) }
     }
@@ -124,18 +176,17 @@ class DesktopExtensionManager(
         if (!Files.isRegularFile(path) || Files.size(path) > MAX_PACKAGE_SIZE) return null
         ZipFile(path.toFile()).use { zip ->
             val entries = zip.entries().asSequence().toList()
-            if (entries.any { it.isDirectory || it.name.contains("..") || it.name.startsWith('/') } ||
+            if (entries.any { it.isDirectory || (it.name !in REQUIRED_ENTRIES && !it.name.matches(ICON_NAME)) } ||
                 entries.map { it.name }.toSet().size != entries.size
             ) {
                 return null
             }
-            val manifestBytes = zip.readRequired("manifest.json") ?: return null
-            val jar = zip.readRequired("extension.jar") ?: return null
-            if (jar.size > MAX_JAR_SIZE) return null
+            val manifestBytes = zip.readRequired("manifest.json", MAX_METADATA_SIZE) ?: return null
+            val jar = zip.readRequired("extension.jar", MAX_JAR_SIZE) ?: return null
             val manifest = json.decodeFromString<DesktopExtensionManifest>(manifestBytes.toString(UTF_8))
             if (!manifest.isValid() || sha256(jar) != manifest.jarSha256) return null
-            val signature = zip.getEntry("signature.json")?.let { entry ->
-                json.decodeFromString<DesktopExtensionSignature>(zip.getInputStream(entry).readBytes().toString(UTF_8))
+            val signature = zip.readRequired("signature.json", MAX_METADATA_SIZE)?.let { bytes ->
+                json.decodeFromString<DesktopExtensionSignature>(bytes.toString(UTF_8))
             }
             Archive(manifest, manifestBytes, jar, signature)
         }
@@ -144,7 +195,8 @@ class DesktopExtensionManager(
     private fun DesktopExtensionManifest.isValid() = formatVersion == FORMAT_VERSION &&
         id.matches(Regex("[A-Za-z0-9._-]+")) && name.isNotBlank() && versionName.isNotBlank() &&
         versionCode >= 0 && sourceClasses.isNotEmpty() &&
-        sourceClasses.all { it.matches(Regex("[A-Za-z_$][A-Za-z0-9_$.]*")) }
+        sourceClasses.all { it.matches(Regex("[A-Za-z_$][A-Za-z0-9_$.]*")) } &&
+        jarSha256.matches(Regex("[0-9a-f]{64}"))
 
     private fun verifySignature(archive: Archive, signature: DesktopExtensionSignature): Boolean = runCatching {
         if (signature.algorithm != "Ed25519") return false
@@ -220,15 +272,27 @@ class DesktopExtensionManager(
         const val FORMAT_VERSION = 1
         const val MAX_PACKAGE_SIZE = 64L * 1024 * 1024
         const val MAX_JAR_SIZE = 48 * 1024 * 1024
+        const val MAX_METADATA_SIZE = 64 * 1024
+        val REQUIRED_ENTRIES = setOf("manifest.json", "extension.jar", "signature.json")
+        val ICON_NAME = Regex("icon\\.[A-Za-z0-9]{1,8}")
         val PROTECTED_PREFIXES =
-            listOf("java.", "javax.", "kotlin.", "eu.kanade.tachiyomi.", "okhttp3.", "okio.", "rx.")
+            listOf(
+                "java.", "javax.", "jdk.", "sun.", "kotlin.", "kotlinx.", "mihon.",
+                "tachiyomi.", "eu.kanade.tachiyomi.", "okhttp3.", "okio.", "rx.",
+            )
         fun sha256(
             value: ByteArray,
         ) = MessageDigest.getInstance("SHA-256").digest(value).joinToString("") { "%02x".format(it) }
     }
 }
 
-private fun ZipFile.readRequired(name: String): ByteArray? = getEntry(name)?.let { getInputStream(it).readBytes() }
+private fun ZipFile.readRequired(name: String, limit: Int): ByteArray? = getEntry(name)?.let { entry ->
+    if (entry.size > limit) return null
+    getInputStream(entry).use { stream ->
+        val bytes = stream.readNBytes(limit + 1)
+        bytes.takeIf { it.size <= limit }
+    }
+}
 private val DesktopExtensionSignature.fingerprint get() = DesktopExtensionPackager.sha256(
     Base64.getDecoder().decode(publicKey),
 )

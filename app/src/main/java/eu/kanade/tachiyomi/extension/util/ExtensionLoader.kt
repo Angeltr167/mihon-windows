@@ -16,6 +16,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import logcat.LogPriority
 import mihon.app.di.appGraph
+import mihon.core.extension.policy.ExtensionPolicy
+import mihon.core.extension.policy.ReplacementIssue
 import mihon.data.dalvik.DelegateLastClassLoaderCompat
 import mihon.domain.extension.model.ContentWarning
 import tachiyomi.core.common.util.lang.withIOContext
@@ -47,8 +49,6 @@ internal object ExtensionLoader {
     private const val METADATA_EXTENSION_LIB = "tachiyomix.extensionLib"
     private const val METADATA_CONTENT_WARNING = "tachiyomix.contentWarning"
 
-    private val SUPPORTED_LIB_VERSIONS = listOf(1.4, 1.6)
-
     @Suppress("DEPRECATION")
     private val PACKAGE_FLAGS = PackageManager.GET_CONFIGURATIONS or
         PackageManager.GET_META_DATA or
@@ -65,22 +65,27 @@ internal object ExtensionLoader {
         val currentExtension = getExtensionPackageInfoFromPkgName(context, extension.packageName)
 
         if (currentExtension != null) {
-            if (PackageInfoCompat.getLongVersionCode(extension) <
-                PackageInfoCompat.getLongVersionCode(currentExtension)
+            when (
+                ExtensionPolicy.replacementIssue(
+                    installedVersionCode = PackageInfoCompat.getLongVersionCode(currentExtension),
+                    installedFingerprints = getSignatures(currentExtension).orEmpty().toSet(),
+                    candidateVersionCode = PackageInfoCompat.getLongVersionCode(extension),
+                    candidateFingerprints = getSignatures(extension).orEmpty().toSet(),
+                )
             ) {
-                logcat(LogPriority.ERROR) { "Installed extension version is higher. Downgrading is not allowed." }
-                return false
-            }
-
-            val extensionSignatures = getSignatures(extension)
-            if (extensionSignatures.isNullOrEmpty()) {
-                logcat(LogPriority.ERROR) { "Extension to be installed is not signed." }
-                return false
-            }
-
-            if (!extensionSignatures.containsAll(getSignatures(currentExtension)!!)) {
-                logcat(LogPriority.ERROR) { "Installed extension signature is not matched." }
-                return false
+                ReplacementIssue.DOWNGRADE -> {
+                    logcat(LogPriority.ERROR) { "Installed extension version is higher. Downgrading is not allowed." }
+                    return false
+                }
+                ReplacementIssue.UNSIGNED -> {
+                    logcat(LogPriority.ERROR) { "Extension to be installed is not signed." }
+                    return false
+                }
+                ReplacementIssue.SIGNATURE_CHANGED -> {
+                    logcat(LogPriority.ERROR) { "Installed extension signature is not matched." }
+                    return false
+                }
+                null -> Unit
             }
         }
 
@@ -347,9 +352,9 @@ internal object ExtensionLoader {
             ?.toString()
             ?.toDouble()
             ?: versionName.substringBeforeLast('.').toDoubleOrNull()
-        if (libVersion == null || libVersion !in SUPPORTED_LIB_VERSIONS) {
+        if (libVersion == null || !ExtensionPolicy.supportsLibVersion(libVersion)) {
             logcat(LogPriority.WARN) {
-                "Lib version is $libVersion, while only version(s) ${SUPPORTED_LIB_VERSIONS.joinToString()} are supported"
+                "Lib version is $libVersion, while only version(s) ${ExtensionPolicy.supportedLibVersions.joinToString()} are supported"
             }
             return notLoaded(Extension.NotLoaded.Reason.UnsupportedLibVersion, libVersion)
         }
@@ -363,7 +368,11 @@ internal object ExtensionLoader {
             return notLoaded(Extension.NotLoaded.Reason.Untrusted(signatures.last()), libVersion)
         }
 
-        if (applyContentWarningsToInstalled && contentWarning !in enabledContentWarnings) {
+        if (applyContentWarningsToInstalled && !ExtensionPolicy.allowsContentWarning(
+                contentWarning.name,
+                enabledContentWarnings.map(ContentWarning::name).toSet(),
+            )
+        ) {
             logcat(LogPriority.WARN) { "Extension $pkgName with $contentWarning not allowed" }
             return notLoaded(Extension.NotLoaded.Reason.Filtered, libVersion)
         }

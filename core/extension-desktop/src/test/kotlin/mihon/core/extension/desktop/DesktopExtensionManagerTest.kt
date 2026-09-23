@@ -1,9 +1,13 @@
 package mihon.core.extension.desktop
 
+import kotlinx.coroutines.runBlocking
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import mihon.platform.api.AppDirectories
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.net.URI
 import java.nio.file.Files
 import java.nio.file.Path
 import java.security.KeyPairGenerator
@@ -11,6 +15,12 @@ import javax.tools.ToolProvider
 import kotlin.io.path.writeText
 
 class DesktopExtensionManagerTest {
+    @Test
+    fun `empty extension directory has no installed extensions`() {
+        val root = Files.createTempDirectory("mihonext-empty")
+        assertTrue(DesktopExtensionManager(directories(root)).loadInstalled().isEmpty())
+    }
+
     @Test
     fun `trusted package loads source and rejects invalid neighbors`() {
         val root = Files.createTempDirectory("mihonext")
@@ -28,6 +38,13 @@ class DesktopExtensionManagerTest {
         val loaded = manager.loadInstalled()
         val extension = assertType<DesktopExtensionLoadResult.Loaded>(loaded.single())
         assertEquals("fixture-source", extension.sources.single().name)
+        assertEquals(42L, extension.sources.single().id)
+        assertTrue(runBlocking { extension.sources.single().getPopularManga(1) }.mangas.isEmpty())
+        val cachedJar = Path.of(directories(root).extensions).resolve("runtime")
+            .resolve("${extension.manifest.id}-${extension.manifest.jarSha256}.jar")
+        Files.writeString(cachedJar, "tampered")
+        assertType<DesktopExtensionLoadResult.Loaded>(manager.loadInstalled().single())
+        assertEquals(extension.manifest.jarSha256, DesktopExtensionPackager.sha256(Files.readAllBytes(cachedJar)))
 
         val downgrade = createPackage(root.resolve("downgrade"), extensionJar, key, versionCode = 1)
         assertEquals(
@@ -50,18 +67,150 @@ class DesktopExtensionManagerTest {
         assertTrue(manager.loadInstalled().any { it is DesktopExtensionLoadResult.NotLoaded })
     }
 
-    private fun createPackage(root: Path, jar: Path, key: java.security.KeyPair, versionCode: Long): Path {
+    @Test
+    fun `load requires installed record and respects content warning filter`() {
+        val root = Files.createTempDirectory("mihonext-policy")
+        val key = KeyPairGenerator.getInstance("Ed25519").generateKeyPair()
+        val jar = compileReferenceExtension(root)
+        val packageFile = createPackage(root, jar, key, versionCode = 1, warning = ContentWarning.NSFW)
+        val manager = DesktopExtensionManager(directories(root), enabledContentWarnings = setOf(ContentWarning.SAFE))
+        manager.trust(fingerprint(key.public.encoded))
+        assertEquals(
+            DesktopExtensionLoadResult.Reason.NOT_INSTALLED,
+            assertType<DesktopExtensionLoadResult.NotLoaded>(manager.load(packageFile)).reason,
+        )
+        assertType<DesktopExtensionInstallResult.Installed>(manager.install(packageFile))
+        assertEquals(
+            DesktopExtensionLoadResult.Reason.FILTERED,
+            assertType<DesktopExtensionLoadResult.NotLoaded>(manager.loadInstalled().single()).reason,
+        )
+    }
+
+    @Test
+    fun `repository discovers updates and verifies listed package before install`() {
+        val root = Files.createTempDirectory("mihonext-repository")
+        val key = KeyPairGenerator.getInstance("Ed25519").generateKeyPair()
+        val jar = compileReferenceExtension(root)
+        val packageBytes = Files.readAllBytes(createPackage(root, jar, key, versionCode = 3))
+        val fingerprint = fingerprint(key.public.encoded)
+        val entry = DesktopRepositoryEntry(
+            id = "fixture.extension",
+            name = "Fixture",
+            versionCode = 3,
+            packageUrl = "fixture.mihonext",
+            sha256 = DesktopExtensionPackager.sha256(packageBytes),
+            fingerprint = fingerprint,
+        )
+        val indexUri = URI("https://extensions.example/index.json")
+        var listed = entry
+        val repository = DesktopExtensionRepository(root.resolve("temp")) { uri, _ ->
+            when (uri) {
+                indexUri -> Json.encodeToString(DesktopRepositoryIndex(1, listOf(listed))).encodeToByteArray()
+                indexUri.resolve(entry.packageUrl) -> packageBytes
+                else -> error("Unexpected repository URL: $uri")
+            }
+        }
+        val manager = DesktopExtensionManager(directories(root))
+        manager.trust(fingerprint)
+        assertEquals(listOf(entry), repository.updates(indexUri, manager))
+        listed = entry.copy(fingerprint = "0".repeat(64))
+        assertEquals(
+            DesktopExtensionInstallResult.Reason.INDEX_MISMATCH,
+            assertType<DesktopExtensionInstallResult.Rejected>(repository.install(indexUri, listed, manager)).reason,
+        )
+        assertTrue(manager.installedExtensions().isEmpty())
+        listed = entry
+        assertType<DesktopExtensionInstallResult.Installed>(repository.install(indexUri, entry, manager))
+        assertTrue(repository.updates(indexUri, manager).isEmpty())
+        assertType<DesktopExtensionLoadResult.Loaded>(manager.loadInstalled().single())
+    }
+
+    @Test
+    fun `throwing extension does not prevent a healthy neighbor from loading`() {
+        val root = Files.createTempDirectory("mihonext-failure")
+        val key = KeyPairGenerator.getInstance("Ed25519").generateKeyPair()
+        val jar = compileReferenceExtension(root)
+        val manager = DesktopExtensionManager(directories(root))
+        manager.trust(fingerprint(key.public.encoded))
+        assertType<DesktopExtensionInstallResult.Installed>(
+            manager.install(
+                createPackage(
+                    root.resolve("bad"),
+                    jar,
+                    key,
+                    1,
+                    id = "bad.extension",
+                    sourceClass = "fixture.Factory\$ThrowingFactory",
+                ),
+            ),
+        )
+        assertType<DesktopExtensionInstallResult.Installed>(
+            manager.install(createPackage(root.resolve("good"), jar, key, 1, id = "good.extension")),
+        )
+        val loaded = manager.loadInstalled()
+        assertEquals(2, loaded.size)
+        assertTrue(loaded.any { it is DesktopExtensionLoadResult.NotLoaded && it.id == "bad.extension" })
+        assertTrue(loaded.any { it is DesktopExtensionLoadResult.Loaded && it.manifest.id == "good.extension" })
+    }
+
+    @Test
+    fun `packager CLI builds installable desktop artifact`() {
+        val root = Files.createTempDirectory("mihonext-cli")
+        val key = KeyPairGenerator.getInstance("Ed25519").generateKeyPair()
+        val jar = compileReferenceExtension(root)
+        val manifest = DesktopExtensionManifest(
+            formatVersion = 1,
+            id = "cli.extension",
+            name = "CLI fixture",
+            versionName = "1.0",
+            versionCode = 1,
+            libVersion = 1.6,
+            sourceClasses = listOf("fixture.Factory"),
+            jarSha256 = DesktopExtensionPackager.sha256(Files.readAllBytes(jar)),
+        )
+        val manifestFile = root.resolve("manifest.json")
+        val publicKey = root.resolve("public.der")
+        val privateKey = root.resolve("private.pkcs8")
+        val packageFile = root.resolve("cli.mihonext")
+        Files.writeString(manifestFile, Json.encodeToString(manifest))
+        Files.write(publicKey, key.public.encoded)
+        Files.write(privateKey, key.private.encoded)
+        DesktopExtensionPackagerCli.main(
+            arrayOf(
+                packageFile.toString(),
+                manifestFile.toString(),
+                jar.toString(),
+                publicKey.toString(),
+                privateKey.toString(),
+            ),
+        )
+        val manager = DesktopExtensionManager(directories(root))
+        manager.trust(fingerprint(key.public.encoded))
+        assertType<DesktopExtensionInstallResult.Installed>(manager.install(packageFile))
+        assertType<DesktopExtensionLoadResult.Loaded>(manager.loadInstalled().single())
+    }
+
+    private fun createPackage(
+        root: Path,
+        jar: Path,
+        key: java.security.KeyPair,
+        versionCode: Long,
+        warning: ContentWarning = ContentWarning.SAFE,
+        id: String = "fixture.extension",
+        sourceClass: String = "fixture.Factory",
+    ): Path {
         val packageFile = root.resolve("fixture-$versionCode.mihonext")
         DesktopExtensionPackager.create(
             output = packageFile,
             manifest = DesktopExtensionManifest(
                 formatVersion = 1,
-                id = "fixture.extension",
+                id = id,
                 name = "Fixture",
                 versionName = "1.$versionCode",
                 versionCode = versionCode,
                 libVersion = 1.6,
-                sourceClasses = listOf("fixture.Factory"),
+                contentWarning = warning,
+                sourceClasses = listOf(sourceClass),
                 jarSha256 = DesktopExtensionPackager.sha256(Files.readAllBytes(jar)),
             ),
             extensionJar = jar,
@@ -82,13 +231,16 @@ class DesktopExtensionManagerTest {
             import kotlin.coroutines.Continuation;
             public final class Factory implements SourceFactory {
               public List<Source> createSources() { return Collections.singletonList(new FixtureSource()); }
+              public static final class ThrowingFactory implements SourceFactory {
+                public List<Source> createSources() { throw new IllegalStateException("fixture failure"); }
+              }
               public static final class FixtureSource implements Source {
                 public long getId() { return 42L; }
                 public String getName() { return "fixture-source"; }
                 public boolean getSupportsLatest() { return false; }
-                public Object getPopularManga(int p, Continuation<? super MangasPage> c) { return null; }
-                public Object getLatestUpdates(int p, Continuation<? super MangasPage> c) { return null; }
-                public Object getSearchManga(int p, String q, FilterList f, Continuation<? super MangasPage> c) { return null; }
+                public Object getPopularManga(int p, Continuation<? super MangasPage> c) { return new MangasPage(Collections.emptyList(), false); }
+                public Object getLatestUpdates(int p, Continuation<? super MangasPage> c) { return new MangasPage(Collections.emptyList(), false); }
+                public Object getSearchManga(int p, String q, FilterList f, Continuation<? super MangasPage> c) { return new MangasPage(Collections.emptyList(), false); }
                 public Object getMangaUpdate(SManga m, List<? extends SChapter> c, boolean d, boolean h, Continuation<? super SMangaUpdate> k) { return null; }
                 public Object getPageList(SChapter c, Continuation<? super List<? extends Page>> k) { return null; }
               }

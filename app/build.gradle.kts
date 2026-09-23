@@ -212,6 +212,7 @@ dependencies {
     implementation(projects.icons.simpleIcons)
     implementation(projects.core.archive)
     implementation(projects.core.common)
+    implementation(projects.core.extensionPolicy)
     implementation(projects.core.metro)
     implementation(projects.coreMetadata)
     implementation(projects.sourceApi)

@@ -1,7 +1,6 @@
 plugins {
     id("org.jetbrains.kotlin.jvm")
     alias(mihonx.plugins.spotless)
-    alias(libs.plugins.kotlin.serialization)
 }
 
 kotlin {
@@ -9,13 +8,7 @@ kotlin {
 }
 
 dependencies {
-    api(projects.sourceApi)
-    implementation(projects.core.extensionPolicy)
-    implementation(projects.platformApi)
-    implementation(libs.kotlinx.serialization.json)
-
     testImplementation(libs.bundles.test)
-    testImplementation(libs.kotlinx.coroutines.core)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
