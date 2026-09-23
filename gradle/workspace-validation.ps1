@@ -2,6 +2,8 @@
 param(
     [switch] $CheckOnly,
     [switch] $AllowExternalTools,
+    [switch] $DesktopSmoke,
+    [switch] $AllowDependencyDownload,
     [switch] $Stacktrace,
     [string[]] $Tasks
 )
@@ -189,7 +191,7 @@ try {
         if ($task -notmatch '^(?:[A-Za-z][A-Za-z0-9_.-]*|(?::[A-Za-z0-9_.-]+)+)$') {
             throw "Invalid Gradle task name: task arguments must not contain options or shell syntax."
         }
-        if ($task -match '(^|:)desktopApp:run$') {
+        if ($task -match '(^|:)desktopApp:run$' -and (-not $DesktopSmoke -or $env:MIHON_DESKTOP_SMOKE_TEST -ne '1')) {
             throw 'The normal Desktop app run task is not allowed by the workspace validation runner.'
         }
     }
@@ -239,7 +241,6 @@ try {
     [Environment]::SetEnvironmentVariable('JAVA_TOOL_OPTIONS', $javaToolOptions, 'Process')
 
     $gradleArguments = @(
-        '--offline',
         '--no-daemon',
         '-Dorg.gradle.java.installations.auto-detect=false',
         '-Dorg.gradle.java.installations.auto-download=false',
@@ -247,6 +248,9 @@ try {
         '-Pandroid.builder.sdkDownload=false',
         '-Pmihon.workspace.validation=true'
     )
+    if (-not $AllowDependencyDownload) {
+        $gradleArguments = @('--offline') + $gradleArguments
+    }
     if ($Stacktrace) {
         $gradleArguments += '--stacktrace'
     }

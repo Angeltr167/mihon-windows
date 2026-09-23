@@ -1,23 +1,14 @@
 package mihon.desktop
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
-import dev.icerock.moko.resources.compose.stringResource
+import androidx.compose.ui.window.rememberWindowState
 import dev.zacsweers.metro.createGraphFactory
 import mihon.desktop.data.DesktopDatabaseDriver
 import mihon.platform.desktop.DesktopPlatformGraph
 import tachiyomi.domain.manga.model.Manga
-import tachiyomi.i18n.MR
+import java.awt.Dimension
 import java.nio.file.Path
 
 fun main() {
@@ -32,42 +23,34 @@ fun main() {
 
         val databasePath = Path.of(graph.appDirectories.database).resolve(DATABASE_FILE_NAME)
         DesktopDatabaseDriver.open(databasePath).use { }
+        DesktopSession(graph).use { session ->
+            check(session.sources().any { it.name == "Local source" })
+            session.library.library()
+        }
         check(Manga.create().id == -1L)
 
         println("MIHON_DESKTOP_PLATFORM_GRAPH_OK")
         println("MIHON_DESKTOP_DATABASE_OK")
+        println("MIHON_DESKTOP_SESSION_OK")
         return
     }
 
     application {
+        val state = rememberWindowState(
+            width = graph.keyValueStore.getLong("desktop.window.width", 1100).coerceIn(800, 3840).toInt().dp,
+            height = graph.keyValueStore.getLong("desktop.window.height", 750).coerceIn(560, 2160).toInt().dp,
+        )
         Window(
-            onCloseRequest = ::exitApplication,
+            onCloseRequest = {
+                graph.keyValueStore.putLong("desktop.window.width", state.size.width.value.toLong())
+                graph.keyValueStore.putLong("desktop.window.height", state.size.height.value.toLong())
+                exitApplication()
+            },
             title = "Mihon",
+            state = state,
         ) {
-            MihonDesktopBootstrap(graph)
-        }
-    }
-}
-
-@Composable
-private fun MihonDesktopBootstrap(graph: DesktopPlatformGraph) {
-    val metadata = graph.appMetadataService.current()
-    MaterialTheme {
-        Surface(modifier = Modifier.fillMaxSize()) {
-            Column(
-                modifier = Modifier.fillMaxSize(),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(
-                    space = 12.dp,
-                    alignment = Alignment.CenterVertically,
-                ),
-            ) {
-                Text(
-                    text = stringResource(MR.strings.app_name),
-                    style = MaterialTheme.typography.headlineMedium,
-                )
-                Text("${metadata.platform} · ${metadata.versionName}")
-            }
+            window.minimumSize = Dimension(800, 560)
+            DesktopShell(graph)
         }
     }
 }
