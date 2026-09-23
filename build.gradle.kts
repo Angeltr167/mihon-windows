@@ -30,3 +30,15 @@ tasks {
         }
     }
 }
+
+if (providers.gradleProperty("mihon.workspace.validation").orNull == "true") {
+    subprojects {
+        tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+            systemProperty("user.home", System.getProperty("user.home"))
+            systemProperty("java.io.tmpdir", System.getProperty("java.io.tmpdir"))
+            systemProperty("mihon.desktop.home", System.getenv("MIHON_DESKTOP_HOME"))
+            systemProperty("mihon.browser.profile", System.getenv("MIHON_BROWSER_PROFILE"))
+            systemProperty("android.sdk.path", System.getenv("ANDROID_HOME"))
+        }
+    }
+}
