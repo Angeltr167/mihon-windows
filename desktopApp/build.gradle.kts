@@ -29,6 +29,13 @@ kotlin {
                 implementation("dev.icerock.moko:resources-compose:0.26.4")
             }
         }
+        val desktopTest by getting {
+            dependencies {
+                implementation(libs.bundles.test)
+                implementation(libs.kotlinx.coroutines.test)
+                runtimeOnly(libs.junit.platform.launcher)
+            }
+        }
     }
 }
 
@@ -40,4 +47,8 @@ compose.desktop {
     application {
         mainClass = "mihon.desktop.MainKt"
     }
+}
+
+tasks.named<Test>("desktopTest") {
+    useJUnitPlatform()
 }
