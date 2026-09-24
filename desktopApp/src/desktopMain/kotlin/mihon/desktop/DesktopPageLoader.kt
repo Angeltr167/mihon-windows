@@ -8,6 +8,8 @@ import eu.kanade.tachiyomi.source.model.Page
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import org.jetbrains.skia.Codec
@@ -23,6 +25,11 @@ internal sealed interface DesktopPage {
 }
 
 internal class DesktopPageLoader(private val localPages: DesktopLocalChapterPages) {
+    private val decodeSlots = Semaphore(2)
+    private val imageCache = object : LinkedHashMap<DesktopPage, ImageBitmap>(4, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<DesktopPage, ImageBitmap>?): Boolean = size > 2
+    }
+
     suspend fun pages(source: Source, chapter: SChapter): List<DesktopPage> = withContext(Dispatchers.IO) {
         if (source is DesktopLocalSource) {
             localPages.pages(chapter.url).map(DesktopPage::Local)
@@ -32,6 +39,20 @@ internal class DesktopPageLoader(private val localPages: DesktopLocalChapterPage
     }
 
     suspend fun image(page: DesktopPage): ImageBitmap = withContext(Dispatchers.IO) {
+        synchronized(imageCache) { imageCache[page] }?.let { return@withContext it }
+        decodeSlots.withPermit {
+            synchronized(imageCache) { imageCache[page] }?.let { return@withPermit it }
+            val decoded = decode(page)
+            synchronized(imageCache) { imageCache[page] = decoded }
+            decoded
+        }
+    }
+
+    suspend fun prefetch(page: DesktopPage) {
+        image(page)
+    }
+
+    private suspend fun decode(page: DesktopPage): ImageBitmap {
         val bytes = when (page) {
             is DesktopPage.Local -> page.value.readBytes()
             is DesktopPage.Online -> {
@@ -56,16 +77,20 @@ internal class DesktopPageLoader(private val localPages: DesktopLocalChapterPage
         require(bytes.size <= MAX_PAGE_BYTES) { "Page exceeds the size limit" }
         Data.makeFromBytes(bytes).use { data ->
             Codec.makeFromData(data).use { codec ->
-                require(codec.width > 0 && codec.height > 0 && codec.width.toLong() * codec.height <= MAX_PAGE_PIXELS) {
-                    "Page dimensions exceed the memory limit"
-                }
+                checkDimensions(codec.width, codec.height)
             }
         }
-        SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap()
+        return SkiaImage.makeFromEncoded(bytes).toComposeImageBitmap()
     }
 
-    private companion object {
+    internal companion object {
         const val MAX_PAGE_BYTES = DesktopLocalPage.MAX_PAGE_BYTES
         const val MAX_PAGE_PIXELS = 20_000_000L
+
+        fun checkDimensions(width: Int, height: Int) {
+            require(width > 0 && height > 0 && width.toLong() * height <= MAX_PAGE_PIXELS) {
+                "Page dimensions exceed the memory limit"
+            }
+        }
     }
 }

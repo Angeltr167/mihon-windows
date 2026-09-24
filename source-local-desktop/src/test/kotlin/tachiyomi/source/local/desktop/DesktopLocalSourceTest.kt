@@ -14,6 +14,17 @@ import java.util.zip.ZipOutputStream
 class DesktopLocalSourceTest {
 
     @Test
+    fun `large webtoon chapter enumerates page references without decoding images`() {
+        val root = Files.createTempDirectory("mihon-long-webtoon")
+        val chapter = Files.createDirectories(root.resolve("Long Manga").resolve("Chapter 1"))
+        repeat(1000) { index -> Files.write(chapter.resolve("${index + 1}.png"), byteArrayOf(1)) }
+        val pages = DesktopLocalChapterPages(DesktopLocalSourceFileSystem(root)).pages("Long Manga/Chapter 1")
+        assertEquals(1000, pages.size)
+        assertEquals("1.png", pages.first().chapterFile.fileName.toString())
+        assertEquals("1000.png", pages.last().chapterFile.fileName.toString())
+    }
+
+    @Test
     fun `local directory and archive pages load in natural order`() {
         val root = Files.createTempDirectory("mihon-local-pages")
         val manga = Files.createDirectories(root.resolve("Pages"))

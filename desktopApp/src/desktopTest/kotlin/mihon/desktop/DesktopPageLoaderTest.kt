@@ -12,19 +12,31 @@ import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.Response
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import tachiyomi.source.local.desktop.DesktopLocalChapterPages
 import tachiyomi.source.local.desktop.DesktopLocalSourceFileSystem
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.util.Base64
+import java.util.concurrent.atomic.AtomicInteger
 
 class DesktopPageLoaderTest {
+    @Test
+    fun `high resolution pages are bounded before decoding`() {
+        DesktopPageLoader.checkDimensions(4000, 5000)
+        assertThrows(IllegalArgumentException::class.java) {
+            DesktopPageLoader.checkDimensions(5000, 5000)
+        }
+    }
+
     @Test
     fun `online page uses source request headers`() = runTest {
         val server = HttpServer.create(InetSocketAddress("127.0.0.1", 0), 0)
         var token = ""
+        val requests = AtomicInteger()
         server.createContext("/page") { exchange ->
+            requests.incrementAndGet()
             token = exchange.requestHeaders.getFirst("X-Reader-Test")
             exchange.responseHeaders.add("Content-Type", "image/png")
             exchange.sendResponseHeaders(200, PNG.size.toLong())
@@ -52,8 +64,10 @@ class DesktopPageLoaderTest {
             val loader = DesktopPageLoader(local)
             val pages = loader.pages(source, SChapter.create())
             assertEquals(1, pages.size)
+            loader.prefetch(pages.single())
             assertEquals(1, loader.image(pages.single()).width)
             assertEquals("secret", token)
+            assertEquals(1, requests.get())
         } finally {
             server.stop(0)
         }

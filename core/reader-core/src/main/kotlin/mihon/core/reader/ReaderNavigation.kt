@@ -12,6 +12,16 @@ enum class ReadingMode {
 
 enum class FitMode { WIDTH, HEIGHT, ORIGINAL }
 
+/** Continuous viewers compose nearby pages themselves; paged viewers warm only the next page. */
+fun nextPageToPreload(pageIndex: Int, pageCount: Int, mode: ReadingMode): Int? {
+    val step = when (mode) {
+        ReadingMode.DOUBLE_LTR, ReadingMode.DOUBLE_RTL -> 2
+        ReadingMode.SINGLE_LTR, ReadingMode.SINGLE_RTL -> 1
+        ReadingMode.VERTICAL, ReadingMode.WEBTOON -> return null
+    }
+    return (pageIndex + step).takeIf { it in 0 until pageCount }
+}
+
 data class ReaderPosition(val chapterIndex: Int, val pageIndex: Int)
 
 /** Pure chapter/page boundaries shared by desktop controls and renderers. */

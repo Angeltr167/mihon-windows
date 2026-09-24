@@ -54,11 +54,13 @@ import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import mihon.core.reader.FitMode
 import mihon.core.reader.ReadingMode
+import mihon.core.reader.nextPageToPreload
 import mihon.platform.desktop.DesktopPlatformGraph
 
 internal data class ReaderTarget(
@@ -134,7 +136,10 @@ internal fun DesktopReader(
             pages = loaded
             chapterId = stored._id
             openAtLastPage = false
-        }.onFailure { error = it.message ?: "Chapter could not be loaded" }
+        }.onFailure {
+            if (it is CancellationException) throw it
+            error = it.message ?: "Chapter could not be loaded"
+        }
     }
 
     LaunchedEffect(chapterId, pageIndex, pages.size, mode) {
@@ -146,6 +151,18 @@ internal fun DesktopReader(
             pageIndex
         }
         withContext(Dispatchers.IO) { session.library.saveProgress(id, viewedIndex, pages.size) }
+    }
+
+    LaunchedEffect(chapterIndex, pageIndex, pages, mode) {
+        nextPageToPreload(pageIndex, pages.size, mode)?.let { next ->
+            try {
+                loader.prefetch(pages[next])
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (_: Exception) {
+                // Visible page loading reports its own retryable error.
+            }
+        }
     }
 
     fun next() {
@@ -325,7 +342,9 @@ private fun ReaderImage(
     var retry by remember(page) { mutableIntStateOf(0) }
     val density = LocalDensity.current
     val result by produceState<Result<ImageBitmap>?>(null, page, retry) {
-        value = runCatching { loader.image(page) }
+        val loaded = runCatching { loader.image(page) }
+        loaded.exceptionOrNull()?.let { if (it is CancellationException) throw it }
+        value = loaded
     }
     var pan by remember(page) { mutableStateOf(Offset.Zero) }
     Box(modifier, contentAlignment = Alignment.Center) {
