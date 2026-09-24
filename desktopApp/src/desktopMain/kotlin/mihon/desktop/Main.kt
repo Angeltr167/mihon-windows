@@ -2,6 +2,7 @@ package mihon.desktop
 
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import dev.zacsweers.metro.createGraphFactory
@@ -50,7 +51,13 @@ fun main() {
             state = state,
         ) {
             window.minimumSize = Dimension(800, 560)
-            DesktopShell(graph)
+            DesktopShell(graph, onToggleFullscreen = {
+                state.placement = if (state.placement == WindowPlacement.Fullscreen) {
+                    WindowPlacement.Floating
+                } else {
+                    WindowPlacement.Fullscreen
+                }
+            })
         }
     }
 }

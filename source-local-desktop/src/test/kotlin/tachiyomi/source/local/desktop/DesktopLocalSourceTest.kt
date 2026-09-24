@@ -3,6 +3,7 @@ package tachiyomi.source.local.desktop
 import eu.kanade.tachiyomi.source.model.FilterList
 import kotlinx.coroutines.test.runTest
 import org.junit.jupiter.api.Assertions.assertEquals
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 import java.nio.file.Files
@@ -11,6 +12,31 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
 class DesktopLocalSourceTest {
+
+    @Test
+    fun `local directory and archive pages load in natural order`() {
+        val root = Files.createTempDirectory("mihon-local-pages")
+        val manga = Files.createDirectories(root.resolve("Pages"))
+        val directory = Files.createDirectories(manga.resolve("Chapter 1"))
+        Files.write(directory.resolve("10.png"), byteArrayOf(10))
+        Files.write(directory.resolve("2.png"), byteArrayOf(2))
+        Files.writeString(directory.resolve("ComicInfo.xml"), "<ComicInfo/>")
+        val cbz = manga.resolve("Chapter 2.cbz")
+        ZipOutputStream(Files.newOutputStream(cbz)).use { zip ->
+            listOf("10.png", "2.png").forEach { name ->
+                zip.putNextEntry(ZipEntry(name))
+                zip.write(byteArrayOf(name.substringBefore('.').toByte()))
+                zip.closeEntry()
+            }
+        }
+        val pages = DesktopLocalChapterPages(DesktopLocalSourceFileSystem(root))
+        assertEquals(listOf(2, 10), pages.pages("Pages/Chapter 1").map { it.readBytes().single().toInt() })
+        assertEquals(listOf(2, 10), pages.pages("Pages/Chapter 2.cbz").map { it.readBytes().single().toInt() })
+        assertThrows(IllegalArgumentException::class.java) {
+            pages.pages("Pages/Chapter 1").first().readBytes(maxBytes = 0)
+        }
+        assertThrows(IllegalArgumentException::class.java) { pages.pages("Pages/../outside") }
+    }
 
     @Test
     fun `imports local manga metadata cover and naturally ordered chapters`() = runTest {

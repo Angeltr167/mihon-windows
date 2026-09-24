@@ -65,7 +65,7 @@ private enum class Screen(val title: String) {
 }
 
 @Composable
-fun DesktopShell(graph: DesktopPlatformGraph) {
+fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {}) {
     val session = remember { DesktopSession(graph) }
     DisposableEffect(session) { onDispose(session::close) }
     val scope = rememberCoroutineScope()
@@ -78,6 +78,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
     var browseItems by remember { mutableStateOf(emptyList<SManga>()) }
     var selectedManga by remember { mutableStateOf<SManga?>(null) }
     var chapters by remember { mutableStateOf(emptyList<SChapter>()) }
+    var readerTarget by remember { mutableStateOf<ReaderTarget?>(null) }
     var query by remember { mutableStateOf("") }
     var packagePath by remember { mutableStateOf("") }
     var indexUrl by remember { mutableStateOf("") }
@@ -129,6 +130,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                         else -> return@onPreviewKeyEvent false
                     }
                     screen = Screen.entries[index]
+                    readerTarget = null
                     selectedManga = null
                     chapters = emptyList()
                     message = ""
@@ -142,6 +144,7 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                         TextButton(
                             onClick = {
                                 screen = item
+                                readerTarget = null
                                 selectedManga = null
                                 chapters = emptyList()
                                 message = ""
@@ -159,6 +162,13 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                     HorizontalDivider(Modifier.padding(vertical = 12.dp))
                     if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     when {
+                        readerTarget != null -> DesktopReader(
+                            session = session,
+                            graph = graph,
+                            target = requireNotNull(readerTarget),
+                            onClose = { readerTarget = null },
+                            onToggleFullscreen = onToggleFullscreen,
+                        )
                         selectedManga != null -> {
                             val item = requireNotNull(selectedManga)
                             val selectedSource = source
@@ -197,7 +207,16 @@ fun DesktopShell(graph: DesktopPlatformGraph) {
                             }
                             Text("Chapters", style = MaterialTheme.typography.titleMedium)
                             LazyColumn {
-                                items(chapters) { chapter -> Text(chapter.name, modifier = Modifier.padding(8.dp)) }
+                                items(chapters) { chapter ->
+                                    Text(
+                                        chapter.name,
+                                        modifier = Modifier.fillMaxWidth().clickable {
+                                            if (selectedSource != null) {
+                                                readerTarget = ReaderTarget(selectedSource, item, chapters, chapter.url)
+                                            }
+                                        }.padding(8.dp),
+                                    )
+                                }
                             }
                         }
                         screen == Screen.LIBRARY -> {

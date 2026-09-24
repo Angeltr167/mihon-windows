@@ -42,6 +42,15 @@ class DesktopLocalSourceFileSystem(
                 it.extension.equals("epub", ignoreCase = true)
         }
 
+    fun chapterFile(chapterUrl: String): Path {
+        val parts = chapterUrl.split('/', limit = 2)
+        require(parts.size == 2) { "Invalid local chapter URL" }
+        val manga = mangaDirectory(parts[0]) ?: error("Local manga not found: ${parts[0]}")
+        val chapter = safeChild(manga, parts[1])
+        require(Files.exists(chapter, LinkOption.NOFOLLOW_LINKS)) { "Local chapter not found: $chapterUrl" }
+        return chapter
+    }
+
     fun comicInfo(name: String): Path? = mangaFiles(name)
         .firstOrNull { Files.isRegularFile(it) && it.name == COMIC_INFO_FILE }
 

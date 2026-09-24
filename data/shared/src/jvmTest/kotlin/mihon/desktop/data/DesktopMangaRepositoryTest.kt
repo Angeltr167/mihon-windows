@@ -1,5 +1,6 @@
 package mihon.desktop.data
 
+import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -7,6 +8,36 @@ import org.junit.jupiter.api.Test
 import java.nio.file.Files
 
 class DesktopMangaRepositoryTest {
+    @Test
+    fun `chapter progress and history survive reopen and metadata refresh`() {
+        val path = Files.createTempDirectory("mihon-reading-progress").resolve("tachiyomi.db")
+        val manga = SManga.create().apply {
+            url = "/manga"
+            title = "Manga"
+        }
+        val chapter = SChapter.create().apply {
+            url = "/chapter"
+            name = "Chapter"
+        }
+        val mangaId = DesktopMangaRepository.open(path).use { repository ->
+            val id = repository.addToLibrary(17, manga)._id
+            val stored = repository.syncChapters(id, listOf(chapter)).single()
+            repository.saveProgress(stored._id, 1, 3, 1000)
+            id
+        }
+        DesktopMangaRepository.open(path).use { repository ->
+            val stored = repository.chapter(mangaId, chapter.url)!!
+            assertEquals(1, stored.last_page_read)
+            assertTrue(repository.history().any { it.mangaId == mangaId })
+            chapter.name = "Renamed chapter"
+            repository.syncChapters(mangaId, listOf(chapter))
+            assertEquals(1, repository.chapter(mangaId, chapter.url)!!.last_page_read)
+            assertEquals("Renamed chapter", repository.chapter(mangaId, chapter.url)!!.name)
+            repository.saveProgress(stored._id, 2, 3)
+            assertTrue(repository.chapter(mangaId, chapter.url)!!.read)
+        }
+    }
+
     @Test
     fun `library and categories persist across reopen`() {
         val databasePath = Files.createTempDirectory("mihon-library").resolve("tachiyomi.db")

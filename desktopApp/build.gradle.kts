@@ -16,6 +16,7 @@ kotlin {
                 implementation(projects.data.shared)
                 implementation(projects.core.extensionDesktop)
                 implementation(projects.core.networkDesktop)
+                implementation(projects.core.readerCore)
                 implementation(projects.domain.shared)
                 implementation(projects.sourceApi)
                 implementation(projects.sourceLocalDesktop)

@@ -2,6 +2,7 @@ package mihon.desktop.data
 
 import app.cash.sqldelight.ColumnAdapter
 import app.cash.sqldelight.db.SqlDriver
+import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import kotlinx.serialization.json.Json
@@ -35,10 +36,12 @@ class DesktopMangaRepository private constructor(
     fun find(sourceId: Long, url: String): Mangas? =
         database.mangasQueries.getMangaByUrlAndSource(url, sourceId).executeAsOneOrNull()
 
-    fun addToLibrary(sourceId: Long, manga: SManga): Mangas {
+    fun addToLibrary(sourceId: Long, manga: SManga): Mangas = ensureManga(sourceId, manga, true)
+
+    fun ensureManga(sourceId: Long, manga: SManga, favorite: Boolean = false): Mangas {
         val existing = database.mangasQueries.getMangaByUrlAndSource(manga.url, sourceId).executeAsOneOrNull()
         if (existing != null) {
-            setFavorite(existing._id, true)
+            if (favorite) setFavorite(existing._id, true)
             return requireNotNull(this.manga(existing._id))
         }
         val id = database.mangasQueries.insertReturningId(
@@ -51,7 +54,7 @@ class DesktopMangaRepository private constructor(
             title = manga.title,
             status = manga.status.toLong(),
             thumbnailUrl = manga.thumbnail_url,
-            favorite = true,
+            favorite = favorite,
             lastUpdate = null,
             nextUpdate = null,
             initialized = manga.initialized,
@@ -72,6 +75,63 @@ class DesktopMangaRepository private constructor(
         driver.execute(null, "UPDATE mangas SET favorite = ? WHERE _id = ?", 2) {
             bindBoolean(0, favorite)
             bindLong(1, mangaId)
+        }
+    }
+
+    fun syncChapters(mangaId: Long, chapters: List<SChapter>): List<Chapters> {
+        requireNotNull(manga(mangaId)) { "Unknown manga: $mangaId" }
+        database.transaction {
+            chapters.forEachIndexed { order, chapter ->
+                val existing = database.chaptersQueries.getChapterByUrlAndMangaId(chapter.url, mangaId)
+                    .executeAsOneOrNull()
+                if (existing == null) {
+                    database.chaptersQueries.insertReturningId(
+                        mangaId = mangaId,
+                        url = chapter.url,
+                        name = chapter.name,
+                        scanlator = chapter.scanlator,
+                        read = false,
+                        bookmark = false,
+                        lastPageRead = 0,
+                        chapterNumber = chapter.chapter_number.toDouble(),
+                        sourceOrder = order.toLong(),
+                        dateFetch = System.currentTimeMillis(),
+                        dateUpload = chapter.date_upload,
+                        version = 0,
+                        memo = chapter.memo,
+                    ).executeAsOne()
+                } else {
+                    driver.execute(
+                        null,
+                        "UPDATE chapters SET name = ?, scanlator = ?, chapter_number = ?, source_order = ?, date_upload = ? WHERE _id = ?",
+                        6,
+                    ) {
+                        bindString(0, chapter.name)
+                        bindString(1, chapter.scanlator)
+                        bindDouble(2, chapter.chapter_number.toDouble())
+                        bindLong(3, order.toLong())
+                        bindLong(4, chapter.date_upload)
+                        bindLong(5, existing._id)
+                    }
+                }
+            }
+        }
+        return database.chaptersQueries.getChaptersByMangaId(mangaId, 0).executeAsList()
+    }
+
+    fun chapter(mangaId: Long, chapterUrl: String): Chapters? =
+        database.chaptersQueries.getChapterByUrlAndMangaId(chapterUrl, mangaId).executeAsOneOrNull()
+
+    fun saveProgress(chapterId: Long, pageIndex: Int, pageCount: Int, readTimeMillis: Long = 0) {
+        require(pageCount > 0 && pageIndex in 0 until pageCount)
+        require(readTimeMillis >= 0)
+        database.transaction {
+            driver.execute(null, "UPDATE chapters SET last_page_read = ?, read = ? WHERE _id = ?", 3) {
+                bindLong(0, pageIndex.toLong())
+                bindBoolean(1, pageIndex == pageCount - 1)
+                bindLong(2, chapterId)
+            }
+            database.historyQueries.upsert(chapterId, Date(), readTimeMillis)
         }
     }
 
