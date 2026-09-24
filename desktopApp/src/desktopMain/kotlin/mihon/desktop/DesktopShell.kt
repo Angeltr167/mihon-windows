@@ -138,28 +138,32 @@ fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {
                     true
                 }.focusRequester(focusRequester).focusable(),
             ) {
-                Column(Modifier.width(190.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("Mihon", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(8.dp))
-                    Screen.entries.forEachIndexed { index, item ->
-                        TextButton(
-                            onClick = {
-                                screen = item
-                                readerTarget = null
-                                selectedManga = null
-                                chapters = emptyList()
-                                message = ""
-                                if (item == Screen.LIBRARY) refreshLibrary()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        ) { Text("${index + 1}  ${item.title}") }
+                if (readerTarget == null) {
+                    Column(Modifier.width(190.dp).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text("Mihon", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(8.dp))
+                        Screen.entries.forEachIndexed { index, item ->
+                            TextButton(
+                                onClick = {
+                                    screen = item
+                                    readerTarget = null
+                                    selectedManga = null
+                                    chapters = emptyList()
+                                    message = ""
+                                    if (item == Screen.LIBRARY) refreshLibrary()
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) { Text("${index + 1}  ${item.title}") }
+                        }
                     }
                 }
-                Column(Modifier.fillMaxSize().padding(20.dp)) {
-                    Text(
-                        selectedManga?.title ?: screen.title,
-                        style = MaterialTheme.typography.headlineMedium,
-                    )
-                    HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                Column(Modifier.fillMaxSize().padding(if (readerTarget == null) 20.dp else 8.dp)) {
+                    if (readerTarget == null) {
+                        Text(
+                            selectedManga?.title ?: screen.title,
+                            style = MaterialTheme.typography.headlineMedium,
+                        )
+                        HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                    }
                     if (message.isNotBlank()) Text(message, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     when {
                         readerTarget != null -> DesktopReader(

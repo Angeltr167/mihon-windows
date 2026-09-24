@@ -52,6 +52,8 @@ internal class DesktopPageLoader(private val localPages: DesktopLocalChapterPage
         image(page)
     }
 
+    internal fun cachedPageCount(): Int = synchronized(imageCache) { imageCache.size }
+
     private suspend fun decode(page: DesktopPage): ImageBitmap {
         val bytes = when (page) {
             is DesktopPage.Local -> page.value.readBytes()
@@ -86,6 +88,7 @@ internal class DesktopPageLoader(private val localPages: DesktopLocalChapterPage
     internal companion object {
         const val MAX_PAGE_BYTES = DesktopLocalPage.MAX_PAGE_BYTES
         const val MAX_PAGE_PIXELS = 20_000_000L
+        const val MAX_CACHED_DECODED_BYTES = 2 * MAX_PAGE_PIXELS * 4
 
         fun checkDimensions(width: Int, height: Int) {
             require(width > 0 && height > 0 && width.toLong() * height <= MAX_PAGE_PIXELS) {

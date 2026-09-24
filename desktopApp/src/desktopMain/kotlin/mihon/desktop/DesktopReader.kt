@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -38,6 +39,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.ColorFilter
+import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.key.Key
@@ -59,8 +62,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.withContext
 import mihon.core.reader.FitMode
+import mihon.core.reader.ReaderPageLoadState
 import mihon.core.reader.ReadingMode
 import mihon.core.reader.nextPageToPreload
+import mihon.core.reader.viewedPageIndex
 import mihon.platform.desktop.DesktopPlatformGraph
 
 internal data class ReaderTarget(
@@ -89,7 +94,7 @@ internal fun DesktopReader(
     var pageIndex by remember(target) { mutableIntStateOf(0) }
     var pages by remember(target) { mutableStateOf<List<DesktopPage>>(emptyList()) }
     var chapterId by remember(target) { mutableStateOf<Long?>(null) }
-    var error by remember(target) { mutableStateOf<String?>(null) }
+    var loadState by remember(target) { mutableStateOf<ReaderPageLoadState>(ReaderPageLoadState.Loading) }
     var retry by remember(target) { mutableIntStateOf(0) }
     var openAtLastPage by remember(target) { mutableStateOf(false) }
     var mode by remember(target) {
@@ -114,12 +119,59 @@ internal fun DesktopReader(
         )
     }
     var zoom by remember(target) { mutableStateOf(1f) }
+    var imageFilter by remember(target) {
+        mutableStateOf(
+            ReaderImageFilter.entries.firstOrNull {
+                it.name == graph.keyValueStore.getString("desktop.reader.imageFilter", ReaderImageFilter.NORMAL.name)
+            } ?: ReaderImageFilter.NORMAL,
+        )
+    }
     var requestedScroll by remember(target) { mutableStateOf<Int?>(null) }
+    var showShortcuts by remember(target) { mutableStateOf(false) }
+    var shortcuts by remember(target) {
+        val next = ReaderShortcutKey.restore(
+            graph.keyValueStore.getString("desktop.reader.shortcut.next", null),
+            ReaderShortcutKey.J,
+        )
+        val previous = ReaderShortcutKey.restore(
+            graph.keyValueStore.getString("desktop.reader.shortcut.previous", null),
+            ReaderShortcutKey.K,
+        )
+        mutableStateOf(
+            ReaderShortcuts(
+                next,
+                previous.takeUnless {
+                    it == next
+                } ?: ReaderShortcutKey.K.nextExcept(next),
+            ),
+        )
+    }
+
+    if (showShortcuts) {
+        AlertDialog(
+            onDismissRequest = { showShortcuts = false },
+            title = { Text("Reader shortcuts") },
+            text = {
+                Column {
+                    Text("Arrow keys, Page Up/Down, Space and F11 always work.")
+                    TextButton(onClick = {
+                        shortcuts = shortcuts.copy(next = shortcuts.next.nextExcept(shortcuts.previous))
+                        graph.keyValueStore.putString("desktop.reader.shortcut.next", shortcuts.next.name)
+                    }) { Text("Next page: ${shortcuts.next.name}") }
+                    TextButton(onClick = {
+                        shortcuts = shortcuts.copy(previous = shortcuts.previous.nextExcept(shortcuts.next))
+                        graph.keyValueStore.putString("desktop.reader.shortcut.previous", shortcuts.previous.name)
+                    }) { Text("Previous page: ${shortcuts.previous.name}") }
+                }
+            },
+            confirmButton = { TextButton(onClick = { showShortcuts = false }) { Text("Done") } },
+        )
+    }
 
     LaunchedEffect(target, chapterIndex, retry) {
         pages = emptyList()
         chapterId = null
-        error = null
+        loadState = ReaderPageLoadState.Loading
         runCatching {
             val loaded = loader.pages(target.source, chapters[chapterIndex])
             val stored = withContext(Dispatchers.IO) {
@@ -136,20 +188,17 @@ internal fun DesktopReader(
             pages = loaded
             chapterId = stored._id
             openAtLastPage = false
+            loadState = ReaderPageLoadState.Ready(loaded.size)
         }.onFailure {
             if (it is CancellationException) throw it
-            error = it.message ?: "Chapter could not be loaded"
+            loadState = ReaderPageLoadState.Failed(it.message ?: "Chapter could not be loaded", retry)
         }
     }
 
     LaunchedEffect(chapterId, pageIndex, pages.size, mode) {
         val id = chapterId ?: return@LaunchedEffect
         if (pages.isEmpty()) return@LaunchedEffect
-        val viewedIndex = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) {
-            (pageIndex + 1).coerceAtMost(pages.lastIndex)
-        } else {
-            pageIndex
-        }
+        val viewedIndex = viewedPageIndex(pageIndex, pages.size, mode)
         withContext(Dispatchers.IO) { session.library.saveProgress(id, viewedIndex, pages.size) }
     }
 
@@ -195,6 +244,17 @@ internal fun DesktopReader(
     Column(
         Modifier.fillMaxSize().onPreviewKeyEvent { event ->
             if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+            when (shortcuts.action(event.key)) {
+                ReaderShortcuts.Action.NEXT -> {
+                    next()
+                    return@onPreviewKeyEvent true
+                }
+                ReaderShortcuts.Action.PREVIOUS -> {
+                    previous()
+                    return@onPreviewKeyEvent true
+                }
+                null -> Unit
+            }
             when (event.key) {
                 Key.DirectionRight -> if (rightToLeft) previous() else next()
                 Key.DirectionLeft -> if (rightToLeft) next() else previous()
@@ -221,14 +281,19 @@ internal fun DesktopReader(
             }) { Text("Fit ${fit.name.lowercase()}") }
             TextButton(onClick = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) }) { Text("−") }
             TextButton(onClick = { zoom = (zoom + 0.25f).coerceAtMost(4f) }) { Text("+") }
+            TextButton(onClick = {
+                imageFilter = ReaderImageFilter.entries[(imageFilter.ordinal + 1) % ReaderImageFilter.entries.size]
+                graph.keyValueStore.putString("desktop.reader.imageFilter", imageFilter.name)
+            }) { Text("Filter ${imageFilter.name.lowercase()}") }
             TextButton(onClick = onToggleFullscreen) { Text("Fullscreen") }
+            TextButton(onClick = { showShortcuts = true }) { Text("Keys") }
         }
         when {
-            error != null -> Column {
-                Text(requireNotNull(error), color = MaterialTheme.colorScheme.error)
+            loadState is ReaderPageLoadState.Failed -> Column {
+                Text((loadState as ReaderPageLoadState.Failed).reason, color = MaterialTheme.colorScheme.error)
                 Button(onClick = { retry++ }) { Text("Retry") }
             }
-            pages.isEmpty() -> Text("Loading pages…")
+            loadState is ReaderPageLoadState.Loading -> Text("Loading pages…")
             mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON -> {
                 val listState = rememberLazyListState()
                 LaunchedEffect(chapterIndex, pages) {
@@ -252,7 +317,7 @@ internal fun DesktopReader(
                         contentPadding = PaddingValues(bottom = maxHeight),
                     ) {
                         itemsIndexed(pages) { index, page ->
-                            ReaderImage(loader, page, fit, zoom, Modifier.fillMaxWidth(), index)
+                            ReaderImage(loader, page, fit, zoom, imageFilter, Modifier.fillMaxWidth(), index)
                         }
                     }
                 }
@@ -290,6 +355,7 @@ internal fun DesktopReader(
                                 page,
                                 fit,
                                 zoom,
+                                imageFilter,
                                 Modifier.weight(1f).fillMaxHeight(),
                                 pageIndex + index,
                             )
@@ -336,6 +402,7 @@ private fun ReaderImage(
     page: DesktopPage,
     fit: FitMode,
     zoom: Float,
+    imageFilter: ReaderImageFilter,
     modifier: Modifier,
     index: Int,
 ) {
@@ -359,6 +426,7 @@ private fun ReaderImage(
                     bitmap = image,
                     contentDescription = "Page ${index + 1}",
                     contentScale = ContentScale.Fit,
+                    colorFilter = imageFilter.colorFilter,
                     modifier = imageModifier.graphicsLayer {
                         scaleX = zoom
                         scaleY = zoom
@@ -377,4 +445,32 @@ private fun ReaderImage(
             },
         ) ?: Text("Loading page ${index + 1}…")
     }
+}
+
+private enum class ReaderImageFilter(val colorFilter: ColorFilter?) {
+    NORMAL(null),
+    GRAYSCALE(
+        ColorFilter.colorMatrix(
+            ColorMatrix(
+                floatArrayOf(
+                    0.213f, 0.715f, 0.072f, 0f, 0f,
+                    0.213f, 0.715f, 0.072f, 0f, 0f,
+                    0.213f, 0.715f, 0.072f, 0f, 0f,
+                    0f, 0f, 0f, 1f, 0f,
+                ),
+            ),
+        ),
+    ),
+    INVERT(
+        ColorFilter.colorMatrix(
+            ColorMatrix(
+                floatArrayOf(
+                    -1f, 0f, 0f, 0f, 255f,
+                    0f, -1f, 0f, 0f, 255f,
+                    0f, 0f, -1f, 0f, 255f,
+                    0f, 0f, 0f, 1f, 0f,
+                ),
+            ),
+        ),
+    ),
 }

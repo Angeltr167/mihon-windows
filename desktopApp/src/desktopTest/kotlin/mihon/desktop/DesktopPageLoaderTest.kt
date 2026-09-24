@@ -15,6 +15,7 @@ import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Test
 import tachiyomi.source.local.desktop.DesktopLocalChapterPages
+import tachiyomi.source.local.desktop.DesktopLocalPage
 import tachiyomi.source.local.desktop.DesktopLocalSourceFileSystem
 import java.net.InetSocketAddress
 import java.nio.file.Files
@@ -25,8 +26,21 @@ class DesktopPageLoaderTest {
     @Test
     fun `high resolution pages are bounded before decoding`() {
         DesktopPageLoader.checkDimensions(4000, 5000)
+        assertEquals(160_000_000L, DesktopPageLoader.MAX_CACHED_DECODED_BYTES)
         assertThrows(IllegalArgumentException::class.java) {
             DesktopPageLoader.checkDimensions(5000, 5000)
+        }
+    }
+
+    @Test
+    fun `long chapter keeps only two decoded pages`() = runTest {
+        val root = Files.createTempDirectory("mihon-webtoon-stress")
+        val loader = DesktopPageLoader(DesktopLocalChapterPages(DesktopLocalSourceFileSystem(root)))
+        repeat(1000) { index ->
+            val path = root.resolve("page-$index.png")
+            Files.write(path, PNG)
+            loader.image(DesktopPage.Local(DesktopLocalPage(path, null)))
+            assertEquals(minOf(index + 1, 2), loader.cachedPageCount())
         }
     }
 

@@ -23,4 +23,11 @@ class ReaderNavigationTest {
         assertNull(nextPageToPreload(2, 3, ReadingMode.SINGLE_RTL))
         assertNull(nextPageToPreload(0, 1000, ReadingMode.WEBTOON))
     }
+
+    @Test
+    fun `viewed spread persists the trailing page without exceeding the chapter`() {
+        assertEquals(1, viewedPageIndex(0, 2, ReadingMode.DOUBLE_LTR))
+        assertEquals(2, viewedPageIndex(2, 3, ReadingMode.DOUBLE_RTL))
+        assertEquals(0, viewedPageIndex(0, 3, ReadingMode.WEBTOON))
+    }
 }

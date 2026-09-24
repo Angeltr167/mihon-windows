@@ -12,6 +12,21 @@ enum class ReadingMode {
 
 enum class FitMode { WIDTH, HEIGHT, ORIGINAL }
 
+sealed interface ReaderPageLoadState {
+    data object Loading : ReaderPageLoadState
+    data class Ready(val pageCount: Int) : ReaderPageLoadState
+    data class Failed(val reason: String, val attempts: Int) : ReaderPageLoadState
+}
+
+/** The second page of a spread is considered viewed when the spread is displayed. */
+fun viewedPageIndex(pageIndex: Int, pageCount: Int, mode: ReadingMode): Int {
+    require(pageIndex in 0 until pageCount)
+    return when (mode) {
+        ReadingMode.DOUBLE_LTR, ReadingMode.DOUBLE_RTL -> (pageIndex + 1).coerceAtMost(pageCount - 1)
+        else -> pageIndex
+    }
+}
+
 /** Continuous viewers compose nearby pages themselves; paged viewers warm only the next page. */
 fun nextPageToPreload(pageIndex: Int, pageCount: Int, mode: ReadingMode): Int? {
     val step = when (mode) {
