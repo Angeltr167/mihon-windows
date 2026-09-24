@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -111,6 +112,7 @@ internal fun DesktopReader(
         )
     }
     var zoom by remember(target) { mutableStateOf(1f) }
+    var requestedScroll by remember(target) { mutableStateOf<Int?>(null) }
 
     LaunchedEffect(target, chapterIndex, retry) {
         pages = emptyList()
@@ -125,12 +127,12 @@ internal fun DesktopReader(
             }
             loaded to stored
         }.onSuccess { (loaded, stored) ->
-            pages = loaded
-            chapterId = stored._id
             val restored =
                 if (openAtLastPage) loaded.lastIndex else stored.last_page_read.toInt().coerceIn(0, loaded.lastIndex)
             pageIndex =
                 if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) restored / 2 * 2 else restored
+            pages = loaded
+            chapterId = stored._id
             openAtLastPage = false
         }.onFailure { error = it.message ?: "Chapter could not be loaded" }
     }
@@ -150,6 +152,9 @@ internal fun DesktopReader(
         val step = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) 2 else 1
         if (pageIndex + step < pages.size) {
             pageIndex += step
+            if (mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON) {
+                requestedScroll = pageIndex
+            }
         } else if (chapterIndex < chapters.lastIndex) {
             pageIndex = 0
             chapterIndex++
@@ -160,6 +165,9 @@ internal fun DesktopReader(
         val step = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) 2 else 1
         if (pageIndex > 0) {
             pageIndex = (pageIndex - step).coerceAtLeast(0)
+            if (mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON) {
+                requestedScroll = pageIndex
+            }
         } else if (chapterIndex > 0) {
             openAtLastPage = true
             chapterIndex--
@@ -209,12 +217,26 @@ internal fun DesktopReader(
                 LaunchedEffect(chapterIndex, pages) {
                     listState.scrollToItem(pageIndex)
                     snapshotFlow { listState.firstVisibleItemIndex }.collectLatest { visible ->
-                        pageIndex = visible.coerceIn(pages.indices)
+                        if (requestedScroll == null) {
+                            pageIndex = visible.coerceIn(pages.indices)
+                        }
                     }
                 }
-                LazyColumn(state = listState, modifier = Modifier.weight(1f)) {
-                    itemsIndexed(pages) { index, page ->
-                        ReaderImage(loader, page, fit, zoom, Modifier.fillMaxWidth(), index)
+                LaunchedEffect(requestedScroll, pages) {
+                    requestedScroll?.let { destination ->
+                        listState.animateScrollToItem(destination.coerceIn(pages.indices))
+                        requestedScroll = null
+                    }
+                }
+                BoxWithConstraints(Modifier.weight(1f)) {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize(),
+                        contentPadding = PaddingValues(bottom = maxHeight),
+                    ) {
+                        itemsIndexed(pages) { index, page ->
+                            ReaderImage(loader, page, fit, zoom, Modifier.fillMaxWidth(), index)
+                        }
                     }
                 }
             }
