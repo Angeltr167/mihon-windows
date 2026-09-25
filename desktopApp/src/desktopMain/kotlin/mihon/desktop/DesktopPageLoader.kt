@@ -24,18 +24,58 @@ internal sealed interface DesktopPage {
     data class Online(val value: Page, val source: Source) : DesktopPage
 }
 
-internal class DesktopPageLoader(private val localPages: DesktopLocalChapterPages) {
-    private val decodeSlots = Semaphore(2)
-    private val imageCache = object : LinkedHashMap<DesktopPage, ImageBitmap>(4, 0.75f, true) {
-        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<DesktopPage, ImageBitmap>?): Boolean = size > 2
-    }
-
+/** Encoded page requests are shared by the reader and the download engine. */
+internal class DesktopPageFetcher(private val localPages: DesktopLocalChapterPages) {
     suspend fun pages(source: Source, chapter: SChapter): List<DesktopPage> = withContext(Dispatchers.IO) {
         if (source is DesktopLocalSource) {
             localPages.pages(chapter.url).map(DesktopPage::Local)
         } else {
             source.getPageList(chapter).map { DesktopPage.Online(it, source) }
         }.also { require(it.isNotEmpty()) { "Chapter has no readable pages" } }
+    }
+
+    suspend fun bytes(page: DesktopPage): ByteArray = withContext(Dispatchers.IO) {
+        val encoded = when (page) {
+            is DesktopPage.Local -> page.value.readBytes()
+            is DesktopPage.Online -> {
+                val source = page.source
+                if (source is HttpSource) {
+                    if (page.value.imageUrl.isNullOrBlank()) {
+                        page.value.imageUrl = source.getImageUrl(page.value)
+                    }
+                    source.getImage(page.value).use { response ->
+                        response.body.byteStream().use { it.readNBytes(DesktopPageLoader.MAX_PAGE_BYTES + 1) }
+                    }
+                } else {
+                    val url = page.value.imageUrl ?: page.value.url
+                    val request = Request.Builder().url(url).build()
+                    NetworkHelper.current().client.newCall(request).execute().use { response ->
+                        require(response.isSuccessful) { "Page request failed: ${response.code}" }
+                        response.body.byteStream().use { it.readNBytes(DesktopPageLoader.MAX_PAGE_BYTES + 1) }
+                    }
+                }
+            }
+        }
+        require(encoded.size <= DesktopPageLoader.MAX_PAGE_BYTES) { "Page exceeds the size limit" }
+        encoded
+    }
+}
+
+internal class DesktopPageLoader(
+    localPages: DesktopLocalChapterPages,
+    private val downloads: DesktopDownloadStore? = null,
+) {
+    private val fetcher = DesktopPageFetcher(localPages)
+    private val decodeSlots = Semaphore(2)
+    private val imageCache = object : LinkedHashMap<DesktopPage, ImageBitmap>(4, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<DesktopPage, ImageBitmap>?): Boolean = size > 2
+    }
+
+    suspend fun pages(source: Source, chapter: SChapter, mangaUrl: String? = null): List<DesktopPage> {
+        if (mangaUrl != null) {
+            downloads?.completedPages(source.id, mangaUrl, chapter.url)?.let { return it.map(DesktopPage::Local) }
+        }
+        return fetcher.pages(source, chapter)
     }
 
     suspend fun image(page: DesktopPage): ImageBitmap = withContext(Dispatchers.IO) {
@@ -55,28 +95,7 @@ internal class DesktopPageLoader(private val localPages: DesktopLocalChapterPage
     internal fun cachedPageCount(): Int = synchronized(imageCache) { imageCache.size }
 
     private suspend fun decode(page: DesktopPage): ImageBitmap {
-        val bytes = when (page) {
-            is DesktopPage.Local -> page.value.readBytes()
-            is DesktopPage.Online -> {
-                val source = page.source
-                if (source is HttpSource) {
-                    if (page.value.imageUrl.isNullOrBlank()) {
-                        page.value.imageUrl = source.getImageUrl(page.value)
-                    }
-                    source.getImage(page.value).use { response ->
-                        response.body.byteStream().use { it.readNBytes(MAX_PAGE_BYTES + 1) }
-                    }
-                } else {
-                    val url = page.value.imageUrl ?: page.value.url
-                    val request = Request.Builder().url(url).build()
-                    NetworkHelper.current().client.newCall(request).execute().use { response ->
-                        require(response.isSuccessful) { "Page request failed: ${response.code}" }
-                        response.body.byteStream().use { it.readNBytes(MAX_PAGE_BYTES + 1) }
-                    }
-                }
-            }
-        }
-        require(bytes.size <= MAX_PAGE_BYTES) { "Page exceeds the size limit" }
+        val bytes = fetcher.bytes(page)
         Data.makeFromBytes(bytes).use { data ->
             Codec.makeFromData(data).use { codec ->
                 checkDimensions(codec.width, codec.height)

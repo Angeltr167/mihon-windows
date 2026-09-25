@@ -24,7 +24,9 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -50,6 +52,7 @@ import mihon.core.extension.desktop.DesktopRepositoryEntry
 import mihon.platform.api.OpenFileRequest
 import mihon.platform.desktop.DesktopPlatformGraph
 import tachiyomi.data.Mangas
+import tachiyomi.source.local.desktop.DesktopLocalSource
 import java.net.URI
 import java.nio.file.Path
 
@@ -62,6 +65,7 @@ private enum class Screen(val title: String) {
     EXTENSIONS("Extensions"),
     CATEGORIES("Categories"),
     SETTINGS("Settings"),
+    DOWNLOADS("Downloads"),
 }
 
 @Composable
@@ -86,6 +90,9 @@ fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {
     var fingerprint by remember { mutableStateOf("") }
     var categoryName by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
+    val downloads by session.downloads.queue.collectAsState()
+    val libraryUpdate by session.libraryUpdates.state.collectAsState()
+    var updateInterval by remember { mutableLongStateOf(session.libraryUpdates.intervalHours()) }
 
     fun refreshLibrary() {
         library = session.library.library()
@@ -127,6 +134,7 @@ fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {
                         Key.Six -> 5
                         Key.Seven -> 6
                         Key.Eight -> 7
+                        Key.Nine -> 8
                         else -> return@onPreviewKeyEvent false
                     }
                     screen = Screen.entries[index]
@@ -212,14 +220,43 @@ fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {
                             Text("Chapters", style = MaterialTheme.typography.titleMedium)
                             LazyColumn {
                                 items(chapters) { chapter ->
-                                    Text(
-                                        chapter.name,
-                                        modifier = Modifier.fillMaxWidth().clickable {
-                                            if (selectedSource != null) {
-                                                readerTarget = ReaderTarget(selectedSource, item, chapters, chapter.url)
+                                    Row(Modifier.fillMaxWidth()) {
+                                        Text(
+                                            chapter.name,
+                                            modifier = Modifier.weight(1f).clickable {
+                                                if (selectedSource != null) {
+                                                    readerTarget =
+                                                        ReaderTarget(selectedSource, item, chapters, chapter.url)
+                                                }
+                                            }.padding(8.dp),
+                                        )
+                                        val queued = downloads.firstOrNull {
+                                            it.sourceId == selectedSource?.id && it.mangaUrl == item.url &&
+                                                it.chapterUrl == chapter.url
+                                        }
+                                        if (selectedSource != null && selectedSource !is DesktopLocalSource) {
+                                            TextButton(onClick = {
+                                                when (queued?.status) {
+                                                    DesktopDownloadStatus.PAUSED, DesktopDownloadStatus.FAILED ->
+                                                        session.downloads.resume(queued.key)
+                                                    null -> session.downloads.enqueue(selectedSource, item, chapter)
+                                                    else -> Unit
+                                                }
+                                            }) {
+                                                Text(
+                                                    when (queued?.status) {
+                                                        DesktopDownloadStatus.COMPLETED -> "Downloaded"
+                                                        DesktopDownloadStatus.PAUSED -> "Resume"
+                                                        DesktopDownloadStatus.FAILED -> "Retry"
+                                                        DesktopDownloadStatus.RUNNING ->
+                                                            "${queued.pagesDone}/${queued.pageCount}"
+                                                        DesktopDownloadStatus.PENDING -> "Queued"
+                                                        null -> "Download"
+                                                    },
+                                                )
                                             }
-                                        }.padding(8.dp),
-                                    )
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -414,6 +451,10 @@ fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {
                             session.library.history().forEach { entry -> Text(entry.title) }
                         }
                         screen == Screen.UPDATES -> {
+                            TextButton(onClick = session.libraryUpdates::updateNow, enabled = !libraryUpdate.running) {
+                                Text("Check library now")
+                            }
+                            if (libraryUpdate.message.isNotBlank()) Text(libraryUpdate.message)
                             session.library.updates().forEach { entry ->
                                 Text("${entry.mangaTitle} · ${entry.chapterName}")
                             }
@@ -422,6 +463,54 @@ fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {
                             Text("Language: ${graph.localeService.currentLanguageTag()}")
                             Text("Library: ${graph.appDirectories.localLibrary}")
                             Text("Database: ${graph.appDirectories.database}")
+                            TextButton(onClick = {
+                                val intervals = DesktopLibraryUpdateScheduler.INTERVALS
+                                updateInterval = intervals[(intervals.indexOf(updateInterval) + 1) % intervals.size]
+                                session.libraryUpdates.setIntervalHours(updateInterval)
+                            }) {
+                                Text(
+                                    if (updateInterval == 0L) {
+                                        "Scheduled library updates: off"
+                                    } else {
+                                        "Scheduled library updates: every $updateInterval hours (while app is open)"
+                                    },
+                                )
+                            }
+                            Text(
+                                "Downloads wait for an active network. Windows Wi-Fi/cellular distinction is not assumed.",
+                            )
+                        }
+                        screen == Screen.DOWNLOADS -> {
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                TextButton(onClick = { session.downloads.pause() }) { Text("Pause all") }
+                                TextButton(onClick = { session.downloads.resume() }) { Text("Resume all") }
+                            }
+                            LazyColumn {
+                                items(downloads, key = DesktopDownload::key) { download ->
+                                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        Text(
+                                            "${download.mangaTitle} · ${download.chapterName} · " +
+                                                "${download.status} ${download.pagesDone}/${download.pageCount}" +
+                                                (download.error?.let { " · $it" } ?: ""),
+                                            modifier = Modifier.weight(1f).padding(8.dp),
+                                        )
+                                        when (download.status) {
+                                            DesktopDownloadStatus.PENDING, DesktopDownloadStatus.RUNNING ->
+                                                TextButton(onClick = { session.downloads.pause(download.key) }) {
+                                                    Text("Pause")
+                                                }
+                                            DesktopDownloadStatus.PAUSED, DesktopDownloadStatus.FAILED ->
+                                                TextButton(onClick = { session.downloads.resume(download.key) }) {
+                                                    Text("Resume")
+                                                }
+                                            DesktopDownloadStatus.COMPLETED -> Unit
+                                        }
+                                        TextButton(onClick = {
+                                            session.downloads.cancel(download.key)
+                                        }) { Text("Cancel") }
+                                    }
+                                }
+                            }
                         }
                     }
                 }

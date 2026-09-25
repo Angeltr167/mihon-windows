@@ -29,10 +29,28 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
     private val localFileSystem = DesktopLocalSourceFileSystem(Path.of(graph.appDirectories.localLibrary))
     private val localSource = DesktopLocalSource(localFileSystem)
     val localPages = DesktopLocalChapterPages(localFileSystem)
+    private val downloadNotifications = DesktopDownloadNotifications()
+    private val downloadStore = DesktopDownloadStore(Path.of(graph.appDirectories.downloads))
+    internal val downloads = DesktopDownloadScheduler(
+        downloadStore,
+        DesktopDownloadEngine(downloadStore, DesktopPageFetcher(localPages)),
+        sourceForId = { id -> sources().firstOrNull { it.id == id } },
+        notify = downloadNotifications::show,
+    )
+    internal val libraryUpdates = DesktopLibraryUpdateScheduler(
+        library,
+        sourceForId = { id -> sources().firstOrNull { it.id == id } },
+        preferences = graph.keyValueStore,
+    )
 
     fun sources(): List<Source> = listOf(localSource) + extensions.loadInstalled()
         .filterIsInstance<DesktopExtensionLoadResult.Loaded>()
         .flatMap(DesktopExtensionLoadResult.Loaded::sources)
 
-    override fun close() = library.close()
+    override fun close() {
+        downloads.close()
+        libraryUpdates.close()
+        downloadNotifications.close()
+        library.close()
+    }
 }

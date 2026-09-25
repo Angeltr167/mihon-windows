@@ -87,7 +87,7 @@ internal fun DesktopReader(
     onToggleFullscreen: () -> Unit,
 ) {
     val chapters = remember(target) { target.chapters.asReversed() }
-    val loader = remember(session) { DesktopPageLoader(session.localPages) }
+    val loader = remember(session) { DesktopPageLoader(session.localPages, session.downloads.store) }
     val focusRequester = remember(target) { FocusRequester() }
     LaunchedEffect(focusRequester) { focusRequester.requestFocus() }
     var chapterIndex by remember(target) {
@@ -207,7 +207,7 @@ internal fun DesktopReader(
         loadedChapterIndex = -1
         loadState = ReaderPageLoadState.Loading
         runCatching {
-            val loaded = loader.pages(target.source, chapters[chapterIndex])
+            val loaded = loader.pages(target.source, chapters[chapterIndex], target.manga.url)
             val stored = withContext(Dispatchers.IO) {
                 val manga = session.library.ensureManga(target.source.id, target.manga)
                 session.library.syncChapters(manga._id, chapters)
