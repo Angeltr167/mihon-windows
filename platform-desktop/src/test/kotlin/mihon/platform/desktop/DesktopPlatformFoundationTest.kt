@@ -1,5 +1,6 @@
 package mihon.platform.desktop
 
+import mihon.platform.api.ClipboardService
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Assertions.assertTrue
@@ -47,5 +48,19 @@ class DesktopPlatformFoundationTest {
         assertEquals(7L, reopened.getLong("count"))
         assertTrue(reopened.getBoolean("enabled"))
         assertFalse(reopened.contains("missing"))
+    }
+
+    @Test
+    fun `desktop share copies text for pasting into another app`() {
+        var copied: String? = null
+        val clipboard = object : ClipboardService {
+            override fun readText(): String? = copied
+            override fun writeText(text: String): Boolean {
+                copied = text
+                return true
+            }
+        }
+        assertTrue(DesktopExternalOpenService(clipboard).shareText("https://example.org/manga"))
+        assertEquals("https://example.org/manga", copied)
     }
 }

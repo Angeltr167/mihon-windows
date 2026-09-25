@@ -45,6 +45,7 @@ import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
+import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -234,6 +235,9 @@ fun DesktopShell(
                             val item = requireNotNull(selectedManga)
                             val selectedSource = source
                             val stored = selectedSource?.let { session.library.find(it.id, item.url) }
+                            val komgaTrack = stored?.let {
+                                session.library.track(it._id, DesktopKomgaTracker.TRACKER_ID)
+                            }
                             DesktopCover(item.thumbnail_url, selectedSource)
                             Text(item.description.orEmpty())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -247,6 +251,54 @@ fun DesktopShell(
                                     message = "Library updated"
                                 }) { Text(if (stored?.favorite == true) "Remove from library" else "Add to library") }
                                 TextButton(onClick = { selectedManga = null }) { Text("Back") }
+                                if (selectedSource is HttpSource) {
+                                    TextButton(onClick = {
+                                        runCatching {
+                                            val url = selectedSource.getMangaUrl(item)
+                                            val uri = URI(url)
+                                            require(uri.scheme in setOf("http", "https") && uri.userInfo == null)
+                                            check(graph.browserService.open(url))
+                                        }.onFailure { message = it.message ?: "Could not open browser" }
+                                    }) { Text("Open in browser") }
+                                    TextButton(onClick = {
+                                        runCatching {
+                                            val url = selectedSource.getMangaUrl(item)
+                                            val uri = URI(url)
+                                            require(uri.scheme in setOf("http", "https") && uri.userInfo == null)
+                                            check(graph.externalOpenService.shareText(url))
+                                        }.onSuccess { message = "Link copied" }
+                                            .onFailure { message = it.message ?: "Could not copy link" }
+                                    }) { Text("Copy link") }
+                                }
+                                if (stored != null && item.url.contains("/api/v1/series/")) {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            runCatching {
+                                                if (komgaTrack == null) {
+                                                    session.komgaTracker.bind(stored._id, item.title, item.url)
+                                                } else {
+                                                    chapters.filter {
+                                                        session.library.chapter(stored._id, it.url)?.read ==
+                                                            true
+                                                    }
+                                                        .maxOfOrNull { it.chapter_number.toDouble() }
+                                                        ?.let {
+                                                            session.komgaTracker.syncCompletedChapter(stored._id, it)
+                                                        }
+                                                }
+                                            }.onSuccess {
+                                                message =
+                                                    if (komgaTrack ==
+                                                        null
+                                                    ) {
+                                                        "Komga tracking linked"
+                                                    } else {
+                                                        "Komga progress synced"
+                                                    }
+                                            }.onFailure { message = it.message ?: "Komga tracking failed" }
+                                        }
+                                    }) { Text(if (komgaTrack == null) "Link Komga" else "Sync Komga") }
+                                }
                             }
                             if (stored?.favorite == true) {
                                 val selected = session.library.mangaCategories(stored._id)

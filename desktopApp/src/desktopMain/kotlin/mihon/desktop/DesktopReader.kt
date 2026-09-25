@@ -96,6 +96,9 @@ internal fun DesktopReader(
     var pageIndex by remember(target) { mutableIntStateOf(0) }
     var pages by remember(target) { mutableStateOf<List<DesktopPage>>(emptyList()) }
     var chapterId by remember(target) { mutableStateOf<Long?>(null) }
+    var mangaId by remember(target) { mutableStateOf<Long?>(null) }
+    var trackerSyncAttempted by remember(target) { mutableStateOf(false) }
+    var trackerError by remember(target) { mutableStateOf<String?>(null) }
     var loadedChapterIndex by remember(target) { mutableIntStateOf(-1) }
     var loadState by remember(target) { mutableStateOf<ReaderPageLoadState>(ReaderPageLoadState.Loading) }
     var retry by remember(target) { mutableIntStateOf(0) }
@@ -204,6 +207,8 @@ internal fun DesktopReader(
     LaunchedEffect(target, chapterIndex, retry) {
         pages = emptyList()
         chapterId = null
+        mangaId = null
+        trackerError = null
         loadedChapterIndex = -1
         loadState = ReaderPageLoadState.Loading
         runCatching {
@@ -221,6 +226,8 @@ internal fun DesktopReader(
                 if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) restored / 2 * 2 else restored
             pages = loaded
             chapterId = stored._id
+            mangaId = stored.manga_id
+            trackerSyncAttempted = stored.read
             loadedChapterIndex = chapterIndex
             openAtLastPage = false
             loadState = ReaderPageLoadState.Ready(loaded.size)
@@ -236,6 +243,17 @@ internal fun DesktopReader(
         if (pages.isEmpty()) return@LaunchedEffect
         val viewedIndex = viewedPageIndex(pageIndex, pages.size, mode)
         withContext(Dispatchers.IO) { session.library.saveProgress(id, viewedIndex, pages.size) }
+        if (viewedIndex == pages.lastIndex && !trackerSyncAttempted) {
+            trackerSyncAttempted = true
+            mangaId?.let { id ->
+                runCatching {
+                    session.komgaTracker.syncCompletedChapter(id, chapters[chapterIndex].chapter_number.toDouble())
+                }.onFailure {
+                    if (it is CancellationException) throw it
+                    trackerError = it.message ?: "Komga sync failed"
+                }
+            }
+        }
     }
 
     LaunchedEffect(chapterIndex, pageIndex, pages, mode) {
@@ -321,6 +339,7 @@ internal fun DesktopReader(
             TextButton(onClick = onToggleFullscreen) { Text("Fullscreen") }
             TextButton(onClick = { showShortcuts = true }) { Text("Keys") }
         }
+        trackerError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         when {
             loadState is ReaderPageLoadState.Failed -> Column {
                 Text((loadState as ReaderPageLoadState.Failed).reason, color = MaterialTheme.colorScheme.error)

@@ -120,12 +120,12 @@ class DesktopApplicationLifecycle : ApplicationLifecycle {
     override fun requestExit(exitCode: Int) = exitProcess(exitCode)
 }
 
-class DesktopExternalOpenService : ExternalOpenService {
+class DesktopExternalOpenService(private val clipboardService: ClipboardService) : ExternalOpenService {
     override fun openPath(path: String): Boolean = runCatching {
         if (!Desktop.isDesktopSupported()) return false
         Desktop.getDesktop().open(File(path))
         true
     }.getOrDefault(false)
 
-    override fun shareText(text: String): Boolean = false
+    override fun shareText(text: String): Boolean = clipboardService.writeText(text)
 }

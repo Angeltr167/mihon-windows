@@ -27,6 +27,7 @@ kotlin {
                 implementation(compose.material3)
                 implementation(libs.metro.runtime)
                 implementation(libs.okhttp.core)
+                implementation(libs.kotlinx.serialization.json)
                 implementation("dev.icerock.moko:resources-compose:0.26.4")
             }
         }

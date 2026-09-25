@@ -9,6 +9,7 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
 import tachiyomi.data.Chapters
 import tachiyomi.data.History
+import tachiyomi.data.Manga_sync
 import tachiyomi.data.Mangas
 import java.io.Closeable
 import java.nio.file.Path
@@ -121,6 +122,57 @@ class DesktopMangaRepository private constructor(
 
     fun chapter(mangaId: Long, chapterUrl: String): Chapters? =
         database.chaptersQueries.getChapterByUrlAndMangaId(chapterUrl, mangaId).executeAsOneOrNull()
+
+    fun track(mangaId: Long, trackerId: Long): Manga_sync? =
+        database.manga_syncQueries.getTracksByMangaId(mangaId).executeAsList()
+            .firstOrNull { it.sync_id == trackerId }
+
+    fun addTrack(
+        mangaId: Long,
+        trackerId: Long,
+        title: String,
+        remoteUrl: String,
+        lastChapterRead: Double,
+        totalChapters: Long,
+        status: Long,
+    ) {
+        requireNotNull(manga(mangaId)) { "Unknown manga: $mangaId" }
+        require(track(mangaId, trackerId) == null) { "Tracker is already bound" }
+        database.manga_syncQueries.insert(
+            mangaId = mangaId,
+            syncId = trackerId,
+            remoteId = 0,
+            libraryId = null,
+            title = title,
+            lastChapterRead = lastChapterRead,
+            totalChapters = totalChapters,
+            status = status,
+            score = 0.0,
+            remoteUrl = remoteUrl,
+            startDate = 0,
+            finishDate = 0,
+            `private` = false,
+        )
+    }
+
+    fun updateTrackProgress(track: Manga_sync, lastChapterRead: Double, totalChapters: Long, status: Long) {
+        database.manga_syncQueries.update(
+            mangaId = null,
+            syncId = null,
+            mediaId = null,
+            libraryId = null,
+            title = null,
+            lastChapterRead = lastChapterRead,
+            totalChapter = totalChapters,
+            status = status,
+            score = null,
+            trackingUrl = null,
+            startDate = null,
+            finishDate = null,
+            `private` = null,
+            id = track._id,
+        )
+    }
 
     fun saveProgress(chapterId: Long, pageIndex: Int, pageCount: Int, readTimeMillis: Long = 0) {
         require(pageCount > 0 && pageIndex in 0 until pageCount)

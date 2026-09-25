@@ -81,4 +81,27 @@ class DesktopMangaRepositoryTest {
             assertTrue(repository.library().isEmpty())
         }
     }
+
+    @Test
+    fun `tracker binding and progress persist in the existing schema`() {
+        val path = Files.createTempDirectory("mihon-tracker-progress").resolve("tachiyomi.db")
+        val manga = SManga.create().apply {
+            url = "/komga"
+            title = "Tracked manga"
+        }
+        val mangaId = DesktopMangaRepository.open(path).use { repository ->
+            val id = repository.addToLibrary(18, manga)._id
+            repository.addTrack(id, 6, manga.title, "https://komga.example/api/v1/series/abc", 0.0, 2, 1)
+            val track = requireNotNull(repository.track(id, 6))
+            repository.updateTrackProgress(track, 1.0, 2, 2)
+            assertEquals(track._id, repository.track(id, 6)?._id)
+            id
+        }
+        DesktopMangaRepository.open(path).use { repository ->
+            val track = requireNotNull(repository.track(mangaId, 6))
+            assertEquals("https://komga.example/api/v1/series/abc", track.remote_url)
+            assertEquals(1.0, track.last_chapter_read)
+            assertEquals(2L, track.status)
+        }
+    }
 }

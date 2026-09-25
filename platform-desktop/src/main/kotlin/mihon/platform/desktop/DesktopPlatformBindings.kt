@@ -69,5 +69,6 @@ object DesktopPlatformBindings {
 
     @Provides
     @SingleIn(AppScope::class)
-    fun provideExternalOpenService(): ExternalOpenService = DesktopExternalOpenService()
+    fun provideExternalOpenService(clipboardService: ClipboardService): ExternalOpenService =
+        DesktopExternalOpenService(clipboardService)
 }
