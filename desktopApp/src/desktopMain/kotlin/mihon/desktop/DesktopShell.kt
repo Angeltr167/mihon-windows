@@ -54,6 +54,7 @@ import kotlinx.coroutines.withContext
 import mihon.core.extension.desktop.DesktopRepositoryEntry
 import mihon.platform.api.OpenFileRequest
 import mihon.platform.desktop.DesktopPlatformGraph
+import mihon.platform.desktop.WindowsProtocolRegistrar
 import tachiyomi.data.Mangas
 import tachiyomi.source.local.desktop.DesktopLocalSource
 import java.net.URI
@@ -82,6 +83,7 @@ fun DesktopShell(
     DisposableEffect(session) { onDispose(session::close) }
     val scope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
+    val protocolRegistrar = remember { WindowsProtocolRegistrar() }
     LaunchedEffect(focusRequester) { focusRequester.requestFocus() }
     var screen by remember { mutableStateOf(Screen.LIBRARY) }
     var sources by remember { mutableStateOf(session.sources()) }
@@ -126,6 +128,7 @@ fun DesktopShell(
     var mangaBakaLoggedIn by remember { mutableStateOf(session.mangaBakaTracker.isLoggedIn) }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
+    var mihonProtocolRegistered by remember { mutableStateOf(protocolRegistrar.isRegistered()) }
     val downloads by session.downloads.queue.collectAsState()
     val trackerSyncQueue by session.trackerSync.pending.collectAsState()
     val incomingLink by incomingLinks.collectAsState()
@@ -1062,6 +1065,28 @@ fun DesktopShell(
                             Text("Language: ${graph.localeService.currentLanguageTag()}")
                             Text("Library: ${graph.appDirectories.localLibrary}")
                             Text("Database: ${graph.appDirectories.database}")
+                            if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
+                                Text(
+                                    "Browser links: ${if (mihonProtocolRegistered) "registered" else "not registered"}",
+                                )
+                                if (mihonProtocolRegistered) {
+                                    TextButton(onClick = {
+                                        runCatching { protocolRegistrar.unregisterMihonProtocol() }
+                                            .onSuccess {
+                                                mihonProtocolRegistered = false
+                                                message = "Mihon browser links unregistered"
+                                            }.onFailure { message = it.message ?: "Could not unregister Mihon links" }
+                                    }) { Text("Unregister Mihon browser links") }
+                                } else {
+                                    TextButton(onClick = {
+                                        runCatching { protocolRegistrar.registerMihonProtocol() }
+                                            .onSuccess {
+                                                mihonProtocolRegistered = true
+                                                message = "Mihon browser links registered for this Windows user"
+                                            }.onFailure { message = it.message ?: "Could not register Mihon links" }
+                                    }) { Text("Register Mihon browser links") }
+                                }
+                            }
                             Text("AniList: ${if (aniListLoggedIn) "signed in" else "not signed in"}")
                             if (aniListLoggedIn) {
                                 TextButton(onClick = {
