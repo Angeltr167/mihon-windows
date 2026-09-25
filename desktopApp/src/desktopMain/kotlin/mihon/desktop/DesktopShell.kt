@@ -246,6 +246,9 @@ fun DesktopShell(
                             val aniListTrack = stored?.let {
                                 session.library.track(it._id, DesktopAniListTracker.TRACKER_ID)
                             }
+                            val suwayomiTrack = stored?.let {
+                                session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
+                            }
                             DesktopCover(item.thumbnail_url, selectedSource)
                             Text(item.description.orEmpty())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -348,6 +351,36 @@ fun DesktopShell(
                                         }
                                     }) { Text("Sync AniList") }
                                 }
+                            }
+                            if (stored != null &&
+                                selectedSource.javaClass.name == DesktopSuwayomiTracker.SOURCE_CLASS
+                            ) {
+                                TextButton(onClick = {
+                                    scope.launch {
+                                        runCatching {
+                                            if (suwayomiTrack == null) {
+                                                session.suwayomiTracker.bind(stored._id, selectedSource.id, item.url)
+                                            } else {
+                                                val lastRead = withContext(Dispatchers.IO) {
+                                                    chapters.filter {
+                                                        session.library.chapter(stored._id, it.url)?.read == true
+                                                    }.maxOfOrNull { it.chapter_number.toDouble() }
+                                                }
+                                                if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                    session.trackerSync.enqueue(stored._id, lastRead)
+                                                } else {
+                                                    session.trackerSync.retry(stored._id)
+                                                }
+                                            }
+                                        }.onSuccess {
+                                            message = if (suwayomiTrack == null) {
+                                                "Suwayomi tracking linked"
+                                            } else {
+                                                "Suwayomi sync queued"
+                                            }
+                                        }.onFailure { message = it.message ?: "Suwayomi tracking failed" }
+                                    }
+                                }) { Text(if (suwayomiTrack == null) "Link Suwayomi" else "Sync Suwayomi") }
                             }
                             if (stored?.favorite == true) {
                                 val selected = session.library.mangaCategories(stored._id)
@@ -539,7 +572,7 @@ fun DesktopShell(
                                     runCatching { session.extensions.install(Path.of(packagePath.trim())) }
                                         .onSuccess { result ->
                                             message = result.toString()
-                                            sources = session.sources()
+                                            sources = session.refreshSources()
                                         }
                                         .onFailure { message = it.message ?: "Install failed" }
                                 }) { Text("Install") }
@@ -584,7 +617,7 @@ fun DesktopShell(
                                                 }.onSuccess { result ->
                                                     message = result.toString()
                                                     sources =
-                                                        session.sources()
+                                                        session.refreshSources()
                                                 }
                                                     .onFailure { message = it.message ?: "Update failed" }
                                             }

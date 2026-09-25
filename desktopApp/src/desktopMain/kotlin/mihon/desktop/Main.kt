@@ -26,6 +26,7 @@ fun main(args: Array<String>) {
         DesktopDatabaseDriver.open(databasePath).use { }
         DesktopSession(graph).use { session ->
             check(session.sources().any { it.name == "Local source" })
+            check(session.sources() === session.sources())
             session.library.library()
         }
         check(Manga.create().id == -1L)

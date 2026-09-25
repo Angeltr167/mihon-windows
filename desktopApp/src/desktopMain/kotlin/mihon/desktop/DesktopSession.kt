@@ -2,6 +2,7 @@ package mihon.desktop
 
 import eu.kanade.tachiyomi.network.NetworkHelper
 import eu.kanade.tachiyomi.source.Source
+import eu.kanade.tachiyomi.source.online.HttpSource
 import mihon.core.extension.desktop.DesktopExtensionLoadResult
 import mihon.core.extension.desktop.DesktopExtensionManager
 import mihon.core.extension.desktop.DesktopExtensionRepository
@@ -25,24 +26,31 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
     }
 
     val library = DesktopMangaRepository.open(Path.of(graph.appDirectories.database).resolve("tachiyomi.db"))
+    val extensions = DesktopExtensionManager(graph.appDirectories)
+    private val localFileSystem = DesktopLocalSourceFileSystem(Path.of(graph.appDirectories.localLibrary))
+    private val localSource = DesktopLocalSource(localFileSystem)
+    val localPages = DesktopLocalChapterPages(localFileSystem)
+    private var loadedSources: List<Source>? = null
     internal val komgaTracker = DesktopKomgaTracker(network.client, library)
     internal val aniListTracker = DesktopAniListTracker(
         network.client,
         library,
         DesktopSecretStore(Path.of(graph.appDirectories.data).resolve("secrets")),
     )
+    internal val suwayomiTracker = DesktopSuwayomiTracker(library) { sourceId ->
+        sources().filterIsInstance<HttpSource>()
+            .firstOrNull { it.id == sourceId && it.javaClass.name == DesktopSuwayomiTracker.SOURCE_CLASS }
+            ?.let { DesktopTrackerSourceSession(it.baseUrl, it.client, it.headers) }
+    }
     internal val trackerSync = DesktopTrackerSyncScheduler(
         Path.of(graph.appDirectories.config).resolve("tracker-sync.properties"),
         DesktopTrackProgressUpdater { mangaId, chapterNumber ->
             komgaTracker.syncCompletedChapter(mangaId, chapterNumber)
             aniListTracker.syncCompletedChapter(mangaId, chapterNumber)
+            suwayomiTracker.syncCompletedChapter(mangaId, chapterNumber)
         },
     )
-    val extensions = DesktopExtensionManager(graph.appDirectories)
     val extensionRepository = DesktopExtensionRepository(Path.of(graph.appDirectories.temp))
-    private val localFileSystem = DesktopLocalSourceFileSystem(Path.of(graph.appDirectories.localLibrary))
-    private val localSource = DesktopLocalSource(localFileSystem)
-    val localPages = DesktopLocalChapterPages(localFileSystem)
     private val downloadNotifications = DesktopDownloadNotifications()
     private val downloadStore = DesktopDownloadStore(Path.of(graph.appDirectories.downloads))
     internal val downloads = DesktopDownloadScheduler(
@@ -57,9 +65,15 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
         preferences = graph.keyValueStore,
     )
 
-    fun sources(): List<Source> = listOf(localSource) + extensions.loadInstalled()
-        .filterIsInstance<DesktopExtensionLoadResult.Loaded>()
-        .flatMap(DesktopExtensionLoadResult.Loaded::sources)
+    @Synchronized
+    fun sources(): List<Source> = loadedSources ?: refreshSources()
+
+    @Synchronized
+    fun refreshSources(): List<Source> = (
+        listOf(localSource) + extensions.loadInstalled()
+            .filterIsInstance<DesktopExtensionLoadResult.Loaded>()
+            .flatMap(DesktopExtensionLoadResult.Loaded::sources)
+        ).also { loadedSources = it }
 
     override fun close() {
         trackerSync.close()
