@@ -37,28 +37,36 @@ fun main(args: Array<String>) {
         return
     }
 
-    application {
-        val state = rememberWindowState(
-            width = graph.keyValueStore.getLong("desktop.window.width", 1100).coerceIn(800, 3840).toInt().dp,
-            height = graph.keyValueStore.getLong("desktop.window.height", 750).coerceIn(560, 2160).toInt().dp,
-        )
-        Window(
-            onCloseRequest = {
-                graph.keyValueStore.putLong("desktop.window.width", state.size.width.value.toLong())
-                graph.keyValueStore.putLong("desktop.window.height", state.size.height.value.toLong())
-                exitApplication()
-            },
-            title = "Mihon",
-            state = state,
-        ) {
-            window.minimumSize = Dimension(800, 560)
-            DesktopShell(graph, initialLink = args.singleOrNull(), onToggleFullscreen = {
-                state.placement = if (state.placement == WindowPlacement.Fullscreen) {
-                    WindowPlacement.Floating
-                } else {
-                    WindowPlacement.Fullscreen
-                }
-            })
+    DesktopSingleInstance(Path.of(graph.appDirectories.config)).use { instance ->
+        if (!instance.startOrForward(args)) return
+        application {
+            val state = rememberWindowState(
+                width = graph.keyValueStore.getLong("desktop.window.width", 1100).coerceIn(800, 3840).toInt().dp,
+                height = graph.keyValueStore.getLong("desktop.window.height", 750).coerceIn(560, 2160).toInt().dp,
+            )
+            Window(
+                onCloseRequest = {
+                    graph.keyValueStore.putLong("desktop.window.width", state.size.width.value.toLong())
+                    graph.keyValueStore.putLong("desktop.window.height", state.size.height.value.toLong())
+                    exitApplication()
+                },
+                title = "Mihon",
+                state = state,
+            ) {
+                window.minimumSize = Dimension(800, 560)
+                DesktopShell(
+                    graph,
+                    initialLink = args.singleOrNull(),
+                    incomingLinks = instance.incomingLink,
+                    onToggleFullscreen = {
+                        state.placement = if (state.placement == WindowPlacement.Fullscreen) {
+                            WindowPlacement.Floating
+                        } else {
+                            WindowPlacement.Fullscreen
+                        }
+                    },
+                )
+            }
         }
     }
 }

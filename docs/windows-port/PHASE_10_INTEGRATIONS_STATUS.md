@@ -1,6 +1,6 @@
 # P10 integrations status (in progress)
 
-The Desktop source-link router accepts HTTPS manga/chapter URLs handled by an installed `ResolvableSource`, plus `mihon://extension-store?url=...` and `tachiyomi://add-repo?url=...` repository links. It rejects arbitrary schemes and unsafe repository URLs. Links can be pasted into Search or passed as a single launch argument. The repository URL is shown for review before discovery or installation. Registering the custom protocol with Windows and forwarding links to an already running instance remain P10/P12 work.
+The Desktop source-link router accepts HTTPS manga/chapter URLs handled by an installed `ResolvableSource`, plus `mihon://extension-store?url=...` and `tachiyomi://add-repo?url=...` repository links. It rejects arbitrary schemes and unsafe repository URLs. Links can be pasted into Search or passed as a single launch argument. The repository URL is shown for review before discovery or installation. The process now forwards protocol URLs to the active Desktop session, and tracker OAuth callbacks are consumed automatically. Registering `mihon://` with Windows is part of the installer integration in P12; local IPC fixtures verify delivery to an already running process.
 
 The Android tracker manager exposes 11 providers (MyAnimeList, AniList, Kitsu, Shikimori, Bangumi, Komga, MangaUpdates, Kavita, Suwayomi, Hikka, MangaBaka). Their Android implementations live in `:app`; reusing `:app` directly would violate the Desktop Android-dependency boundary.
 
@@ -42,6 +42,6 @@ MangaBaka now uses its S256 PKCE and callback-state OAuth path with tracker ID 1
 | MangaBaka | S256 PKCE OAuth/custom callback | Fixture-backed browser + paste callback, DPAPI tokens, library binding and progress sync; live account and automatic callback pending |
 | AniList | OAuth/custom callback | Fixture-backed browser + paste callback, DPAPI token, manga binding and progress sync; live account and automatic callback pending |
 
-No unported provider is being labeled a provider-specific blocker merely because it has not yet been implemented. The callback approach must also be tested against actual provider redirect registrations before it is declared supported.
+No unported provider is being labeled a provider-specific blocker merely because it has not yet been implemented. The callback approach is fixture-tested, but provider registrations and live authentication still need validation.
 
-The Desktop platform layer provides browser opening, clipboard, file opening, and share-as-copy behavior. Manga details now expose browser/copy-link actions for HTTP sources. Actual Windows protocol registration and file associations are packaging work; none should be claimed as tested from an external browser yet.
+The Desktop platform layer provides browser opening, clipboard, file opening, and share-as-copy behavior. Manga details now expose browser/copy-link actions for HTTP sources. Windows protocol registration and file associations are packaging work and are not yet tested from an external browser.

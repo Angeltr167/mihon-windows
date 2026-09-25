@@ -48,6 +48,7 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mihon.core.extension.desktop.DesktopRepositoryEntry
@@ -74,6 +75,7 @@ private enum class Screen(val title: String) {
 fun DesktopShell(
     graph: DesktopPlatformGraph,
     initialLink: String? = null,
+    incomingLinks: StateFlow<String?>,
     onToggleFullscreen: () -> Unit = {},
 ) {
     val session = remember { DesktopSession(graph) }
@@ -126,6 +128,7 @@ fun DesktopShell(
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
     val trackerSyncQueue by session.trackerSync.pending.collectAsState()
+    val incomingLink by incomingLinks.collectAsState()
     val libraryUpdate by session.libraryUpdates.state.collectAsState()
     var updateInterval by remember { mutableLongStateOf(session.libraryUpdates.intervalHours()) }
 
@@ -195,8 +198,53 @@ fun DesktopShell(
         }
     }
 
+    fun handleIncomingLink(raw: String) {
+        val host = runCatching { URI(raw).takeIf { it.scheme == "mihon" }?.host }.getOrNull()
+        val tracker = when (host) {
+            "anilist-auth" -> "AniList"
+            "myanimelist-auth" -> "MyAnimeList"
+            "shikimori-auth" -> "Shikimori"
+            "bangumi-auth" -> "Bangumi"
+            "hikka-auth" -> "Hikka"
+            "mangabaka-auth" -> "MangaBaka"
+            else -> null
+        }
+        if (tracker == null) {
+            openLink(raw)
+            return
+        }
+        scope.launch {
+            runCatching {
+                when (tracker) {
+                    "AniList" -> session.aniListTracker.loginFromCallback(raw)
+                    "MyAnimeList" -> session.myAnimeListTracker.loginFromCallback(raw)
+                    "Shikimori" -> session.shikimoriTracker.loginFromCallback(raw)
+                    "Bangumi" -> session.bangumiTracker.loginFromCallback(raw)
+                    "Hikka" -> session.hikkaTracker.loginFromCallback(raw)
+                    "MangaBaka" -> session.mangaBakaTracker.loginFromCallback(raw)
+                    else -> error("Unsupported tracker callback")
+                }
+            }.onSuccess { name ->
+                when (tracker) {
+                    "AniList" -> aniListLoggedIn = true
+                    "MyAnimeList" -> malLoggedIn = true
+                    "Shikimori" -> shikimoriLoggedIn = true
+                    "Bangumi" -> bangumiLoggedIn = true
+                    "Hikka" -> hikkaLoggedIn = true
+                    "MangaBaka" -> mangaBakaLoggedIn = true
+                }
+                message = "Signed in to $tracker as $name"
+            }.onFailure { message = it.message ?: "$tracker sign-in failed" }
+        }
+    }
+
     LaunchedEffect(initialLink) {
-        if (!initialLink.isNullOrBlank()) openLink(initialLink)
+        if (!initialLink.isNullOrBlank()) handleIncomingLink(initialLink)
+    }
+
+    LaunchedEffect(incomingLink) {
+        val link = incomingLink
+        if (!link.isNullOrBlank() && link != initialLink) handleIncomingLink(link)
     }
 
     MaterialTheme {
