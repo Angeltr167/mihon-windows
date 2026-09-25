@@ -110,6 +110,9 @@ fun DesktopShell(
     var malCallback by remember { mutableStateOf("") }
     var malMangaId by remember { mutableStateOf("") }
     var malLoggedIn by remember { mutableStateOf(session.myAnimeListTracker.isLoggedIn) }
+    var shikimoriCallback by remember { mutableStateOf("") }
+    var shikimoriMangaId by remember { mutableStateOf("") }
+    var shikimoriLoggedIn by remember { mutableStateOf(session.shikimoriTracker.isLoggedIn) }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
@@ -269,6 +272,9 @@ fun DesktopShell(
                             }
                             val malTrack = stored?.let {
                                 session.library.track(it._id, DesktopMyAnimeListTracker.TRACKER_ID)
+                            }
+                            val shikimoriTrack = stored?.let {
+                                session.library.track(it._id, DesktopShikimoriTracker.TRACKER_ID)
                             }
                             val suwayomiTrack = stored?.let {
                                 session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
@@ -529,6 +535,45 @@ fun DesktopShell(
                                             message = "MyAnimeList sync queued"
                                         }
                                     }) { Text("Sync MyAnimeList") }
+                                }
+                            }
+                            if (stored != null && shikimoriLoggedIn) {
+                                if (shikimoriTrack == null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            shikimoriMangaId,
+                                            { shikimoriMangaId = it },
+                                            label = { Text("Shikimori manga ID") },
+                                        )
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching {
+                                                    val id = shikimoriMangaId.trim().toLongOrNull()
+                                                        ?: error("Enter a numeric Shikimori manga ID")
+                                                    session.shikimoriTracker.bind(stored._id, id)
+                                                }.onSuccess {
+                                                    shikimoriMangaId = ""
+                                                    message = "Shikimori tracking linked"
+                                                }.onFailure { message = it.message ?: "Shikimori link failed" }
+                                            }
+                                        }) { Text("Link Shikimori") }
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val lastRead = withContext(Dispatchers.IO) {
+                                                chapters.filter {
+                                                    session.library.chapter(stored._id, it.url)?.read == true
+                                                }.maxOfOrNull { it.chapter_number.toDouble() }
+                                            }
+                                            if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                session.trackerSync.enqueue(stored._id, lastRead)
+                                            } else {
+                                                session.trackerSync.retry(stored._id)
+                                            }
+                                            message = "Shikimori sync queued"
+                                        }
+                                    }) { Text("Sync Shikimori") }
                                 }
                             }
                             if (stored != null &&
@@ -966,6 +1011,38 @@ fun DesktopShell(
                                             }.onFailure { message = it.message ?: "MyAnimeList sign-in failed" }
                                     }
                                 }) { Text("Complete MyAnimeList sign-in") }
+                            }
+                            Text("Shikimori: ${if (shikimoriLoggedIn) "signed in" else "not signed in"}")
+                            if (shikimoriLoggedIn) {
+                                TextButton(onClick = {
+                                    session.shikimoriTracker.logout()
+                                    shikimoriLoggedIn = false
+                                    message = "Shikimori signed out"
+                                }) { Text("Sign out of Shikimori") }
+                            } else {
+                                TextButton(onClick = {
+                                    runCatching {
+                                        check(graph.browserService.open(session.shikimoriTracker.beginLogin()))
+                                    }.onFailure { message = it.message ?: "Could not open Shikimori" }
+                                }) { Text("Sign in to Shikimori in browser") }
+                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
+                                OutlinedTextField(
+                                    shikimoriCallback,
+                                    { shikimoriCallback = it },
+                                    label = { Text("Paste Shikimori redirect URL") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                )
+                                TextButton(onClick = {
+                                    val callback = shikimoriCallback
+                                    shikimoriCallback = ""
+                                    scope.launch {
+                                        runCatching { session.shikimoriTracker.loginFromCallback(callback) }
+                                            .onSuccess { name ->
+                                                shikimoriLoggedIn = true
+                                                message = "Signed in to Shikimori as $name"
+                                            }.onFailure { message = it.message ?: "Shikimori sign-in failed" }
+                                    }
+                                }) { Text("Complete Shikimori sign-in") }
                             }
                             TextButton(onClick = {
                                 val intervals = DesktopLibraryUpdateScheduler.INTERVALS
