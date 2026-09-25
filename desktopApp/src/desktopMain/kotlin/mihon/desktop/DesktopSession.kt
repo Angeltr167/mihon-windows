@@ -8,6 +8,7 @@ import mihon.core.extension.desktop.DesktopExtensionRepository
 import mihon.core.network.desktop.DesktopNetworkHelper
 import mihon.desktop.data.DesktopMangaRepository
 import mihon.platform.desktop.DesktopPlatformGraph
+import mihon.platform.desktop.DesktopSecretStore
 import tachiyomi.source.local.desktop.DesktopLocalChapterPages
 import tachiyomi.source.local.desktop.DesktopLocalSource
 import tachiyomi.source.local.desktop.DesktopLocalSourceFileSystem
@@ -25,9 +26,17 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
 
     val library = DesktopMangaRepository.open(Path.of(graph.appDirectories.database).resolve("tachiyomi.db"))
     internal val komgaTracker = DesktopKomgaTracker(network.client, library)
+    internal val aniListTracker = DesktopAniListTracker(
+        network.client,
+        library,
+        DesktopSecretStore(Path.of(graph.appDirectories.data).resolve("secrets")),
+    )
     internal val trackerSync = DesktopTrackerSyncScheduler(
         Path.of(graph.appDirectories.config).resolve("tracker-sync.properties"),
-        komgaTracker,
+        DesktopTrackProgressUpdater { mangaId, chapterNumber ->
+            komgaTracker.syncCompletedChapter(mangaId, chapterNumber)
+            aniListTracker.syncCompletedChapter(mangaId, chapterNumber)
+        },
     )
     val extensions = DesktopExtensionManager(graph.appDirectories)
     val extensionRepository = DesktopExtensionRepository(Path.of(graph.appDirectories.temp))

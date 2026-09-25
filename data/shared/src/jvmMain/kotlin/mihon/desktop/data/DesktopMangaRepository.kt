@@ -135,14 +135,16 @@ class DesktopMangaRepository private constructor(
         lastChapterRead: Double,
         totalChapters: Long,
         status: Long,
+        remoteId: Long = 0,
+        libraryId: Long? = null,
     ) {
         requireNotNull(manga(mangaId)) { "Unknown manga: $mangaId" }
         require(track(mangaId, trackerId) == null) { "Tracker is already bound" }
         database.manga_syncQueries.insert(
             mangaId = mangaId,
             syncId = trackerId,
-            remoteId = 0,
-            libraryId = null,
+            remoteId = remoteId,
+            libraryId = libraryId,
             title = title,
             lastChapterRead = lastChapterRead,
             totalChapters = totalChapters,

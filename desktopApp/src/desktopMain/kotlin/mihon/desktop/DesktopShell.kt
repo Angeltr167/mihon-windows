@@ -40,6 +40,7 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.FilterList
@@ -95,6 +96,9 @@ fun DesktopShell(
     var availableExtensions by remember { mutableStateOf(emptyList<DesktopRepositoryEntry>()) }
     var fingerprint by remember { mutableStateOf("") }
     var categoryName by remember { mutableStateOf("") }
+    var aniListCallback by remember { mutableStateOf("") }
+    var aniListMediaId by remember { mutableStateOf("") }
+    var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
     val trackerSyncQueue by session.trackerSync.pending.collectAsState()
@@ -239,6 +243,9 @@ fun DesktopShell(
                             val komgaTrack = stored?.let {
                                 session.library.track(it._id, DesktopKomgaTracker.TRACKER_ID)
                             }
+                            val aniListTrack = stored?.let {
+                                session.library.track(it._id, DesktopAniListTracker.TRACKER_ID)
+                            }
                             DesktopCover(item.thumbnail_url, selectedSource)
                             Text(item.description.orEmpty())
                             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -304,6 +311,42 @@ fun DesktopShell(
                                     trackerSyncQueue.firstOrNull { it.mangaId == stored._id }?.error?.let {
                                         Text(it, color = MaterialTheme.colorScheme.error)
                                     }
+                                }
+                            }
+                            if (stored != null && aniListLoggedIn) {
+                                if (aniListTrack == null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            aniListMediaId,
+                                            { aniListMediaId = it },
+                                            label = { Text("AniList manga ID") },
+                                        )
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching {
+                                                    val id = aniListMediaId.trim().toIntOrNull()
+                                                        ?: error("Enter a numeric AniList manga ID")
+                                                    session.aniListTracker.bind(stored._id, id)
+                                                }.onSuccess {
+                                                    aniListMediaId = ""
+                                                    message = "AniList tracking linked"
+                                                }.onFailure { message = it.message ?: "AniList link failed" }
+                                            }
+                                        }) { Text("Link AniList") }
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        val lastRead = chapters.filter {
+                                            session.library.chapter(stored._id, it.url)?.read == true
+                                        }.maxOfOrNull { it.chapter_number.toDouble() }
+                                        if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                            session.trackerSync.enqueue(stored._id, lastRead)
+                                            message = "AniList sync queued"
+                                        } else {
+                                            session.trackerSync.retry(stored._id)
+                                            message = "AniList sync retry queued"
+                                        }
+                                    }) { Text("Sync AniList") }
                                 }
                             }
                             if (stored?.favorite == true) {
@@ -582,6 +625,39 @@ fun DesktopShell(
                             Text("Language: ${graph.localeService.currentLanguageTag()}")
                             Text("Library: ${graph.appDirectories.localLibrary}")
                             Text("Database: ${graph.appDirectories.database}")
+                            Text("AniList: ${if (aniListLoggedIn) "signed in" else "not signed in"}")
+                            if (aniListLoggedIn) {
+                                TextButton(onClick = {
+                                    session.aniListTracker.logout()
+                                    aniListLoggedIn = false
+                                    message = "AniList signed out"
+                                }) { Text("Sign out of AniList") }
+                            } else {
+                                TextButton(onClick = {
+                                    if (!graph.browserService.open(DesktopAniListTracker.AUTH_URL)) {
+                                        message = "Could not open AniList in the browser"
+                                    }
+                                }) { Text("Sign in to AniList in browser") }
+                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
+                                OutlinedTextField(
+                                    aniListCallback,
+                                    { aniListCallback = it },
+                                    label = { Text("Paste AniList redirect URL") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                )
+                                TextButton(onClick = {
+                                    val callback = aniListCallback
+                                    aniListCallback = ""
+                                    scope.launch {
+                                        runCatching { session.aniListTracker.loginFromCallback(callback) }
+                                            .onSuccess { name ->
+                                                aniListLoggedIn = true
+                                                message = "Signed in to AniList as $name"
+                                            }
+                                            .onFailure { message = it.message ?: "AniList sign-in failed" }
+                                    }
+                                }) { Text("Complete AniList sign-in") }
+                            }
                             TextButton(onClick = {
                                 val intervals = DesktopLibraryUpdateScheduler.INTERVALS
                                 updateInterval = intervals[(intervals.indexOf(updateInterval) + 1) % intervals.size]

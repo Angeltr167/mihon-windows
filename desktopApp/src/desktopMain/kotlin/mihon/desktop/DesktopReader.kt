@@ -251,14 +251,15 @@ internal fun DesktopReader(
                 runCatching {
                     val number = chapters[chapterIndex].chapter_number.toDouble()
                     if (number.isFinite() && number > 0 && withContext(Dispatchers.IO) {
-                            session.library.track(mangaId, DesktopKomgaTracker.TRACKER_ID) != null
+                            session.library.track(mangaId, DesktopKomgaTracker.TRACKER_ID) != null ||
+                                session.library.track(mangaId, DesktopAniListTracker.TRACKER_ID) != null
                         }
                     ) {
                         session.trackerSync.enqueue(mangaId, number)
                     }
                 }.onFailure {
                     if (it is CancellationException) throw it
-                    trackerError = it.message ?: "Komga sync failed"
+                    trackerError = it.message ?: "Tracker sync failed"
                 }
             }
         }

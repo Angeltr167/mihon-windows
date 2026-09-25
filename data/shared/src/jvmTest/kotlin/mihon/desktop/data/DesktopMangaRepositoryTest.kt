@@ -92,6 +92,7 @@ class DesktopMangaRepositoryTest {
         val mangaId = DesktopMangaRepository.open(path).use { repository ->
             val id = repository.addToLibrary(18, manga)._id
             repository.addTrack(id, 6, manga.title, "https://komga.example/api/v1/series/abc", 0.0, 2, 1)
+            repository.addTrack(id, 2, manga.title, "https://anilist.co/manga/42", 0.0, 2, 5, 42, 123)
             val track = requireNotNull(repository.track(id, 6))
             repository.updateTrackProgress(track, 1.0, 2, 2)
             assertEquals(track._id, repository.track(id, 6)?._id)
@@ -102,6 +103,9 @@ class DesktopMangaRepositoryTest {
             assertEquals("https://komga.example/api/v1/series/abc", track.remote_url)
             assertEquals(1.0, track.last_chapter_read)
             assertEquals(2L, track.status)
+            val aniList = requireNotNull(repository.track(mangaId, 2))
+            assertEquals(42L, aniList.remote_id)
+            assertEquals(123L, aniList.library_id)
         }
     }
 }
