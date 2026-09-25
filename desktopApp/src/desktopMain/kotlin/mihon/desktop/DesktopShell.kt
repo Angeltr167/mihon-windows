@@ -98,6 +98,7 @@ fun DesktopShell(
     var categoryName by remember { mutableStateOf("") }
     var aniListCallback by remember { mutableStateOf("") }
     var aniListMediaId by remember { mutableStateOf("") }
+    var kavitaApiKey by remember { mutableStateOf("") }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
@@ -246,6 +247,9 @@ fun DesktopShell(
                             val aniListTrack = stored?.let {
                                 session.library.track(it._id, DesktopAniListTracker.TRACKER_ID)
                             }
+                            val kavitaTrack = stored?.let {
+                                session.library.track(it._id, DesktopKavitaTracker.TRACKER_ID)
+                            }
                             val suwayomiTrack = stored?.let {
                                 session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
                             }
@@ -314,6 +318,44 @@ fun DesktopShell(
                                     trackerSyncQueue.firstOrNull { it.mangaId == stored._id }?.error?.let {
                                         Text(it, color = MaterialTheme.colorScheme.error)
                                     }
+                                }
+                            }
+                            if (stored != null && item.url.contains("/api/Series/")) {
+                                if (kavitaTrack == null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            kavitaApiKey,
+                                            { kavitaApiKey = it },
+                                            label = { Text("Kavita API key") },
+                                            visualTransformation = PasswordVisualTransformation(),
+                                        )
+                                        TextButton(onClick = {
+                                            val key = kavitaApiKey
+                                            kavitaApiKey = ""
+                                            scope.launch {
+                                                runCatching {
+                                                    session.kavitaTracker.bind(stored._id, item.url, key)
+                                                }.onSuccess { message = "Kavita tracking linked" }
+                                                    .onFailure { message = it.message ?: "Kavita link failed" }
+                                            }
+                                        }) { Text("Link Kavita") }
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val lastRead = withContext(Dispatchers.IO) {
+                                                chapters.filter {
+                                                    session.library.chapter(stored._id, it.url)?.read == true
+                                                }.maxOfOrNull { it.chapter_number.toDouble() }
+                                            }
+                                            if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                session.trackerSync.enqueue(stored._id, lastRead)
+                                            } else {
+                                                session.trackerSync.retry(stored._id)
+                                            }
+                                            message = "Kavita sync queued"
+                                        }
+                                    }) { Text("Sync Kavita") }
                                 }
                             }
                             if (stored != null && aniListLoggedIn) {

@@ -31,12 +31,14 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
     private val localSource = DesktopLocalSource(localFileSystem)
     val localPages = DesktopLocalChapterPages(localFileSystem)
     private var loadedSources: List<Source>? = null
+    private val secrets = DesktopSecretStore(Path.of(graph.appDirectories.data).resolve("secrets"))
     internal val komgaTracker = DesktopKomgaTracker(network.client, library)
     internal val aniListTracker = DesktopAniListTracker(
         network.client,
         library,
-        DesktopSecretStore(Path.of(graph.appDirectories.data).resolve("secrets")),
+        secrets,
     )
+    internal val kavitaTracker = DesktopKavitaTracker(network.client, library, secrets)
     internal val suwayomiTracker = DesktopSuwayomiTracker(library) { sourceId ->
         sources().filterIsInstance<HttpSource>()
             .firstOrNull { it.id == sourceId && it.javaClass.name == DesktopSuwayomiTracker.SOURCE_CLASS }
@@ -47,6 +49,7 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
         DesktopTrackProgressUpdater { mangaId, chapterNumber ->
             komgaTracker.syncCompletedChapter(mangaId, chapterNumber)
             aniListTracker.syncCompletedChapter(mangaId, chapterNumber)
+            kavitaTracker.syncCompletedChapter(mangaId, chapterNumber)
             suwayomiTracker.syncCompletedChapter(mangaId, chapterNumber)
         },
     )

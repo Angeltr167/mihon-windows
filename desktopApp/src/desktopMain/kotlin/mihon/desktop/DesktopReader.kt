@@ -253,6 +253,7 @@ internal fun DesktopReader(
                     if (number.isFinite() && number > 0 && withContext(Dispatchers.IO) {
                             session.library.track(mangaId, DesktopKomgaTracker.TRACKER_ID) != null ||
                                 session.library.track(mangaId, DesktopAniListTracker.TRACKER_ID) != null ||
+                                session.library.track(mangaId, DesktopKavitaTracker.TRACKER_ID) != null ||
                                 session.library.track(mangaId, DesktopSuwayomiTracker.TRACKER_ID) != null
                         }
                     ) {
