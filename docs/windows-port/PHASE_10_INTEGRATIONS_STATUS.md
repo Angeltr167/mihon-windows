@@ -1,0 +1,7 @@
+# P10 integrations status (in progress)
+
+The Desktop source-link router accepts HTTPS manga/chapter URLs handled by an installed `ResolvableSource`, plus `mihon://extension-store?url=...` and `tachiyomi://add-repo?url=...` repository links. It rejects arbitrary schemes and unsafe repository URLs. Links can be pasted into Search or passed as a single launch argument. The repository URL is shown for review before discovery or installation. Registering the custom protocol with Windows and forwarding links to an already running instance remain P10/P12 work.
+
+Tracker parity is not complete. The Android tracker manager exposes 11 providers (MyAnimeList, AniList, Kitsu, Shikimori, Bangumi, Komga, MangaUpdates, Kavita, Suwayomi, Hikka, MangaBaka). Their implementations live in `:app`, use Android resources/preferences/login Activities or app-specific injection, and are not available to Desktop. The shared track database/domain model exists, but the Desktop UI and reader have no tracker binding or progress sync. Reusing the Android `:app` implementation directly would violate the Desktop Android-dependency boundary. A portable tracker service, provider auth adapters, credential storage, UI binding, and post-reading sync are still required before the P10 exit gate can pass.
+
+The Desktop platform layer already provides browser opening, clipboard, file opening, and sharing contracts. Actual Windows protocol registration and file associations are packaging work; none should be claimed as tested from an external browser yet.

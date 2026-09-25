@@ -69,7 +69,11 @@ private enum class Screen(val title: String) {
 }
 
 @Composable
-fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {}) {
+fun DesktopShell(
+    graph: DesktopPlatformGraph,
+    initialLink: String? = null,
+    onToggleFullscreen: () -> Unit = {},
+) {
     val session = remember { DesktopSession(graph) }
     DisposableEffect(session) { onDispose(session::close) }
     val scope = rememberCoroutineScope()
@@ -84,6 +88,7 @@ fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {
     var chapters by remember { mutableStateOf(emptyList<SChapter>()) }
     var readerTarget by remember { mutableStateOf<ReaderTarget?>(null) }
     var query by remember { mutableStateOf("") }
+    var link by remember { mutableStateOf("") }
     var packagePath by remember { mutableStateOf("") }
     var indexUrl by remember { mutableStateOf("") }
     var availableExtensions by remember { mutableStateOf(emptyList<DesktopRepositoryEntry>()) }
@@ -118,6 +123,50 @@ fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {
             }
                 .onFailure { message = it.message ?: "Source failed" }
         }
+    }
+
+    fun openLink(raw: String) {
+        scope.launch {
+            message = "Opening link…"
+            runCatching {
+                withContext(Dispatchers.IO) { DesktopLinkRouter().resolve(raw, sources) }
+            }.onSuccess { target ->
+                when (target) {
+                    is DesktopLinkTarget.ExtensionRepository -> {
+                        indexUrl = target.url.toString()
+                        screen = Screen.EXTENSIONS
+                        message = "Repository link ready. Review it before loading."
+                    }
+                    is DesktopLinkTarget.Manga -> {
+                        source = target.source
+                        selectedManga = target.manga
+                        chapters = emptyList()
+                        screen = Screen.SOURCES
+                        scope.launch {
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    target.source.getMangaUpdate(target.manga, emptyList(), true, true)
+                                }
+                            }.onSuccess { update ->
+                                selectedManga = update.manga
+                                chapters = update.chapters
+                                val chapterUrl = target.chapter?.url
+                                if (chapterUrl != null && update.chapters.any { it.url == chapterUrl }) {
+                                    readerTarget =
+                                        ReaderTarget(target.source, update.manga, update.chapters, chapterUrl)
+                                }
+                                message = ""
+                            }.onFailure { message = it.message ?: "Could not load chapters" }
+                        }
+                    }
+                    null -> message = "No installed source recognizes this link"
+                }
+            }.onFailure { message = it.message ?: "Could not open link" }
+        }
+    }
+
+    LaunchedEffect(initialLink) {
+        if (!initialLink.isNullOrBlank()) openLink(initialLink)
     }
 
     MaterialTheme {
@@ -301,6 +350,18 @@ fun DesktopShell(graph: DesktopPlatformGraph, onToggleFullscreen: () -> Unit = {
                             }
                         }
                         screen == Screen.SOURCES || screen == Screen.SEARCH -> {
+                            if (screen == Screen.SEARCH) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                    OutlinedTextField(link, { link = it }, label = { Text("Manga or Mihon link") })
+                                    Button(onClick = { openLink(link) }) { Text("Open link") }
+                                    TextButton(onClick = {
+                                        graph.clipboardService.readText()?.let { pasted ->
+                                            link = pasted
+                                            openLink(pasted)
+                                        }
+                                    }) { Text("Paste link") }
+                                }
+                            }
                             if (source == null) {
                                 Text("Select a source")
                                 sources.forEach { available ->

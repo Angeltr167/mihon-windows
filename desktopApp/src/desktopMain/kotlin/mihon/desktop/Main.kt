@@ -12,7 +12,7 @@ import tachiyomi.domain.manga.model.Manga
 import java.awt.Dimension
 import java.nio.file.Path
 
-fun main() {
+fun main(args: Array<String>) {
     val graph = createGraphFactory<DesktopPlatformGraph.Factory>().create()
 
     if (System.getenv(DESKTOP_SMOKE_ENV) == "1") {
@@ -51,7 +51,7 @@ fun main() {
             state = state,
         ) {
             window.minimumSize = Dimension(800, 560)
-            DesktopShell(graph, onToggleFullscreen = {
+            DesktopShell(graph, initialLink = args.singleOrNull(), onToggleFullscreen = {
                 state.placement = if (state.placement == WindowPlacement.Fullscreen) {
                     WindowPlacement.Floating
                 } else {
