@@ -97,6 +97,7 @@ fun DesktopShell(
     var categoryName by remember { mutableStateOf("") }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
+    val trackerSyncQueue by session.trackerSync.pending.collectAsState()
     val libraryUpdate by session.libraryUpdates.state.collectAsState()
     var updateInterval by remember { mutableLongStateOf(session.libraryUpdates.intervalHours()) }
 
@@ -277,14 +278,16 @@ fun DesktopShell(
                                                 if (komgaTrack == null) {
                                                     session.komgaTracker.bind(stored._id, item.title, item.url)
                                                 } else {
-                                                    chapters.filter {
-                                                        session.library.chapter(stored._id, it.url)?.read ==
-                                                            true
+                                                    val lastRead = withContext(Dispatchers.IO) {
+                                                        chapters.filter {
+                                                            session.library.chapter(stored._id, it.url)?.read == true
+                                                        }.maxOfOrNull { it.chapter_number.toDouble() }
                                                     }
-                                                        .maxOfOrNull { it.chapter_number.toDouble() }
-                                                        ?.let {
-                                                            session.komgaTracker.syncCompletedChapter(stored._id, it)
-                                                        }
+                                                    if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                        session.trackerSync.enqueue(stored._id, lastRead)
+                                                    } else {
+                                                        session.trackerSync.retry(stored._id)
+                                                    }
                                                 }
                                             }.onSuccess {
                                                 message =
@@ -293,11 +296,14 @@ fun DesktopShell(
                                                     ) {
                                                         "Komga tracking linked"
                                                     } else {
-                                                        "Komga progress synced"
+                                                        "Komga sync queued"
                                                     }
                                             }.onFailure { message = it.message ?: "Komga tracking failed" }
                                         }
                                     }) { Text(if (komgaTrack == null) "Link Komga" else "Sync Komga") }
+                                    trackerSyncQueue.firstOrNull { it.mangaId == stored._id }?.error?.let {
+                                        Text(it, color = MaterialTheme.colorScheme.error)
+                                    }
                                 }
                             }
                             if (stored?.favorite == true) {

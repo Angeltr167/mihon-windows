@@ -20,7 +20,7 @@ import java.net.URI
 internal class DesktopKomgaTracker(
     private val client: OkHttpClient,
     private val library: DesktopMangaRepository,
-) {
+) : DesktopTrackProgressUpdater {
     private val syncLock = Mutex()
 
     suspend fun bind(mangaId: Long, title: String, seriesUrl: String) = syncLock.withLock {
@@ -38,7 +38,7 @@ internal class DesktopKomgaTracker(
         }
     }
 
-    suspend fun syncCompletedChapter(mangaId: Long, chapterNumber: Double) = syncLock.withLock {
+    override suspend fun syncCompletedChapter(mangaId: Long, chapterNumber: Double) = syncLock.withLock {
         if (!chapterNumber.isFinite() || chapterNumber <= 0) return@withLock
         val track = withContext(Dispatchers.IO) { library.track(mangaId, TRACKER_ID) } ?: return@withLock
         if (chapterNumber <= track.last_chapter_read) return@withLock

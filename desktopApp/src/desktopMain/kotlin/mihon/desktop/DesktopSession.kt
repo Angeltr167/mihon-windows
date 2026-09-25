@@ -25,6 +25,10 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
 
     val library = DesktopMangaRepository.open(Path.of(graph.appDirectories.database).resolve("tachiyomi.db"))
     internal val komgaTracker = DesktopKomgaTracker(network.client, library)
+    internal val trackerSync = DesktopTrackerSyncScheduler(
+        Path.of(graph.appDirectories.config).resolve("tracker-sync.properties"),
+        komgaTracker,
+    )
     val extensions = DesktopExtensionManager(graph.appDirectories)
     val extensionRepository = DesktopExtensionRepository(Path.of(graph.appDirectories.temp))
     private val localFileSystem = DesktopLocalSourceFileSystem(Path.of(graph.appDirectories.localLibrary))
@@ -49,6 +53,7 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
         .flatMap(DesktopExtensionLoadResult.Loaded::sources)
 
     override fun close() {
+        trackerSync.close()
         downloads.close()
         libraryUpdates.close()
         downloadNotifications.close()

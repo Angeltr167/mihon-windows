@@ -27,6 +27,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -99,6 +100,7 @@ internal fun DesktopReader(
     var mangaId by remember(target) { mutableStateOf<Long?>(null) }
     var trackerSyncAttempted by remember(target) { mutableStateOf(false) }
     var trackerError by remember(target) { mutableStateOf<String?>(null) }
+    val pendingTrackerSync by session.trackerSync.pending.collectAsState()
     var loadedChapterIndex by remember(target) { mutableIntStateOf(-1) }
     var loadState by remember(target) { mutableStateOf<ReaderPageLoadState>(ReaderPageLoadState.Loading) }
     var retry by remember(target) { mutableIntStateOf(0) }
@@ -245,9 +247,15 @@ internal fun DesktopReader(
         withContext(Dispatchers.IO) { session.library.saveProgress(id, viewedIndex, pages.size) }
         if (viewedIndex == pages.lastIndex && !trackerSyncAttempted) {
             trackerSyncAttempted = true
-            mangaId?.let { id ->
+            mangaId?.let { mangaId ->
                 runCatching {
-                    session.komgaTracker.syncCompletedChapter(id, chapters[chapterIndex].chapter_number.toDouble())
+                    val number = chapters[chapterIndex].chapter_number.toDouble()
+                    if (number.isFinite() && number > 0 && withContext(Dispatchers.IO) {
+                            session.library.track(mangaId, DesktopKomgaTracker.TRACKER_ID) != null
+                        }
+                    ) {
+                        session.trackerSync.enqueue(mangaId, number)
+                    }
                 }.onFailure {
                     if (it is CancellationException) throw it
                     trackerError = it.message ?: "Komga sync failed"
@@ -339,7 +347,8 @@ internal fun DesktopReader(
             TextButton(onClick = onToggleFullscreen) { Text("Fullscreen") }
             TextButton(onClick = { showShortcuts = true }) { Text("Keys") }
         }
-        trackerError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        (trackerError ?: pendingTrackerSync.firstOrNull { it.mangaId == mangaId }?.error)
+            ?.let { Text(it, color = MaterialTheme.colorScheme.error) }
         when {
             loadState is ReaderPageLoadState.Failed -> Column {
                 Text((loadState as ReaderPageLoadState.Failed).reason, color = MaterialTheme.colorScheme.error)
