@@ -6,7 +6,7 @@ The Android tracker manager exposes 11 providers (MyAnimeList, AniList, Kitsu, S
 
 Komga is the first Desktop tracker adapter. It preserves Android's tracker ID 6 and existing `manga_sync` schema. A Komga series can be linked from manga details when its source supplies a `/api/v1/series/<id>` URL. Linking validates the existing authenticated source HTTP session against Komga's [Mihon progress endpoint](https://komga.org/docs/openapi/get-mihon-read-progress-by-series-id/). Finishing a chapter queues progress through the same session and reads it back; the details screen also offers manual retry. The queue persists in `config/tracker-sync.properties`, retries on launch, and shows errors without blocking local reading. This follows Komga's [API authentication](https://komga.org/docs/openapi/komga-api/) and [progress-update](https://komga.org/docs/openapi/update-mihon-read-progress-by-series-id/) contracts. Local authenticated HTTP and restart fixtures verify database binding and progress sync. A real Komga server/extension account has not yet been tested, so this is not the P10 exit gate.
 
-The remaining six providers have not been ported. Their login/token handling, resources, preferences, and callback Activities are Android-bound; provider-specific Desktop authentication, UI binding, and reader sync remain P10 work. They are implementation gaps, not claimed provider-specific blockers. P10 cannot be marked complete yet.
+The remaining five providers have not been ported. Their login/token handling, resources, preferences, and callback Activities are Android-bound; provider-specific Desktop authentication, UI binding, and reader sync remain P10 work. They are implementation gaps, not claimed provider-specific blockers. P10 cannot be marked complete yet.
 
 Windows-user DPAPI credential storage now protects the AniList token. The Desktop Settings screen opens AniList's existing Mihon OAuth client in the system browser and accepts the `mihon://anilist-auth#access_token=...` redirect URL by explicit paste; the token is checked against AniList's Viewer query before storage. A linked AniList manga uses Android tracker ID 2, the existing `manga_sync` table, and the same persistent post-reading retry queue as Komga. A local GraphQL fixture verifies login, protected storage, binding, and progress mutations. This is not a live AniList authentication test, and the redirect is not yet handed back automatically from an external browser.
 
@@ -16,13 +16,15 @@ Kavita uses the existing Android plugin-authentication and Tachiyomi progress en
 
 MangaUpdates now supports its existing credential exchange and REST list/progress contract with tracker ID 7. Desktop checks the returned session against the profile endpoint and stores only the token with DPAPI; a local fixture covers adding a series to the wish list and moving it to reading after a completed chapter. No real MangaUpdates account has been tested.
 
+Kitsu now supports its Android password-grant and GraphQL library-entry path with tracker ID 3. Desktop validates the account, protects access/refresh tokens with DPAPI, refreshes expiring sessions, binds a Kitsu manga ID, and updates progress after reading. A local fixture covers login, entry creation, refresh, and status transitions. This remains unverified against a live Kitsu account.
+
 | Android provider | Existing login path | Desktop status |
 | --- | --- | --- |
 | Komga | Source-authenticated session | Fixture-backed adapter and retry queue; live server pending |
 | Suwayomi | Source-authenticated session | Fixture-backed source session, link and progress sync; live server/extension pending |
 | Kavita | Source API-key authentication | Fixture-backed API key, link and progress sync; live server/extension pending |
 | MangaUpdates | Credential exchange | Fixture-backed login, DPAPI session, link and progress sync; live account pending |
-| Kitsu | Credential exchange | Not ported |
+| Kitsu | Credential exchange and refresh | Fixture-backed login, DPAPI session, link and progress sync; live account pending |
 | AniList | OAuth/custom callback | Fixture-backed browser + paste callback, DPAPI token, manga binding and progress sync; live account and automatic callback pending |
 | Bangumi, Hikka, MangaBaka, MyAnimeList, Shikimori | OAuth/custom callback | Not ported; Windows callback registration and provider adapters needed |
 

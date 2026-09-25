@@ -103,6 +103,10 @@ fun DesktopShell(
     var mangaUpdatesPassword by remember { mutableStateOf("") }
     var mangaUpdatesSeriesId by remember { mutableStateOf("") }
     var mangaUpdatesLoggedIn by remember { mutableStateOf(session.mangaUpdatesTracker.isLoggedIn) }
+    var kitsuUsername by remember { mutableStateOf("") }
+    var kitsuPassword by remember { mutableStateOf("") }
+    var kitsuMangaId by remember { mutableStateOf("") }
+    var kitsuLoggedIn by remember { mutableStateOf(session.kitsuTracker.isLoggedIn) }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
@@ -256,6 +260,9 @@ fun DesktopShell(
                             }
                             val mangaUpdatesTrack = stored?.let {
                                 session.library.track(it._id, DesktopMangaUpdatesTracker.TRACKER_ID)
+                            }
+                            val kitsuTrack = stored?.let {
+                                session.library.track(it._id, DesktopKitsuTracker.TRACKER_ID)
                             }
                             val suwayomiTrack = stored?.let {
                                 session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
@@ -438,6 +445,45 @@ fun DesktopShell(
                                             message = "MangaUpdates sync queued"
                                         }
                                     }) { Text("Sync MangaUpdates") }
+                                }
+                            }
+                            if (stored != null && kitsuLoggedIn) {
+                                if (kitsuTrack == null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            kitsuMangaId,
+                                            { kitsuMangaId = it },
+                                            label = { Text("Kitsu manga ID") },
+                                        )
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching {
+                                                    val id = kitsuMangaId.trim().toLongOrNull()
+                                                        ?: error("Enter a numeric Kitsu manga ID")
+                                                    session.kitsuTracker.bind(stored._id, id)
+                                                }.onSuccess {
+                                                    kitsuMangaId = ""
+                                                    message = "Kitsu tracking linked"
+                                                }.onFailure { message = it.message ?: "Kitsu link failed" }
+                                            }
+                                        }) { Text("Link Kitsu") }
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val lastRead = withContext(Dispatchers.IO) {
+                                                chapters.filter {
+                                                    session.library.chapter(stored._id, it.url)?.read == true
+                                                }.maxOfOrNull { it.chapter_number.toDouble() }
+                                            }
+                                            if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                session.trackerSync.enqueue(stored._id, lastRead)
+                                            } else {
+                                                session.trackerSync.retry(stored._id)
+                                            }
+                                            message = "Kitsu sync queued"
+                                        }
+                                    }) { Text("Sync Kitsu") }
                                 }
                             }
                             if (stored != null &&
@@ -810,6 +856,38 @@ fun DesktopShell(
                                             }.onFailure { message = it.message ?: "MangaUpdates sign-in failed" }
                                     }
                                 }) { Text("Sign in to MangaUpdates") }
+                            }
+                            Text("Kitsu: ${if (kitsuLoggedIn) "signed in" else "not signed in"}")
+                            if (kitsuLoggedIn) {
+                                TextButton(onClick = {
+                                    session.kitsuTracker.logout()
+                                    kitsuLoggedIn = false
+                                    message = "Kitsu signed out"
+                                }) { Text("Sign out of Kitsu") }
+                            } else {
+                                OutlinedTextField(
+                                    kitsuUsername,
+                                    { kitsuUsername = it },
+                                    label = { Text("Kitsu username") },
+                                )
+                                OutlinedTextField(
+                                    kitsuPassword,
+                                    { kitsuPassword = it },
+                                    label = { Text("Kitsu password") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                )
+                                TextButton(onClick = {
+                                    val username = kitsuUsername
+                                    val password = kitsuPassword
+                                    kitsuPassword = ""
+                                    scope.launch {
+                                        runCatching { session.kitsuTracker.login(username, password) }
+                                            .onSuccess { name ->
+                                                kitsuLoggedIn = true
+                                                message = "Signed in to Kitsu as $name"
+                                            }.onFailure { message = it.message ?: "Kitsu sign-in failed" }
+                                    }
+                                }) { Text("Sign in to Kitsu") }
                             }
                             TextButton(onClick = {
                                 val intervals = DesktopLibraryUpdateScheduler.INTERVALS

@@ -255,6 +255,7 @@ internal fun DesktopReader(
                                 session.library.track(mangaId, DesktopAniListTracker.TRACKER_ID) != null ||
                                 session.library.track(mangaId, DesktopKavitaTracker.TRACKER_ID) != null ||
                                 session.library.track(mangaId, DesktopMangaUpdatesTracker.TRACKER_ID) != null ||
+                                session.library.track(mangaId, DesktopKitsuTracker.TRACKER_ID) != null ||
                                 session.library.track(mangaId, DesktopSuwayomiTracker.TRACKER_ID) != null
                         }
                     ) {
