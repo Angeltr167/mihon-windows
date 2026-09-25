@@ -119,6 +119,9 @@ fun DesktopShell(
     var bangumiCallback by remember { mutableStateOf("") }
     var bangumiMangaId by remember { mutableStateOf("") }
     var bangumiLoggedIn by remember { mutableStateOf(session.bangumiTracker.isLoggedIn) }
+    var mangaBakaCallback by remember { mutableStateOf("") }
+    var mangaBakaSeriesId by remember { mutableStateOf("") }
+    var mangaBakaLoggedIn by remember { mutableStateOf(session.mangaBakaTracker.isLoggedIn) }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
@@ -287,6 +290,9 @@ fun DesktopShell(
                             }
                             val bangumiTrack = stored?.let {
                                 session.library.track(it._id, DesktopBangumiTracker.TRACKER_ID)
+                            }
+                            val mangaBakaTrack = stored?.let {
+                                session.library.track(it._id, DesktopMangaBakaTracker.TRACKER_ID)
                             }
                             val suwayomiTrack = stored?.let {
                                 session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
@@ -661,6 +667,45 @@ fun DesktopShell(
                                             message = "Bangumi sync queued"
                                         }
                                     }) { Text("Sync Bangumi") }
+                                }
+                            }
+                            if (stored != null && mangaBakaLoggedIn) {
+                                if (mangaBakaTrack == null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            mangaBakaSeriesId,
+                                            { mangaBakaSeriesId = it },
+                                            label = { Text("MangaBaka series ID") },
+                                        )
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching {
+                                                    val id = mangaBakaSeriesId.trim().toLongOrNull()
+                                                        ?: error("Enter a numeric MangaBaka series ID")
+                                                    session.mangaBakaTracker.bind(stored._id, id)
+                                                }.onSuccess {
+                                                    mangaBakaSeriesId = ""
+                                                    message = "MangaBaka tracking linked"
+                                                }.onFailure { message = it.message ?: "MangaBaka link failed" }
+                                            }
+                                        }) { Text("Link MangaBaka") }
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val lastRead = withContext(Dispatchers.IO) {
+                                                chapters.filter {
+                                                    session.library.chapter(stored._id, it.url)?.read == true
+                                                }.maxOfOrNull { it.chapter_number.toDouble() }
+                                            }
+                                            if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                session.trackerSync.enqueue(stored._id, lastRead)
+                                            } else {
+                                                session.trackerSync.retry(stored._id)
+                                            }
+                                            message = "MangaBaka sync queued"
+                                        }
+                                    }) { Text("Sync MangaBaka") }
                                 }
                             }
                             if (stored != null &&
@@ -1194,6 +1239,38 @@ fun DesktopShell(
                                             }.onFailure { message = it.message ?: "Bangumi sign-in failed" }
                                     }
                                 }) { Text("Complete Bangumi sign-in") }
+                            }
+                            Text("MangaBaka: ${if (mangaBakaLoggedIn) "signed in" else "not signed in"}")
+                            if (mangaBakaLoggedIn) {
+                                TextButton(onClick = {
+                                    session.mangaBakaTracker.logout()
+                                    mangaBakaLoggedIn = false
+                                    message = "MangaBaka signed out"
+                                }) { Text("Sign out of MangaBaka") }
+                            } else {
+                                TextButton(onClick = {
+                                    runCatching {
+                                        check(graph.browserService.open(session.mangaBakaTracker.beginLogin()))
+                                    }.onFailure { message = it.message ?: "Could not open MangaBaka" }
+                                }) { Text("Sign in to MangaBaka in browser") }
+                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
+                                OutlinedTextField(
+                                    mangaBakaCallback,
+                                    { mangaBakaCallback = it },
+                                    label = { Text("Paste MangaBaka redirect URL") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                )
+                                TextButton(onClick = {
+                                    val callback = mangaBakaCallback
+                                    mangaBakaCallback = ""
+                                    scope.launch {
+                                        runCatching { session.mangaBakaTracker.loginFromCallback(callback) }
+                                            .onSuccess { name ->
+                                                mangaBakaLoggedIn = true
+                                                message = "Signed in to MangaBaka as $name"
+                                            }.onFailure { message = it.message ?: "MangaBaka sign-in failed" }
+                                    }
+                                }) { Text("Complete MangaBaka sign-in") }
                             }
                             TextButton(onClick = {
                                 val intervals = DesktopLibraryUpdateScheduler.INTERVALS
