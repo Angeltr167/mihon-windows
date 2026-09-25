@@ -116,6 +116,9 @@ fun DesktopShell(
     var hikkaCallback by remember { mutableStateOf("") }
     var hikkaSlug by remember { mutableStateOf("") }
     var hikkaLoggedIn by remember { mutableStateOf(session.hikkaTracker.isLoggedIn) }
+    var bangumiCallback by remember { mutableStateOf("") }
+    var bangumiMangaId by remember { mutableStateOf("") }
+    var bangumiLoggedIn by remember { mutableStateOf(session.bangumiTracker.isLoggedIn) }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
@@ -281,6 +284,9 @@ fun DesktopShell(
                             }
                             val hikkaTrack = stored?.let {
                                 session.library.track(it._id, DesktopHikkaTracker.TRACKER_ID)
+                            }
+                            val bangumiTrack = stored?.let {
+                                session.library.track(it._id, DesktopBangumiTracker.TRACKER_ID)
                             }
                             val suwayomiTrack = stored?.let {
                                 session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
@@ -616,6 +622,45 @@ fun DesktopShell(
                                             message = "Hikka sync queued"
                                         }
                                     }) { Text("Sync Hikka") }
+                                }
+                            }
+                            if (stored != null && bangumiLoggedIn) {
+                                if (bangumiTrack == null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            bangumiMangaId,
+                                            { bangumiMangaId = it },
+                                            label = { Text("Bangumi subject ID") },
+                                        )
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching {
+                                                    val id = bangumiMangaId.trim().toLongOrNull()
+                                                        ?: error("Enter a numeric Bangumi subject ID")
+                                                    session.bangumiTracker.bind(stored._id, id)
+                                                }.onSuccess {
+                                                    bangumiMangaId = ""
+                                                    message = "Bangumi tracking linked"
+                                                }.onFailure { message = it.message ?: "Bangumi link failed" }
+                                            }
+                                        }) { Text("Link Bangumi") }
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val lastRead = withContext(Dispatchers.IO) {
+                                                chapters.filter {
+                                                    session.library.chapter(stored._id, it.url)?.read == true
+                                                }.maxOfOrNull { it.chapter_number.toDouble() }
+                                            }
+                                            if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                session.trackerSync.enqueue(stored._id, lastRead)
+                                            } else {
+                                                session.trackerSync.retry(stored._id)
+                                            }
+                                            message = "Bangumi sync queued"
+                                        }
+                                    }) { Text("Sync Bangumi") }
                                 }
                             }
                             if (stored != null &&
@@ -1117,6 +1162,38 @@ fun DesktopShell(
                                             }.onFailure { message = it.message ?: "Hikka sign-in failed" }
                                     }
                                 }) { Text("Complete Hikka sign-in") }
+                            }
+                            Text("Bangumi: ${if (bangumiLoggedIn) "signed in" else "not signed in"}")
+                            if (bangumiLoggedIn) {
+                                TextButton(onClick = {
+                                    session.bangumiTracker.logout()
+                                    bangumiLoggedIn = false
+                                    message = "Bangumi signed out"
+                                }) { Text("Sign out of Bangumi") }
+                            } else {
+                                TextButton(onClick = {
+                                    runCatching {
+                                        check(graph.browserService.open(session.bangumiTracker.beginLogin()))
+                                    }.onFailure { message = it.message ?: "Could not open Bangumi" }
+                                }) { Text("Sign in to Bangumi in browser") }
+                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
+                                OutlinedTextField(
+                                    bangumiCallback,
+                                    { bangumiCallback = it },
+                                    label = { Text("Paste Bangumi redirect URL") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                )
+                                TextButton(onClick = {
+                                    val callback = bangumiCallback
+                                    bangumiCallback = ""
+                                    scope.launch {
+                                        runCatching { session.bangumiTracker.loginFromCallback(callback) }
+                                            .onSuccess { name ->
+                                                bangumiLoggedIn = true
+                                                message = "Signed in to Bangumi as $name"
+                                            }.onFailure { message = it.message ?: "Bangumi sign-in failed" }
+                                    }
+                                }) { Text("Complete Bangumi sign-in") }
                             }
                             TextButton(onClick = {
                                 val intervals = DesktopLibraryUpdateScheduler.INTERVALS
