@@ -19,10 +19,17 @@ class DesktopMangaRepositoryTest {
             url = "/chapter"
             name = "Chapter"
         }
+        val nextChapter = SChapter.create().apply {
+            url = "/chapter-2"
+            name = "Chapter 2"
+        }
         val mangaId = DesktopMangaRepository.open(path).use { repository ->
             val id = repository.addToLibrary(17, manga)._id
-            val stored = repository.syncChapters(id, listOf(chapter)).single()
+            repository.syncChapters(id, listOf(chapter, nextChapter))
+            val stored = requireNotNull(repository.chapter(id, chapter.url))
             repository.saveProgress(stored._id, 1, 3, 1000)
+            val nextStored = requireNotNull(repository.chapter(id, nextChapter.url))
+            repository.saveProgress(nextStored._id, 0, 2, 2000)
             id
         }
         DesktopMangaRepository.open(path).use { repository ->
@@ -30,8 +37,9 @@ class DesktopMangaRepositoryTest {
             assertEquals(1, stored.last_page_read)
             assertTrue(repository.history().any { it.mangaId == mangaId })
             chapter.name = "Renamed chapter"
-            repository.syncChapters(mangaId, listOf(chapter))
+            repository.syncChapters(mangaId, listOf(chapter, nextChapter))
             assertEquals(1, repository.chapter(mangaId, chapter.url)!!.last_page_read)
+            assertEquals(0, repository.chapter(mangaId, nextChapter.url)!!.last_page_read)
             assertEquals("Renamed chapter", repository.chapter(mangaId, chapter.url)!!.name)
             repository.saveProgress(stored._id, 2, 3)
             assertTrue(repository.chapter(mangaId, chapter.url)!!.read)

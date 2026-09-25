@@ -22,6 +22,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -67,6 +68,7 @@ import mihon.core.reader.ReadingMode
 import mihon.core.reader.nextPageToPreload
 import mihon.core.reader.viewedPageIndex
 import mihon.platform.desktop.DesktopPlatformGraph
+import kotlin.math.roundToInt
 
 internal data class ReaderTarget(
     val source: Source,
@@ -94,6 +96,7 @@ internal fun DesktopReader(
     var pageIndex by remember(target) { mutableIntStateOf(0) }
     var pages by remember(target) { mutableStateOf<List<DesktopPage>>(emptyList()) }
     var chapterId by remember(target) { mutableStateOf<Long?>(null) }
+    var loadedChapterIndex by remember(target) { mutableIntStateOf(-1) }
     var loadState by remember(target) { mutableStateOf<ReaderPageLoadState>(ReaderPageLoadState.Loading) }
     var retry by remember(target) { mutableIntStateOf(0) }
     var openAtLastPage by remember(target) { mutableStateOf(false) }
@@ -126,7 +129,12 @@ internal fun DesktopReader(
             } ?: ReaderImageFilter.NORMAL,
         )
     }
+    var brightness by remember(target) {
+        mutableIntStateOf(graph.keyValueStore.getLong("desktop.reader.brightness", 0).toInt().coerceIn(-100, 100))
+    }
+    val colorFilter = remember(imageFilter, brightness) { imageFilter.colorFilter(brightness) }
     var requestedScroll by remember(target) { mutableStateOf<Int?>(null) }
+    var showAppearance by remember(target) { mutableStateOf(false) }
     var showShortcuts by remember(target) { mutableStateOf(false) }
     var shortcuts by remember(target) {
         val next = ReaderShortcutKey.restore(
@@ -167,10 +175,36 @@ internal fun DesktopReader(
             confirmButton = { TextButton(onClick = { showShortcuts = false }) { Text("Done") } },
         )
     }
+    if (showAppearance) {
+        AlertDialog(
+            onDismissRequest = { showAppearance = false },
+            title = { Text("Reader appearance") },
+            text = {
+                Column {
+                    TextButton(onClick = {
+                        imageFilter =
+                            ReaderImageFilter.entries[(imageFilter.ordinal + 1) % ReaderImageFilter.entries.size]
+                        graph.keyValueStore.putString("desktop.reader.imageFilter", imageFilter.name)
+                    }) { Text("Color: ${imageFilter.name.lowercase()}") }
+                    Text("Brightness: $brightness")
+                    Slider(
+                        value = brightness.toFloat(),
+                        onValueChange = { brightness = it.roundToInt() },
+                        onValueChangeFinished = {
+                            graph.keyValueStore.putLong("desktop.reader.brightness", brightness.toLong())
+                        },
+                        valueRange = -100f..100f,
+                    )
+                }
+            },
+            confirmButton = { TextButton(onClick = { showAppearance = false }) { Text("Done") } },
+        )
+    }
 
     LaunchedEffect(target, chapterIndex, retry) {
         pages = emptyList()
         chapterId = null
+        loadedChapterIndex = -1
         loadState = ReaderPageLoadState.Loading
         runCatching {
             val loaded = loader.pages(target.source, chapters[chapterIndex])
@@ -187,6 +221,7 @@ internal fun DesktopReader(
                 if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) restored / 2 * 2 else restored
             pages = loaded
             chapterId = stored._id
+            loadedChapterIndex = chapterIndex
             openAtLastPage = false
             loadState = ReaderPageLoadState.Ready(loaded.size)
         }.onFailure {
@@ -195,8 +230,9 @@ internal fun DesktopReader(
         }
     }
 
-    LaunchedEffect(chapterId, pageIndex, pages.size, mode) {
+    LaunchedEffect(chapterId, chapterIndex, loadedChapterIndex, pageIndex, pages.size, mode) {
         val id = chapterId ?: return@LaunchedEffect
+        if (loadedChapterIndex != chapterIndex) return@LaunchedEffect
         if (pages.isEmpty()) return@LaunchedEffect
         val viewedIndex = viewedPageIndex(pageIndex, pages.size, mode)
         withContext(Dispatchers.IO) { session.library.saveProgress(id, viewedIndex, pages.size) }
@@ -281,10 +317,7 @@ internal fun DesktopReader(
             }) { Text("Fit ${fit.name.lowercase()}") }
             TextButton(onClick = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) }) { Text("−") }
             TextButton(onClick = { zoom = (zoom + 0.25f).coerceAtMost(4f) }) { Text("+") }
-            TextButton(onClick = {
-                imageFilter = ReaderImageFilter.entries[(imageFilter.ordinal + 1) % ReaderImageFilter.entries.size]
-                graph.keyValueStore.putString("desktop.reader.imageFilter", imageFilter.name)
-            }) { Text("Filter ${imageFilter.name.lowercase()}") }
+            TextButton(onClick = { showAppearance = true }) { Text("Appearance") }
             TextButton(onClick = onToggleFullscreen) { Text("Fullscreen") }
             TextButton(onClick = { showShortcuts = true }) { Text("Keys") }
         }
@@ -317,16 +350,16 @@ internal fun DesktopReader(
                         contentPadding = PaddingValues(bottom = maxHeight),
                     ) {
                         itemsIndexed(pages) { index, page ->
-                            ReaderImage(loader, page, fit, zoom, imageFilter, Modifier.fillMaxWidth(), index)
+                            ReaderImage(loader, page, fit, zoom, colorFilter, Modifier.fillMaxWidth(), index)
                         }
                     }
                 }
             }
             else -> {
                 val pair = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) {
-                    pages.drop(pageIndex).take(2)
+                    pages.drop(pageIndex).take(2).mapIndexed { offset, page -> (pageIndex + offset) to page }
                 } else {
-                    listOf(pages[pageIndex])
+                    listOf(pageIndex to pages[pageIndex])
                 }
                 BoxWithConstraints(
                     Modifier.weight(1f).fillMaxWidth()
@@ -349,15 +382,15 @@ internal fun DesktopReader(
                         },
                 ) {
                     Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center) {
-                        (if (rightToLeft) pair.reversed() else pair).forEachIndexed { index, page ->
+                        (if (rightToLeft) pair.reversed() else pair).forEach { (index, page) ->
                             ReaderImage(
                                 loader,
                                 page,
                                 fit,
                                 zoom,
-                                imageFilter,
+                                colorFilter,
                                 Modifier.weight(1f).fillMaxHeight(),
-                                pageIndex + index,
+                                index,
                             )
                         }
                     }
@@ -402,7 +435,7 @@ private fun ReaderImage(
     page: DesktopPage,
     fit: FitMode,
     zoom: Float,
-    imageFilter: ReaderImageFilter,
+    colorFilter: ColorFilter?,
     modifier: Modifier,
     index: Int,
 ) {
@@ -426,7 +459,7 @@ private fun ReaderImage(
                     bitmap = image,
                     contentDescription = "Page ${index + 1}",
                     contentScale = ContentScale.Fit,
-                    colorFilter = imageFilter.colorFilter,
+                    colorFilter = colorFilter,
                     modifier = imageModifier.graphicsLayer {
                         scaleX = zoom
                         scaleY = zoom
@@ -447,30 +480,35 @@ private fun ReaderImage(
     }
 }
 
-private enum class ReaderImageFilter(val colorFilter: ColorFilter?) {
-    NORMAL(null),
-    GRAYSCALE(
-        ColorFilter.colorMatrix(
-            ColorMatrix(
-                floatArrayOf(
-                    0.213f, 0.715f, 0.072f, 0f, 0f,
-                    0.213f, 0.715f, 0.072f, 0f, 0f,
-                    0.213f, 0.715f, 0.072f, 0f, 0f,
-                    0f, 0f, 0f, 1f, 0f,
-                ),
-            ),
-        ),
-    ),
-    INVERT(
-        ColorFilter.colorMatrix(
-            ColorMatrix(
-                floatArrayOf(
-                    -1f, 0f, 0f, 0f, 255f,
-                    0f, -1f, 0f, 0f, 255f,
-                    0f, 0f, -1f, 0f, 255f,
-                    0f, 0f, 0f, 1f, 0f,
-                ),
-            ),
-        ),
-    ),
+private enum class ReaderImageFilter {
+    NORMAL,
+    GRAYSCALE,
+    INVERT,
+    ;
+
+    fun colorFilter(brightness: Int): ColorFilter? {
+        if (this == NORMAL && brightness == 0) return null
+        val offset = brightness * 255f / 100f
+        val matrix = when (this) {
+            NORMAL -> floatArrayOf(
+                1f, 0f, 0f, 0f, offset,
+                0f, 1f, 0f, 0f, offset,
+                0f, 0f, 1f, 0f, offset,
+                0f, 0f, 0f, 1f, 0f,
+            )
+            GRAYSCALE -> floatArrayOf(
+                0.213f, 0.715f, 0.072f, 0f, offset,
+                0.213f, 0.715f, 0.072f, 0f, offset,
+                0.213f, 0.715f, 0.072f, 0f, offset,
+                0f, 0f, 0f, 1f, 0f,
+            )
+            INVERT -> floatArrayOf(
+                -1f, 0f, 0f, 0f, 255f + offset,
+                0f, -1f, 0f, 0f, 255f + offset,
+                0f, 0f, -1f, 0f, 255f + offset,
+                0f, 0f, 0f, 1f, 0f,
+            )
+        }
+        return ColorFilter.colorMatrix(ColorMatrix(matrix))
+    }
 }

@@ -17,10 +17,12 @@ import org.junit.jupiter.api.Test
 import tachiyomi.source.local.desktop.DesktopLocalChapterPages
 import tachiyomi.source.local.desktop.DesktopLocalPage
 import tachiyomi.source.local.desktop.DesktopLocalSourceFileSystem
+import java.awt.image.BufferedImage
 import java.net.InetSocketAddress
 import java.nio.file.Files
 import java.util.Base64
 import java.util.concurrent.atomic.AtomicInteger
+import javax.imageio.ImageIO
 
 class DesktopPageLoaderTest {
     @Test
@@ -40,6 +42,24 @@ class DesktopPageLoaderTest {
             val path = root.resolve("page-$index.png")
             Files.write(path, PNG)
             loader.image(DesktopPage.Local(DesktopLocalPage(path, null)))
+            assertEquals(minOf(index + 1, 2), loader.cachedPageCount())
+        }
+    }
+
+    @Test
+    fun `high resolution pages stay within decoded cache target`() = runTest {
+        val root = Files.createTempDirectory("mihon-highres-stress")
+        val encoded = root.resolve("page.png")
+        val source = BufferedImage(4000, 5000, BufferedImage.TYPE_INT_ARGB)
+        Files.newOutputStream(encoded).use { ImageIO.write(source, "png", it) }
+        source.flush()
+        val loader = DesktopPageLoader(DesktopLocalChapterPages(DesktopLocalSourceFileSystem(root)))
+        repeat(3) { index ->
+            val path = root.resolve("page-$index.png")
+            Files.copy(encoded, path)
+            val image = loader.image(DesktopPage.Local(DesktopLocalPage(path, null)))
+            assertEquals(4000, image.width)
+            assertEquals(5000, image.height)
             assertEquals(minOf(index + 1, 2), loader.cachedPageCount())
         }
     }
