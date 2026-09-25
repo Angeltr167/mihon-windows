@@ -258,6 +258,7 @@ internal fun DesktopReader(
                                 session.library.track(mangaId, DesktopKitsuTracker.TRACKER_ID) != null ||
                                 session.library.track(mangaId, DesktopMyAnimeListTracker.TRACKER_ID) != null ||
                                 session.library.track(mangaId, DesktopShikimoriTracker.TRACKER_ID) != null ||
+                                session.library.track(mangaId, DesktopHikkaTracker.TRACKER_ID) != null ||
                                 session.library.track(mangaId, DesktopSuwayomiTracker.TRACKER_ID) != null
                         }
                     ) {

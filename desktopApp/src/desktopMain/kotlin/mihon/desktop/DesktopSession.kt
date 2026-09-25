@@ -43,6 +43,7 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
     internal val kitsuTracker = DesktopKitsuTracker(network.client, library, secrets)
     internal val myAnimeListTracker = DesktopMyAnimeListTracker(network.client, library, secrets)
     internal val shikimoriTracker = DesktopShikimoriTracker(network.client, library, secrets)
+    internal val hikkaTracker = DesktopHikkaTracker(network.client, library, secrets)
     internal val suwayomiTracker = DesktopSuwayomiTracker(library) { sourceId ->
         sources().filterIsInstance<HttpSource>()
             .firstOrNull { it.id == sourceId && it.javaClass.name == DesktopSuwayomiTracker.SOURCE_CLASS }
@@ -58,6 +59,7 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
             kitsuTracker.syncCompletedChapter(mangaId, chapterNumber)
             myAnimeListTracker.syncCompletedChapter(mangaId, chapterNumber)
             shikimoriTracker.syncCompletedChapter(mangaId, chapterNumber)
+            hikkaTracker.syncCompletedChapter(mangaId, chapterNumber)
             suwayomiTracker.syncCompletedChapter(mangaId, chapterNumber)
         },
     )

@@ -113,6 +113,9 @@ fun DesktopShell(
     var shikimoriCallback by remember { mutableStateOf("") }
     var shikimoriMangaId by remember { mutableStateOf("") }
     var shikimoriLoggedIn by remember { mutableStateOf(session.shikimoriTracker.isLoggedIn) }
+    var hikkaCallback by remember { mutableStateOf("") }
+    var hikkaSlug by remember { mutableStateOf("") }
+    var hikkaLoggedIn by remember { mutableStateOf(session.hikkaTracker.isLoggedIn) }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
@@ -275,6 +278,9 @@ fun DesktopShell(
                             }
                             val shikimoriTrack = stored?.let {
                                 session.library.track(it._id, DesktopShikimoriTracker.TRACKER_ID)
+                            }
+                            val hikkaTrack = stored?.let {
+                                session.library.track(it._id, DesktopHikkaTracker.TRACKER_ID)
                             }
                             val suwayomiTrack = stored?.let {
                                 session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
@@ -574,6 +580,42 @@ fun DesktopShell(
                                             message = "Shikimori sync queued"
                                         }
                                     }) { Text("Sync Shikimori") }
+                                }
+                            }
+                            if (stored != null && hikkaLoggedIn) {
+                                if (hikkaTrack == null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            hikkaSlug,
+                                            { hikkaSlug = it },
+                                            label = { Text("Hikka manga slug") },
+                                        )
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching { session.hikkaTracker.bind(stored._id, hikkaSlug.trim()) }
+                                                    .onSuccess {
+                                                        hikkaSlug = ""
+                                                        message = "Hikka tracking linked"
+                                                    }.onFailure { message = it.message ?: "Hikka link failed" }
+                                            }
+                                        }) { Text("Link Hikka") }
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val lastRead = withContext(Dispatchers.IO) {
+                                                chapters.filter {
+                                                    session.library.chapter(stored._id, it.url)?.read == true
+                                                }.maxOfOrNull { it.chapter_number.toDouble() }
+                                            }
+                                            if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                session.trackerSync.enqueue(stored._id, lastRead)
+                                            } else {
+                                                session.trackerSync.retry(stored._id)
+                                            }
+                                            message = "Hikka sync queued"
+                                        }
+                                    }) { Text("Sync Hikka") }
                                 }
                             }
                             if (stored != null &&
@@ -1043,6 +1085,38 @@ fun DesktopShell(
                                             }.onFailure { message = it.message ?: "Shikimori sign-in failed" }
                                     }
                                 }) { Text("Complete Shikimori sign-in") }
+                            }
+                            Text("Hikka: ${if (hikkaLoggedIn) "signed in" else "not signed in"}")
+                            if (hikkaLoggedIn) {
+                                TextButton(onClick = {
+                                    session.hikkaTracker.logout()
+                                    hikkaLoggedIn = false
+                                    message = "Hikka signed out"
+                                }) { Text("Sign out of Hikka") }
+                            } else {
+                                TextButton(onClick = {
+                                    runCatching {
+                                        check(graph.browserService.open(session.hikkaTracker.beginLogin()))
+                                    }.onFailure { message = it.message ?: "Could not open Hikka" }
+                                }) { Text("Sign in to Hikka in browser") }
+                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
+                                OutlinedTextField(
+                                    hikkaCallback,
+                                    { hikkaCallback = it },
+                                    label = { Text("Paste Hikka redirect URL") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                )
+                                TextButton(onClick = {
+                                    val callback = hikkaCallback
+                                    hikkaCallback = ""
+                                    scope.launch {
+                                        runCatching { session.hikkaTracker.loginFromCallback(callback) }
+                                            .onSuccess { name ->
+                                                hikkaLoggedIn = true
+                                                message = "Signed in to Hikka as $name"
+                                            }.onFailure { message = it.message ?: "Hikka sign-in failed" }
+                                    }
+                                }) { Text("Complete Hikka sign-in") }
                             }
                             TextButton(onClick = {
                                 val intervals = DesktopLibraryUpdateScheduler.INTERVALS
