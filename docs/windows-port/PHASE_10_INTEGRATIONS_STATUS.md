@@ -8,6 +8,8 @@ Komga is the first Desktop tracker adapter. It preserves Android's tracker ID 6 
 
 The other ten providers remain incomplete. Their login/token handling, resources, preferences, and callback Activities are Android-bound; provider-specific Desktop authentication, secure credential storage, UI binding, and reader sync remain P10 work. They are implementation gaps, not claimed provider-specific blockers. P10 cannot be marked complete yet.
 
+Windows-user DPAPI credential storage is available for future Desktop tracker tokens. It is not yet wired to any provider; storing a token alone does not satisfy the OAuth or tracker-sync gate.
+
 | Android provider | Existing login path | Desktop status |
 | --- | --- | --- |
 | Komga | Source-authenticated session | Fixture-backed adapter and retry queue; live server pending |

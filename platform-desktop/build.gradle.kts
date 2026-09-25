@@ -11,6 +11,7 @@ kotlin {
 dependencies {
     implementation(projects.platformApi)
     implementation(libs.metro.runtime)
+    implementation("net.java.dev.jna:jna-platform:5.18.1")
 
     testImplementation(libs.bundles.test)
     testRuntimeOnly(libs.junit.platform.launcher)
