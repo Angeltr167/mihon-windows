@@ -107,6 +107,9 @@ fun DesktopShell(
     var kitsuPassword by remember { mutableStateOf("") }
     var kitsuMangaId by remember { mutableStateOf("") }
     var kitsuLoggedIn by remember { mutableStateOf(session.kitsuTracker.isLoggedIn) }
+    var malCallback by remember { mutableStateOf("") }
+    var malMangaId by remember { mutableStateOf("") }
+    var malLoggedIn by remember { mutableStateOf(session.myAnimeListTracker.isLoggedIn) }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
@@ -263,6 +266,9 @@ fun DesktopShell(
                             }
                             val kitsuTrack = stored?.let {
                                 session.library.track(it._id, DesktopKitsuTracker.TRACKER_ID)
+                            }
+                            val malTrack = stored?.let {
+                                session.library.track(it._id, DesktopMyAnimeListTracker.TRACKER_ID)
                             }
                             val suwayomiTrack = stored?.let {
                                 session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
@@ -484,6 +490,45 @@ fun DesktopShell(
                                             message = "Kitsu sync queued"
                                         }
                                     }) { Text("Sync Kitsu") }
+                                }
+                            }
+                            if (stored != null && malLoggedIn) {
+                                if (malTrack == null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            malMangaId,
+                                            { malMangaId = it },
+                                            label = { Text("MyAnimeList manga ID") },
+                                        )
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching {
+                                                    val id = malMangaId.trim().toLongOrNull()
+                                                        ?: error("Enter a numeric MyAnimeList manga ID")
+                                                    session.myAnimeListTracker.bind(stored._id, id)
+                                                }.onSuccess {
+                                                    malMangaId = ""
+                                                    message = "MyAnimeList tracking linked"
+                                                }.onFailure { message = it.message ?: "MyAnimeList link failed" }
+                                            }
+                                        }) { Text("Link MyAnimeList") }
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val lastRead = withContext(Dispatchers.IO) {
+                                                chapters.filter {
+                                                    session.library.chapter(stored._id, it.url)?.read == true
+                                                }.maxOfOrNull { it.chapter_number.toDouble() }
+                                            }
+                                            if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                session.trackerSync.enqueue(stored._id, lastRead)
+                                            } else {
+                                                session.trackerSync.retry(stored._id)
+                                            }
+                                            message = "MyAnimeList sync queued"
+                                        }
+                                    }) { Text("Sync MyAnimeList") }
                                 }
                             }
                             if (stored != null &&
@@ -888,6 +933,39 @@ fun DesktopShell(
                                             }.onFailure { message = it.message ?: "Kitsu sign-in failed" }
                                     }
                                 }) { Text("Sign in to Kitsu") }
+                            }
+                            Text("MyAnimeList: ${if (malLoggedIn) "signed in" else "not signed in"}")
+                            if (malLoggedIn) {
+                                TextButton(onClick = {
+                                    session.myAnimeListTracker.logout()
+                                    malLoggedIn = false
+                                    message = "MyAnimeList signed out"
+                                }) { Text("Sign out of MyAnimeList") }
+                            } else {
+                                TextButton(onClick = {
+                                    runCatching {
+                                        val url = session.myAnimeListTracker.beginLogin()
+                                        check(graph.browserService.open(url))
+                                    }.onFailure { message = it.message ?: "Could not open MyAnimeList" }
+                                }) { Text("Sign in to MyAnimeList in browser") }
+                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
+                                OutlinedTextField(
+                                    malCallback,
+                                    { malCallback = it },
+                                    label = { Text("Paste MyAnimeList redirect URL") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                )
+                                TextButton(onClick = {
+                                    val callback = malCallback
+                                    malCallback = ""
+                                    scope.launch {
+                                        runCatching { session.myAnimeListTracker.loginFromCallback(callback) }
+                                            .onSuccess { name ->
+                                                malLoggedIn = true
+                                                message = "Signed in to MyAnimeList as $name"
+                                            }.onFailure { message = it.message ?: "MyAnimeList sign-in failed" }
+                                    }
+                                }) { Text("Complete MyAnimeList sign-in") }
                             }
                             TextButton(onClick = {
                                 val intervals = DesktopLibraryUpdateScheduler.INTERVALS
