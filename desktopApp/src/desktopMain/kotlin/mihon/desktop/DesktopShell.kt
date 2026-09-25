@@ -99,6 +99,10 @@ fun DesktopShell(
     var aniListCallback by remember { mutableStateOf("") }
     var aniListMediaId by remember { mutableStateOf("") }
     var kavitaApiKey by remember { mutableStateOf("") }
+    var mangaUpdatesUsername by remember { mutableStateOf("") }
+    var mangaUpdatesPassword by remember { mutableStateOf("") }
+    var mangaUpdatesSeriesId by remember { mutableStateOf("") }
+    var mangaUpdatesLoggedIn by remember { mutableStateOf(session.mangaUpdatesTracker.isLoggedIn) }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
     var message by remember { mutableStateOf("") }
     val downloads by session.downloads.queue.collectAsState()
@@ -250,6 +254,9 @@ fun DesktopShell(
                             val kavitaTrack = stored?.let {
                                 session.library.track(it._id, DesktopKavitaTracker.TRACKER_ID)
                             }
+                            val mangaUpdatesTrack = stored?.let {
+                                session.library.track(it._id, DesktopMangaUpdatesTracker.TRACKER_ID)
+                            }
                             val suwayomiTrack = stored?.let {
                                 session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
                             }
@@ -392,6 +399,45 @@ fun DesktopShell(
                                             message = "AniList sync retry queued"
                                         }
                                     }) { Text("Sync AniList") }
+                                }
+                            }
+                            if (stored != null && mangaUpdatesLoggedIn) {
+                                if (mangaUpdatesTrack == null) {
+                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        OutlinedTextField(
+                                            mangaUpdatesSeriesId,
+                                            { mangaUpdatesSeriesId = it },
+                                            label = { Text("MangaUpdates series ID") },
+                                        )
+                                        TextButton(onClick = {
+                                            scope.launch {
+                                                runCatching {
+                                                    val id = mangaUpdatesSeriesId.trim().toLongOrNull()
+                                                        ?: error("Enter a numeric MangaUpdates series ID")
+                                                    session.mangaUpdatesTracker.bind(stored._id, id)
+                                                }.onSuccess {
+                                                    mangaUpdatesSeriesId = ""
+                                                    message = "MangaUpdates tracking linked"
+                                                }.onFailure { message = it.message ?: "MangaUpdates link failed" }
+                                            }
+                                        }) { Text("Link MangaUpdates") }
+                                    }
+                                } else {
+                                    TextButton(onClick = {
+                                        scope.launch {
+                                            val lastRead = withContext(Dispatchers.IO) {
+                                                chapters.filter {
+                                                    session.library.chapter(stored._id, it.url)?.read == true
+                                                }.maxOfOrNull { it.chapter_number.toDouble() }
+                                            }
+                                            if (lastRead != null && lastRead.isFinite() && lastRead > 0) {
+                                                session.trackerSync.enqueue(stored._id, lastRead)
+                                            } else {
+                                                session.trackerSync.retry(stored._id)
+                                            }
+                                            message = "MangaUpdates sync queued"
+                                        }
+                                    }) { Text("Sync MangaUpdates") }
                                 }
                             }
                             if (stored != null &&
@@ -732,6 +778,38 @@ fun DesktopShell(
                                             .onFailure { message = it.message ?: "AniList sign-in failed" }
                                     }
                                 }) { Text("Complete AniList sign-in") }
+                            }
+                            Text("MangaUpdates: ${if (mangaUpdatesLoggedIn) "signed in" else "not signed in"}")
+                            if (mangaUpdatesLoggedIn) {
+                                TextButton(onClick = {
+                                    session.mangaUpdatesTracker.logout()
+                                    mangaUpdatesLoggedIn = false
+                                    message = "MangaUpdates signed out"
+                                }) { Text("Sign out of MangaUpdates") }
+                            } else {
+                                OutlinedTextField(
+                                    mangaUpdatesUsername,
+                                    { mangaUpdatesUsername = it },
+                                    label = { Text("MangaUpdates username") },
+                                )
+                                OutlinedTextField(
+                                    mangaUpdatesPassword,
+                                    { mangaUpdatesPassword = it },
+                                    label = { Text("MangaUpdates password") },
+                                    visualTransformation = PasswordVisualTransformation(),
+                                )
+                                TextButton(onClick = {
+                                    val username = mangaUpdatesUsername
+                                    val password = mangaUpdatesPassword
+                                    mangaUpdatesPassword = ""
+                                    scope.launch {
+                                        runCatching { session.mangaUpdatesTracker.login(username, password) }
+                                            .onSuccess { name ->
+                                                mangaUpdatesLoggedIn = true
+                                                message = "Signed in to MangaUpdates as $name"
+                                            }.onFailure { message = it.message ?: "MangaUpdates sign-in failed" }
+                                    }
+                                }) { Text("Sign in to MangaUpdates") }
                             }
                             TextButton(onClick = {
                                 val intervals = DesktopLibraryUpdateScheduler.INTERVALS
