@@ -6,6 +6,9 @@ Keiyoushi extension catalog, installed sources, manga metadata and image URLs ov
 its local GraphQL/REST API. The existing `.mihonext` format still works independently.
 Android Mihon is unchanged.
 
+The Windows package includes the matching `javaw.exe` launcher in its bundled runtime.
+This runs Suwayomi in its own JVM so extensions use Suwayomi's source API classes.
+
 ## Use
 
 1. Install a newly built Windows MSI or EXE. Older packages do not contain this

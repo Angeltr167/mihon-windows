@@ -14,8 +14,8 @@ Local packaging fixture (2026-09-26; unsigned, not a published release):
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `Mihon-1.0.2.msi` | `1b451913e2fa2189c5f3b6954c0fa2474ffbc8d589ecf817616d121deed51807` |
-| `Mihon-1.0.2.exe` | `6a96deef57782e1c1a9bebcf4c8da80bde1e16d9dc2ecea5b24fc82f34d962bb` |
+| `Mihon-1.0.3.msi` | `5b364758fb03a84ebd4c6655c2ba629b899016ccc166082dbfbdccf0ed768a51` |
+| `Mihon-1.0.3.exe` | `6746c5f2397d3eb56569c8284827109d35ab66faf219061c2247a823b88e3e9b` |
 
 For installer-driven upgrades, download the new installer from the project's official HTTPS release location, compare its SHA-256 with the published release record, close Mihon, then run the newer installer. The installer must be launched only after the digest matches. Back up the profile before an RC upgrade. The stable upgrade UUID is `c764cc56-8996-49ef-b813-1ee3815d9da2`; do not change it between Windows releases. The version supplied through `-PmihonWindowsVersion` must increase for upgrades and use the numeric `major.minor.patch` format required by Windows packaging.
 

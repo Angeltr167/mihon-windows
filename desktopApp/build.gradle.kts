@@ -61,7 +61,7 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             appResourcesRootDir.set(layout.buildDirectory.dir("suwayomi-resources"))
             packageName = "Mihon"
-            packageVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.2").get()
+            packageVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.3").get()
             description = "Mihon manga reader for Windows"
             vendor = "Mihon"
             licenseFile.set(rootProject.file("LICENSE"))
@@ -144,4 +144,27 @@ tasks.register("prepareSuwayomiEngine") {
 
 tasks.matching { it.name == "prepareAppResources" }.configureEach {
     dependsOn("prepareSuwayomiEngine")
+}
+
+val includePackagedJavaw = tasks.register("includePackagedJavaw") {
+    val sourceJavaw = File(System.getProperty("java.home"), "bin/javaw.exe")
+    val packagedJavaw = layout.buildDirectory.file("compose/tmp/main/runtime/bin/javaw.exe")
+    inputs.file(sourceJavaw)
+    outputs.file(packagedJavaw)
+    dependsOn(tasks.named("createRuntimeImage"))
+    onlyIf { System.getProperty("os.name").startsWith("Windows", ignoreCase = true) }
+    doLast {
+        require(sourceJavaw.isFile) { "JDK javaw.exe is required to package the Windows extension engine" }
+        val target = packagedJavaw.get().asFile
+        target.parentFile.mkdirs()
+        Files.copy(sourceJavaw.toPath(), target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+    }
+}
+
+tasks.matching { it.name == "createDistributable" }.configureEach {
+    dependsOn(includePackagedJavaw)
+}
+
+tasks.matching { it.name == "packageExe" || it.name == "packageMsi" }.configureEach {
+    dependsOn(includePackagedJavaw)
 }
