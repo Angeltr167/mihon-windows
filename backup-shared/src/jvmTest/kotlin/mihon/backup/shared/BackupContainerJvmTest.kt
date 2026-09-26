@@ -2,8 +2,10 @@ package mihon.backup.shared
 
 import org.junit.jupiter.api.Assertions.assertArrayEquals
 import org.junit.jupiter.api.Assertions.assertFalse
+import org.junit.jupiter.api.Assertions.assertThrows
 import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
+import java.io.IOException
 
 class BackupContainerJvmTest {
 
@@ -22,5 +24,13 @@ class BackupContainerJvmTest {
 
         assertFalse(BackupContainer.isGzip(payload))
         assertArrayEquals(payload, BackupContainer.decode(payload))
+    }
+
+    @Test
+    fun `compressed backup size is limited before decompression can exhaust memory`() {
+        val payload = ByteArray(16 * 1024) { 7 }
+        val encoded = BackupContainer.encode(payload)
+
+        assertThrows(IOException::class.java) { BackupContainer.decode(encoded, maxDecodedSize = 1024) }
     }
 }

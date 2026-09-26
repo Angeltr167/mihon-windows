@@ -42,6 +42,8 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.StringResource
+import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -56,20 +58,21 @@ import mihon.platform.api.OpenFileRequest
 import mihon.platform.desktop.DesktopPlatformGraph
 import mihon.platform.desktop.WindowsProtocolRegistrar
 import tachiyomi.data.Mangas
+import tachiyomi.i18n.MR
 import tachiyomi.source.local.desktop.DesktopLocalSource
 import java.net.URI
 import java.nio.file.Path
 
-private enum class Screen(val title: String) {
-    LIBRARY("Library"),
-    UPDATES("Updates"),
-    HISTORY("History"),
-    SOURCES("Browse / Sources"),
-    SEARCH("Search"),
-    EXTENSIONS("Extensions"),
-    CATEGORIES("Categories"),
-    SETTINGS("Settings"),
-    DOWNLOADS("Downloads"),
+private enum class Screen(val title: StringResource) {
+    LIBRARY(MR.strings.label_library),
+    UPDATES(MR.strings.label_recent_updates),
+    HISTORY(MR.strings.label_recent_manga),
+    SOURCES(MR.strings.label_sources),
+    SEARCH(MR.strings.action_search),
+    EXTENSIONS(MR.strings.label_extensions),
+    CATEGORIES(MR.strings.categories),
+    SETTINGS(MR.strings.label_settings),
+    DOWNLOADS(MR.strings.label_download_queue),
 }
 
 @Composable
@@ -100,6 +103,7 @@ fun DesktopShell(
     var availableExtensions by remember { mutableStateOf(emptyList<DesktopRepositoryEntry>()) }
     var fingerprint by remember { mutableStateOf("") }
     var categoryName by remember { mutableStateOf("") }
+    var backupPath by remember { mutableStateOf("") }
     var aniListCallback by remember { mutableStateOf("") }
     var aniListMediaId by remember { mutableStateOf("") }
     var kavitaApiKey by remember { mutableStateOf("") }
@@ -290,14 +294,26 @@ fun DesktopShell(
                                     if (item == Screen.LIBRARY) refreshLibrary()
                                 },
                                 modifier = Modifier.fillMaxWidth(),
-                            ) { Text("${index + 1}  ${item.title}") }
+                            ) { Text("${index + 1}  ${stringResource(item.title)}") }
                         }
                     }
                 }
-                Column(Modifier.fillMaxSize().padding(if (readerTarget == null) 20.dp else 8.dp)) {
+                Column(
+                    Modifier.fillMaxSize()
+                        .padding(if (readerTarget == null) 20.dp else 8.dp)
+                        .then(
+                            if (screen ==
+                                Screen.SETTINGS
+                            ) {
+                                Modifier.verticalScroll(rememberScrollState())
+                            } else {
+                                Modifier
+                            },
+                        ),
+                ) {
                     if (readerTarget == null) {
                         Text(
-                            selectedManga?.title ?: screen.title,
+                            selectedManga?.title ?: stringResource(screen.title),
                             style = MaterialTheme.typography.headlineMedium,
                         )
                         HorizontalDivider(Modifier.padding(vertical = 12.dp))
@@ -1062,6 +1078,38 @@ fun DesktopShell(
                             }
                         }
                         screen == Screen.SETTINGS -> {
+                            Text("Migration")
+                            Text(
+                                "Import a Mihon Android .tachibk backup. Existing records with matching source and manga URLs are updated.",
+                            )
+                            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                OutlinedTextField(
+                                    backupPath,
+                                    { backupPath = it },
+                                    label = { Text("Android backup (.tachibk)") },
+                                    modifier = Modifier.weight(1f),
+                                )
+                                TextButton(onClick = {
+                                    graph.fileDialogService.chooseOpenFile(
+                                        OpenFileRequest("Import Mihon Android backup", extensions = setOf("tachibk")),
+                                    )?.let { backupPath = it }
+                                }) { Text("Choose…") }
+                                Button(onClick = {
+                                    val path = backupPath.trim()
+                                    scope.launch {
+                                        runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                DesktopBackupImporter.import(Path.of(path), session.library)
+                                            }
+                                        }.onSuccess { result ->
+                                            refreshLibrary()
+                                            message =
+                                                "Imported ${result.manga} manga, ${result.chapters} chapters, ${result.categories} categories, and ${result.trackerEntries} tracker entries"
+                                        }.onFailure { message = it.message ?: "Backup import failed" }
+                                    }
+                                }, enabled = backupPath.isNotBlank()) { Text("Import backup") }
+                            }
+                            HorizontalDivider(Modifier.padding(vertical = 8.dp))
                             Text("Language: ${graph.localeService.currentLanguageTag()}")
                             Text("Library: ${graph.appDirectories.localLibrary}")
                             Text("Database: ${graph.appDirectories.database}")

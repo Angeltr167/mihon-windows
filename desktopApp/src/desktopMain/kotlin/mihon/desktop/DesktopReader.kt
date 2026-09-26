@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -33,6 +34,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
@@ -56,12 +58,14 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.dp
+import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mihon.core.reader.FitMode
 import mihon.core.reader.ReaderPageLoadState
@@ -69,6 +73,9 @@ import mihon.core.reader.ReadingMode
 import mihon.core.reader.nextPageToPreload
 import mihon.core.reader.viewedPageIndex
 import mihon.platform.desktop.DesktopPlatformGraph
+import tachiyomi.i18n.MR
+import java.nio.file.Files
+import java.nio.file.Path
 import kotlin.math.roundToInt
 
 internal data class ReaderTarget(
@@ -90,6 +97,7 @@ internal fun DesktopReader(
     val chapters = remember(target) { target.chapters.asReversed() }
     val loader = remember(session) { DesktopPageLoader(session.localPages, session.downloads.store) }
     val focusRequester = remember(target) { FocusRequester() }
+    val scope = rememberCoroutineScope()
     LaunchedEffect(focusRequester) { focusRequester.requestFocus() }
     var chapterIndex by remember(target) {
         mutableIntStateOf(chapters.indexOfFirst { it.url == target.selectedChapterUrl }.coerceAtLeast(0))
@@ -97,9 +105,12 @@ internal fun DesktopReader(
     var pageIndex by remember(target) { mutableIntStateOf(0) }
     var pages by remember(target) { mutableStateOf<List<DesktopPage>>(emptyList()) }
     var chapterId by remember(target) { mutableStateOf<Long?>(null) }
+    var chapterBookmarked by remember(target) { mutableStateOf(false) }
     var mangaId by remember(target) { mutableStateOf<Long?>(null) }
     var trackerSyncAttempted by remember(target) { mutableStateOf(false) }
     var trackerError by remember(target) { mutableStateOf<String?>(null) }
+    var pageActionMessage by remember(target) { mutableStateOf<String?>(null) }
+    var savedPage by remember(target) { mutableStateOf<Path?>(null) }
     val pendingTrackerSync by session.trackerSync.pending.collectAsState()
     var loadedChapterIndex by remember(target) { mutableIntStateOf(-1) }
     var loadState by remember(target) { mutableStateOf<ReaderPageLoadState>(ReaderPageLoadState.Loading) }
@@ -208,7 +219,10 @@ internal fun DesktopReader(
 
     LaunchedEffect(target, chapterIndex, retry) {
         pages = emptyList()
+        savedPage = null
+        pageActionMessage = null
         chapterId = null
+        chapterBookmarked = false
         mangaId = null
         trackerError = null
         loadedChapterIndex = -1
@@ -228,6 +242,7 @@ internal fun DesktopReader(
                 if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) restored / 2 * 2 else restored
             pages = loaded
             chapterId = stored._id
+            chapterBookmarked = stored.bookmark
             mangaId = stored.manga_id
             trackerSyncAttempted = stored.read
             loadedChapterIndex = chapterIndex
@@ -339,7 +354,7 @@ internal fun DesktopReader(
             true
         }.focusRequester(focusRequester).focusable(),
     ) {
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = onClose) { Text("Back") }
             Text(chapters[chapterIndex].name, modifier = Modifier.weight(1f).padding(top = 12.dp))
             TextButton(onClick = {
@@ -359,6 +374,7 @@ internal fun DesktopReader(
         }
         (trackerError ?: pendingTrackerSync.firstOrNull { it.mangaId == mangaId }?.error)
             ?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+        pageActionMessage?.let { Text(it) }
         when {
             loadState is ReaderPageLoadState.Failed -> Column {
                 Text((loadState as ReaderPageLoadState.Failed).reason, color = MaterialTheme.colorScheme.error)
@@ -435,7 +451,7 @@ internal fun DesktopReader(
                 }
             }
         }
-        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             TextButton(onClick = {
                 if (chapterIndex >
                     0
@@ -449,6 +465,45 @@ internal fun DesktopReader(
             TextButton(onClick = ::previous) { Text("Previous page") }
             Text("${pageIndex + 1} / ${pages.size}", modifier = Modifier.padding(top = 12.dp))
             TextButton(onClick = ::next) { Text("Next page") }
+            TextButton(onClick = {
+                val current = pages.getOrNull(pageIndex) ?: return@TextButton
+                val currentIndex = pageIndex
+                val folder = graph.fileDialogService.chooseDirectory("Save reader page") ?: return@TextButton
+                scope.launch {
+                    runCatching {
+                        withContext(Dispatchers.IO) {
+                            val bytes = DesktopPageFetcher(session.localPages).bytes(current)
+                            val output = Files.createTempFile(
+                                Path.of(folder),
+                                "mihon-page-${currentIndex + 1}-",
+                                ".${imageExtension(bytes)}",
+                            )
+                            Files.write(output, bytes)
+                            output
+                        }
+                    }.onSuccess {
+                        savedPage = it
+                        pageActionMessage = "Saved page: $it"
+                    }.onFailure { pageActionMessage = it.message ?: "Could not save page" }
+                }
+            }, enabled = pages.isNotEmpty()) { Text("Save page…") }
+            savedPage?.let { path ->
+                TextButton(onClick = { graph.externalOpenService.openPath(path.toString()) }) {
+                    Text("Open saved page")
+                }
+            }
+            TextButton(onClick = {
+                val id = chapterId ?: return@TextButton
+                chapterBookmarked = !chapterBookmarked
+                val bookmarked = chapterBookmarked
+                scope.launch { withContext(Dispatchers.IO) { session.library.setChapterBookmark(id, bookmarked) } }
+            }, enabled = chapterId != null) {
+                Text(
+                    stringResource(
+                        if (chapterBookmarked) MR.strings.action_remove_bookmark else MR.strings.action_bookmark,
+                    ),
+                )
+            }
             TextButton(
                 onClick = {
                     if (chapterIndex <

@@ -5,6 +5,7 @@ import eu.kanade.tachiyomi.data.backup.models.BackupCategory
 import eu.kanade.tachiyomi.data.backup.models.BackupManga
 import kotlinx.serialization.ExperimentalSerializationApi
 import kotlinx.serialization.protobuf.ProtoBuf
+import mihon.backup.shared.MihonBackup
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertFalse
 import org.junit.jupiter.api.Test
@@ -49,6 +50,12 @@ class BackupCompatibilityFixtureTest {
 
         val encoded = ProtoBuf.encodeToByteArray(Backup.serializer(), fixture)
         assertFalse(encoded.isEmpty())
+
+        val desktopDecoded = ProtoBuf.decodeFromByteArray(MihonBackup.serializer(), encoded)
+        assertEquals(fixture.backupManga.single().url, desktopDecoded.manga.single().url)
+        assertEquals(fixture.backupManga.single().title, desktopDecoded.manga.single().title)
+        assertEquals(fixture.backupManga.single().viewer_flags, desktopDecoded.manga.single().viewerFlags)
+        assertEquals(fixture.backupCategories.single().id, desktopDecoded.categories.single().id)
 
         val decoded = ProtoBuf.decodeFromByteArray(Backup.serializer(), encoded)
 

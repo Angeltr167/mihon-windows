@@ -7,6 +7,8 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import mihon.backup.shared.BackupImportSummary
+import mihon.backup.shared.MihonBackup
 import tachiyomi.data.Chapters
 import tachiyomi.data.History
 import tachiyomi.data.Manga_sync
@@ -123,6 +125,13 @@ class DesktopMangaRepository private constructor(
     fun chapter(mangaId: Long, chapterUrl: String): Chapters? =
         database.chaptersQueries.getChapterByUrlAndMangaId(chapterUrl, mangaId).executeAsOneOrNull()
 
+    fun setChapterBookmark(chapterId: Long, bookmarked: Boolean) {
+        driver.execute(null, "UPDATE chapters SET bookmark = ? WHERE _id = ?", 2) {
+            bindBoolean(0, bookmarked)
+            bindLong(1, chapterId)
+        }
+    }
+
     fun track(mangaId: Long, trackerId: Long): Manga_sync? =
         database.manga_syncQueries.getTracksByMangaId(mangaId).executeAsList()
             .firstOrNull { it.sync_id == trackerId }
@@ -206,6 +215,172 @@ class DesktopMangaRepository private constructor(
         database.categoriesQueries.insert(name.trim(), categories().size.toLong(), 0)
     }
 
+    /** Merge an Android protobuf backup into Mihon's existing schema. */
+    fun importBackup(backup: MihonBackup): BackupImportSummary {
+        var importedChapters = 0
+        var importedTrackers = 0
+        val categoryIds = mutableMapOf<Long, Long>()
+
+        database.transaction {
+            backup.categories.sortedBy { it.order }.forEach { category ->
+                val name = category.name.trim()
+                if (name.isNotEmpty()) {
+                    val existing = categories().firstOrNull { it.name == name }
+                    val id = existing?.id ?: run {
+                        database.categoriesQueries.insert(name, category.order, category.flags)
+                        categories().first { it.name == name }.id
+                    }
+                    categoryIds[category.id] = id
+                }
+            }
+
+            backup.manga.forEach { item ->
+                require(item.url.isNotBlank()) { "Backup contains manga with an empty URL" }
+                val manga = SManga.create().apply {
+                    url = item.url
+                    title = item.title.ifBlank { item.url }
+                    artist = item.artist
+                    author = item.author
+                    description = item.description
+                    genre = item.genre.takeIf(List<String>::isNotEmpty)?.joinToString(", ")
+                    status = item.status
+                    thumbnail_url = item.thumbnailUrl
+                    initialized = item.initialized
+                    update_strategy = UpdateStrategy.entries.getOrElse(item.updateStrategy) {
+                        UpdateStrategy.ALWAYS_UPDATE
+                    }
+                    memo = decodeMemo(item.memo)
+                }
+                val stored = ensureManga(item.source, manga, item.favorite)
+                val mangaId = stored._id
+                setFavorite(mangaId, item.favorite)
+                driver.execute(
+                    null,
+                    """UPDATE mangas SET artist = ?, author = ?, description = ?, genre = ?, title = ?,
+                        status = ?, thumbnail_url = ?, date_added = ?, update_strategy = ?, initialized = ?,
+                        viewer = ?, chapter_flags = ?, version = ?, notes = ?, memo = ?, is_syncing = 1
+                        WHERE _id = ?
+                    """.trimIndent(),
+                    16,
+                ) {
+                    bindString(0, item.artist)
+                    bindString(1, item.author)
+                    bindString(2, item.description)
+                    bindString(3, item.genre.takeIf(List<String>::isNotEmpty)?.joinToString(", "))
+                    bindString(4, manga.title)
+                    bindLong(5, item.status.toLong())
+                    bindString(6, item.thumbnailUrl)
+                    bindLong(7, item.dateAdded)
+                    bindLong(8, manga.update_strategy.ordinal.toLong())
+                    bindBoolean(9, item.initialized)
+                    bindLong(10, (item.viewerFlags ?: 0).toLong())
+                    bindLong(11, item.chapterFlags.toLong())
+                    bindLong(12, item.version)
+                    bindString(13, item.notes)
+                    bindBytes(14, item.memo)
+                    bindLong(15, mangaId)
+                }
+
+                val importedCategoryIds = item.categories.mapNotNull(categoryIds::get).toSet()
+                database.mangas_categoriesQueries.deleteMangaCategoryByMangaId(mangaId)
+                importedCategoryIds.forEach { database.mangas_categoriesQueries.insert(mangaId, it) }
+
+                val chapterIds = mutableMapOf<String, Long>()
+                item.chapters.forEach { chapter ->
+                    require(chapter.url.isNotBlank()) { "Backup contains chapter with an empty URL" }
+                    val existing = database.chaptersQueries.getChapterByUrlAndMangaId(chapter.url, mangaId)
+                        .executeAsOneOrNull()
+                    val id = existing?._id ?: database.chaptersQueries.insertReturningId(
+                        mangaId = mangaId,
+                        url = chapter.url,
+                        name = chapter.name,
+                        scanlator = chapter.scanlator,
+                        read = chapter.read,
+                        bookmark = chapter.bookmark,
+                        lastPageRead = chapter.lastPageRead,
+                        chapterNumber = chapter.chapterNumber.toDouble(),
+                        sourceOrder = chapter.sourceOrder,
+                        dateFetch = chapter.dateFetch,
+                        dateUpload = chapter.dateUpload,
+                        version = chapter.version,
+                        memo = decodeMemo(chapter.memo),
+                    ).executeAsOne()
+                    driver.execute(
+                        null,
+                        """UPDATE chapters SET name = ?, scanlator = ?, read = ?, bookmark = ?, last_page_read = ?,
+                                chapter_number = ?, source_order = ?, date_fetch = ?, date_upload = ?,
+                                last_modified_at = ?, version = ?,
+                                memo = ?, is_syncing = 1 WHERE _id = ?
+                        """.trimIndent(),
+                        13,
+                    ) {
+                        bindString(0, chapter.name)
+                        bindString(1, chapter.scanlator)
+                        bindBoolean(2, chapter.read)
+                        bindBoolean(3, chapter.bookmark)
+                        bindLong(4, chapter.lastPageRead)
+                        bindDouble(5, chapter.chapterNumber.toDouble())
+                        bindLong(6, chapter.sourceOrder)
+                        bindLong(7, chapter.dateFetch)
+                        bindLong(8, chapter.dateUpload)
+                        bindLong(9, chapter.lastModifiedAt)
+                        bindLong(10, chapter.version)
+                        bindBytes(11, chapter.memo)
+                        bindLong(12, id)
+                    }
+                    chapterIds[chapter.url] = id
+                    importedChapters++
+                }
+
+                item.history.forEach { entry ->
+                    chapterIds[entry.url]?.let { chapterId ->
+                        driver.execute(
+                            null,
+                            """INSERT INTO history(chapter_id, last_read, time_read) VALUES (?, ?, ?)
+                                ON CONFLICT(chapter_id) DO UPDATE SET last_read = excluded.last_read,
+                                time_read = excluded.time_read
+                            """.trimIndent(),
+                            3,
+                        ) {
+                            bindLong(0, chapterId)
+                            bindLong(1, entry.lastRead)
+                            bindLong(2, entry.readDuration)
+                        }
+                    }
+                }
+
+                item.tracking.forEach { track ->
+                    database.manga_syncQueries.insert(
+                        mangaId = mangaId,
+                        syncId = track.syncId.toLong(),
+                        remoteId = if (track.mediaIdInt != 0) track.mediaIdInt.toLong() else track.mediaId,
+                        libraryId = track.libraryId,
+                        title = track.title,
+                        lastChapterRead = track.lastChapterRead.toDouble(),
+                        totalChapters = track.totalChapters.toLong(),
+                        status = track.status.toLong(),
+                        score = track.score.toDouble(),
+                        remoteUrl = track.trackingUrl,
+                        startDate = track.startedReadingDate,
+                        finishDate = track.finishedReadingDate,
+                        `private` = track.private,
+                    )
+                    importedTrackers++
+                }
+                driver.execute(null, "UPDATE mangas SET is_syncing = 0 WHERE _id = ?", 1) {
+                    bindLong(0, mangaId)
+                }
+            }
+        }
+
+        return BackupImportSummary(
+            manga = backup.manga.size,
+            chapters = importedChapters,
+            categories = categoryIds.size,
+            trackerEntries = importedTrackers,
+        )
+    }
+
     override fun close() = driver.close()
 
     companion object {
@@ -232,5 +407,9 @@ class DesktopMangaRepository private constructor(
             ) = Json.decodeFromString<JsonObject>(databaseValue.decodeToString())
             override fun encode(value: JsonObject) = value.toString().encodeToByteArray()
         }
+
+        private fun decodeMemo(value: ByteArray): JsonObject =
+            runCatching { Json.decodeFromString<JsonObject>(value.decodeToString()) }
+                .getOrDefault(JsonObject(emptyMap()))
     }
 }

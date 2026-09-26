@@ -28,6 +28,7 @@ class DesktopMangaRepositoryTest {
             repository.syncChapters(id, listOf(chapter, nextChapter))
             val stored = requireNotNull(repository.chapter(id, chapter.url))
             repository.saveProgress(stored._id, 1, 3, 1000)
+            repository.setChapterBookmark(stored._id, true)
             val nextStored = requireNotNull(repository.chapter(id, nextChapter.url))
             repository.saveProgress(nextStored._id, 0, 2, 2000)
             id
@@ -35,6 +36,7 @@ class DesktopMangaRepositoryTest {
         DesktopMangaRepository.open(path).use { repository ->
             val stored = repository.chapter(mangaId, chapter.url)!!
             assertEquals(1, stored.last_page_read)
+            assertTrue(stored.bookmark)
             assertTrue(repository.history().any { it.mangaId == mangaId })
             chapter.name = "Renamed chapter"
             repository.syncChapters(mangaId, listOf(chapter, nextChapter))

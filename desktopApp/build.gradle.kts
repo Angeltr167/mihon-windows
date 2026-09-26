@@ -14,6 +14,7 @@ kotlin {
         val desktopMain by getting {
             dependencies {
                 implementation(projects.data.shared)
+                implementation(project(":backup-shared"))
                 implementation(projects.core.extensionDesktop)
                 implementation(projects.core.networkDesktop)
                 implementation(projects.core.readerCore)
@@ -28,6 +29,7 @@ kotlin {
                 implementation(libs.metro.runtime)
                 implementation(libs.okhttp.core)
                 implementation(libs.kotlinx.serialization.json)
+                implementation(libs.kotlinx.serialization.protobuf)
                 implementation("dev.icerock.moko:resources-compose:0.26.4")
             }
         }

@@ -1,5 +1,6 @@
 plugins {
     alias(mihonx.plugins.kotlin.multiplatform)
+    alias(libs.plugins.kotlin.serialization)
     alias(mihonx.plugins.spotless)
 }
 
@@ -9,6 +10,10 @@ kotlin {
     }
 
     sourceSets {
+        commonMain.dependencies {
+            implementation(libs.kotlinx.serialization.protobuf)
+        }
+
         val jvmLikeMainDirectory = "src/jvmLikeMain/kotlin"
         androidMain { kotlin.srcDir(jvmLikeMainDirectory) }
         jvmMain { kotlin.srcDir(jvmLikeMainDirectory) }

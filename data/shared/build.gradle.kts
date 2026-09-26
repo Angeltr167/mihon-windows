@@ -19,6 +19,7 @@ kotlin {
 
         jvmMain.dependencies {
             implementation("app.cash.sqldelight:sqlite-driver:2.3.2")
+            implementation(project(":backup-shared"))
         }
 
         jvmTest.dependencies {
