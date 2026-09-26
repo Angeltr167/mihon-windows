@@ -85,6 +85,9 @@ jobs:
       - name: Compile Desktop target
         run: .\gradlew.bat :desktopApp:compileKotlinDesktop
 
+      - name: Test Desktop application
+        run: .\gradlew.bat :desktopApp:desktopTest
+
       - name: Assemble Desktop JVM artifact
         run: .\gradlew.bat :desktopApp:desktopJar
 
@@ -92,3 +95,49 @@ jobs:
         env:
           MIHON_DESKTOP_SMOKE_TEST: "1"
         run: .\gradlew.bat :desktopApp:run --quiet
+
+  windows-installers:
+    name: Windows ${{ matrix.format }} installer
+    needs: [baseline-regression, desktop-bootstrap]
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - format: Msi
+            extension: msi
+          - format: Exe
+            extension: exe
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version-file: .github/.java-version
+          distribution: temurin
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+
+      - name: Package installer with bundled runtime
+        run: .\gradlew.bat :desktopApp:package${{ matrix.format }}
+
+      - name: Record SHA-256 checksum
+        shell: pwsh
+        run: |
+          $directory = "desktopApp/build/compose/binaries/main/${{ matrix.extension }}"
+          $installers = @(Get-ChildItem -LiteralPath $directory -File -Filter "*.${{ matrix.extension }}")
+          if ($installers.Count -ne 1) { throw "Expected one ${{ matrix.extension }} installer; found $($installers.Count)" }
+          $installer = $installers[0]
+          $digest = (Get-FileHash -LiteralPath $installer.FullName -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$digest  $($installer.Name)" | Set-Content -LiteralPath "$($installer.FullName).sha256" -Encoding ascii
+
+      - name: Preserve installer and checksum
+        uses: actions/upload-artifact@v7
+        with:
+          name: mihon-windows-${{ matrix.extension }}
+          path: desktopApp/build/compose/binaries/main/${{ matrix.extension }}/*
+          if-no-files-found: error
