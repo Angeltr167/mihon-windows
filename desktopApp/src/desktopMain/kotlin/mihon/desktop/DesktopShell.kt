@@ -75,6 +75,8 @@ private enum class Screen(val title: StringResource) {
     DOWNLOADS(MR.strings.label_download_queue),
 }
 
+private const val KEIYOUSHI_STORE_URL = "https://github.com/keiyoushi/extensions/raw/repo/index.pb"
+
 @Composable
 fun DesktopShell(
     graph: DesktopPlatformGraph,
@@ -101,6 +103,9 @@ fun DesktopShell(
     var packagePath by remember { mutableStateOf("") }
     var indexUrl by remember { mutableStateOf("") }
     var availableExtensions by remember { mutableStateOf(emptyList<DesktopRepositoryEntry>()) }
+    var suwayomiExtensions by remember { mutableStateOf(emptyList<SuwayomiExtension>()) }
+    var suwayomiSearch by remember { mutableStateOf("") }
+    var suwayomiStatus by remember { mutableStateOf("Starting local extension engine…") }
     var fingerprint by remember { mutableStateOf("") }
     var categoryName by remember { mutableStateOf("") }
     var backupPath by remember { mutableStateOf("") }
@@ -243,6 +248,20 @@ fun DesktopShell(
                 message = "Signed in to $tracker as $name"
             }.onFailure { message = it.message ?: "$tracker sign-in failed" }
         }
+    }
+
+    LaunchedEffect(session) {
+        runCatching {
+            withContext(Dispatchers.IO) {
+                session.suwayomiEngine.start()
+                val extensions = session.suwayomiEngine.client().extensions()
+                extensions to session.refreshSources()
+            }
+        }.onSuccess { (extensions, installedSources) ->
+            suwayomiExtensions = extensions
+            sources = installedSources
+            suwayomiStatus = "Local extension engine ready"
+        }.onFailure { suwayomiStatus = it.message ?: "Local extension engine failed" }
     }
 
     LaunchedEffect(initialLink) {
@@ -969,7 +988,90 @@ fun DesktopShell(
                         }
                         screen == Screen.EXTENSIONS -> {
                             Column(Modifier.verticalScroll(rememberScrollState())) {
-                                Text("Desktop .mihonext packages only. Trust authors before installing their code.")
+                                Text("Keiyoushi extensions")
+                                Text("Only install extensions you trust; they run code in the local engine.")
+                                Text(suwayomiStatus)
+                                if (session.suwayomiEngine.isRunning) {
+                                    Button(onClick = {
+                                        scope.launch {
+                                            suwayomiStatus = "Refreshing Keiyoushi…"
+                                            runCatching {
+                                                withContext(Dispatchers.IO) {
+                                                    val client = session.suwayomiEngine.client()
+                                                    client.addStore(KEIYOUSHI_STORE_URL)
+                                                    client.refreshExtensions()
+                                                }
+                                            }.onSuccess {
+                                                suwayomiExtensions = it
+                                                suwayomiStatus = "${it.size} extensions available"
+                                            }.onFailure {
+                                                suwayomiStatus = it.message ?: "Could not refresh extensions"
+                                            }
+                                        }
+                                    }) { Text("Load Keiyoushi catalog") }
+                                    OutlinedTextField(
+                                        suwayomiSearch,
+                                        { suwayomiSearch = it },
+                                        label = { Text("Find extension") },
+                                    )
+                                    val visible = suwayomiExtensions
+                                        .filter { !it.obsolete || it.installed }
+                                        .filter {
+                                            suwayomiSearch.isBlank() ||
+                                                it.name.contains(suwayomiSearch, ignoreCase = true) ||
+                                                it.pkgName.contains(suwayomiSearch, ignoreCase = true)
+                                        }
+                                        .sortedWith(
+                                            compareByDescending<SuwayomiExtension> {
+                                                it.installed
+                                            }.thenBy { it.name },
+                                        )
+                                        .take(50)
+                                    Text(
+                                        "Showing ${visible.size} of ${suwayomiExtensions.size}; search to narrow the list",
+                                    )
+                                    visible.forEach { entry ->
+                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                            Text("${entry.name} · ${entry.versionName} · ${entry.contentWarning}")
+                                            TextButton(onClick = {
+                                                scope.launch {
+                                                    suwayomiStatus = "Updating ${entry.name}…"
+                                                    runCatching {
+                                                        withContext(Dispatchers.IO) {
+                                                            val client = session.suwayomiEngine.client()
+                                                            client.setInstalled(
+                                                                entry.pkgName,
+                                                                when {
+                                                                    !entry.installed -> "install"
+                                                                    entry.hasUpdate -> "update"
+                                                                    else -> "uninstall"
+                                                                },
+                                                            )
+                                                            session.suwayomiEngine.refreshSources()
+                                                            client.extensions() to session.refreshSources()
+                                                        }
+                                                    }.onSuccess { (extensions, installedSources) ->
+                                                        suwayomiExtensions = extensions
+                                                        sources = installedSources
+                                                        suwayomiStatus = "${entry.name} changed"
+                                                    }.onFailure {
+                                                        suwayomiStatus = it.message ?: "Extension action failed"
+                                                    }
+                                                }
+                                            }) {
+                                                Text(
+                                                    when {
+                                                        !entry.installed -> "Install"
+                                                        entry.hasUpdate -> "Update"
+                                                        else -> "Remove"
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                HorizontalDivider(Modifier.padding(vertical = 12.dp))
+                                Text("Desktop .mihonext packages · trust authors before installing their code")
                                 OutlinedTextField(fingerprint, {
                                     fingerprint = it
                                 }, label = { Text("Signing fingerprint") })

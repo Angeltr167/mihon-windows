@@ -1,4 +1,9 @@
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+import java.io.File
+import java.net.URL
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
+import java.security.MessageDigest
 
 plugins {
     id("org.jetbrains.kotlin.multiplatform")
@@ -54,8 +59,9 @@ compose.desktop {
         mainClass = "mihon.desktop.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
+            appResourcesRootDir.set(layout.buildDirectory.dir("suwayomi-resources"))
             packageName = "Mihon"
-            packageVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.0").get()
+            packageVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.1").get()
             description = "Mihon manga reader for Windows"
             vendor = "Mihon"
             licenseFile.set(rootProject.file("LICENSE"))
@@ -73,4 +79,68 @@ compose.desktop {
 
 tasks.named<Test>("desktopTest") {
     useJUnitPlatform()
+}
+
+val suwayomiVersion = "v2.3.2243"
+val suwayomiSha256 = "821141b32e170d4a02d3cbdfed577ed8f07bd22383ff5f4132ebb5ae40e98dd5"
+val suwayomiOutput = layout.buildDirectory.file("suwayomi-resources/common/suwayomi-server.jar")
+val suwayomiLicenseSha256 = "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04"
+val suwayomiLicense = layout.buildDirectory.file("suwayomi-resources/common/suwayomi-LICENSE.txt")
+
+fun sha256(file: File): String {
+    val digest = MessageDigest.getInstance("SHA-256")
+    file.inputStream().use { input ->
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val size = input.read(buffer)
+            if (size < 0) break
+            digest.update(buffer, 0, size)
+        }
+    }
+    return digest.digest().joinToString("") { "%02x".format(it) }
+}
+
+tasks.register("prepareSuwayomiEngine") {
+    outputs.files(suwayomiOutput, suwayomiLicense)
+    outputs.upToDateWhen {
+        val jar = suwayomiOutput.get().asFile
+        val license = suwayomiLicense.get().asFile
+        jar.isFile && sha256(jar) == suwayomiSha256 &&
+            license.isFile && sha256(license) == suwayomiLicenseSha256
+    }
+    doLast {
+        val downloads = listOf(
+            Triple(
+                suwayomiOutput.get().asFile,
+                "https://github.com/Suwayomi/Suwayomi-Server/releases/download/$suwayomiVersion/" +
+                    "Suwayomi-Server-$suwayomiVersion.jar",
+                suwayomiSha256,
+            ),
+            Triple(
+                suwayomiLicense.get().asFile,
+                "https://raw.githubusercontent.com/Suwayomi/Suwayomi-Server/$suwayomiVersion/LICENSE",
+                suwayomiLicenseSha256,
+            ),
+        )
+        downloads.forEach { (target, url, expectedHash) ->
+            if (target.isFile && sha256(target) == expectedHash) return@forEach
+            target.parentFile.mkdirs()
+            val temporary = Files.createTempFile(target.parentFile.toPath(), "suwayomi-", ".tmp")
+            try {
+                URL(url).openStream().use { input ->
+                    Files.newOutputStream(temporary).use { output -> input.copyTo(output) }
+                }
+                require(sha256(temporary.toFile()) == expectedHash) {
+                    "Suwayomi resource checksum does not match the pinned release: $url"
+                }
+                Files.move(temporary, target.toPath(), StandardCopyOption.REPLACE_EXISTING)
+            } finally {
+                Files.deleteIfExists(temporary)
+            }
+        }
+    }
+}
+
+tasks.matching { it.name == "prepareAppResources" }.configureEach {
+    dependsOn("prepareSuwayomiEngine")
 }

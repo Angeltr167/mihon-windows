@@ -27,6 +27,7 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
 
     val library = DesktopMangaRepository.open(Path.of(graph.appDirectories.database).resolve("tachiyomi.db"))
     val extensions = DesktopExtensionManager(graph.appDirectories)
+    internal val suwayomiEngine = LocalSuwayomiEngine(graph.appDirectories)
     private val localFileSystem = DesktopLocalSourceFileSystem(Path.of(graph.appDirectories.localLibrary))
     private val localSource = DesktopLocalSource(localFileSystem)
     val localPages = DesktopLocalChapterPages(localFileSystem)
@@ -86,13 +87,16 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
     fun sources(): List<Source> = loadedSources ?: refreshSources()
 
     @Synchronized
-    fun refreshSources(): List<Source> = (
-        listOf(localSource) + extensions.loadInstalled()
+    fun refreshSources(): List<Source> {
+        val native = listOf(localSource) + extensions.loadInstalled()
             .filterIsInstance<DesktopExtensionLoadResult.Loaded>()
             .flatMap(DesktopExtensionLoadResult.Loaded::sources)
-        ).also { loadedSources = it }
+        val nativeIds = native.map(Source::id).toSet()
+        return (native + suwayomiEngine.sources().filterNot { it.id in nativeIds }).also { loadedSources = it }
+    }
 
     override fun close() {
+        suwayomiEngine.close()
         trackerSync.close()
         downloads.close()
         libraryUpdates.close()

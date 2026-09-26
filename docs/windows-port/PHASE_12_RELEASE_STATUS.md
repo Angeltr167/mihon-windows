@@ -10,16 +10,16 @@ Build on Windows with JDK 21:
 
 The packages are written under `desktopApp/build/compose/binaries/main/{msi,exe}`. The Windows CI matrix builds each format independently after Android and Desktop tests, then publishes the installer and its SHA-256 file. The release operator must copy those exact checksums into the release notes and verify each uploaded file again before publication. Do not treat a checksum posted alongside an unsigned download as proof of publisher identity.
 
-Local packaging fixture (2026-09-25; unsigned, not a published release):
+Local packaging fixture (2026-09-26; unsigned, not a published release):
 
 | Artifact | SHA-256 |
 | --- | --- |
-| `Mihon-1.0.0.msi` | `23f7bca3271f1d2be18934f95a7bfbc40daf0965741633db7da7e7661d159472` |
-| `Mihon-1.0.0.exe` | `4e0b5de9f9a8a4879231b37cac0a4010ed66b4c8b84a6c12fc22bbb57e33127e` |
+| `Mihon-1.0.1.msi` | `286ff70ee0d232b827efa4eb09a2e8250d76cc34f84d7693d2a3786b9db661d6` |
+| `Mihon-1.0.1.exe` | `684b031090dbc7e00119fef32fc2d0c9bad17215516689636773ddad2ce82cb4` |
 
 For installer-driven upgrades, download the new installer from the project's official HTTPS release location, compare its SHA-256 with the published release record, close Mihon, then run the newer installer. The installer must be launched only after the digest matches. Back up the profile before an RC upgrade. The stable upgrade UUID is `c764cc56-8996-49ef-b813-1ee3815d9da2`; do not change it between Windows releases. The version supplied through `-PmihonWindowsVersion` must increase for upgrades and use the numeric `major.minor.patch` format required by Windows packaging.
 
-The Apache-2.0 project `LICENSE` is supplied as installer license metadata. The bundled JDK runtime includes its own `legal` directory. Before any public release, audit and ship notices for all packaged third-party libraries, including Compose/Skiko, Kotlin, SQLDelight, OkHttp, coroutines, serialization, and extension-runtime dependencies. This audit is not complete yet.
+The Apache-2.0 project `LICENSE` is supplied as installer license metadata. The bundled JDK runtime includes its own `legal` directory. The optional local extension compatibility engine is packaged from a pinned Suwayomi-Server release with its MPL-2.0 license and bundled dependency notices; see `SUWAYOMI_ENGINE.md`. Before any public release, audit and ship notices for all packaged third-party libraries, including Compose/Skiko, Kotlin, SQLDelight, OkHttp, coroutines, serialization, and extension-runtime dependencies. This audit is not complete yet.
 
 Authenticode credentials are not present in this repository. Signing must use a release certificate and timestamp service held outside the repository; verify the signature on both installers before publishing. Unsigned local and CI packages are test artifacts, not trusted public updates.
 

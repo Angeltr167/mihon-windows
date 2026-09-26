@@ -49,6 +49,16 @@ Downloads currently rely on Android WorkManager through `DownloadJob`. Download 
 9. A phase is not complete because it compiles; its exit gate must pass.
 10. No destructive refactor is merged together with an unrelated feature port.
 
+## Post-roadmap extension compatibility decision (2026-09-25)
+
+After the phase implementation, the user selected a local Suwayomi-Server process to
+run compatible Keiyoushi Android extensions while keeping Mihon Windows' own UI,
+library, downloads, and reader. This is an additive compatibility path alongside the
+P6 `.mihonext` system, not an APK-to-JAR conversion or an embedded Android OS. The
+server is bundled as a pinned JVM sidecar, bound to loopback, and managed by the
+Desktop application. The original phase gates and outstanding clean-Windows release
+checks are unchanged. See `docs/windows-port/SUWAYOMI_ENGINE.md`.
+
 ---
 
 # Phase Tree

@@ -13,6 +13,10 @@ import java.awt.Dimension
 import java.nio.file.Path
 
 fun main(args: Array<String>) {
+    if (args.firstOrNull() == SUWAYOMI_CHILD_ARGUMENT) {
+        runSuwayomiChild(args)
+        return
+    }
     val graph = createGraphFactory<DesktopPlatformGraph.Factory>().create()
 
     if (System.getenv(DESKTOP_SMOKE_ENV) == "1") {
