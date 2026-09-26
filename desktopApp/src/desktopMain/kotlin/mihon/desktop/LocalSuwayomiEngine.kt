@@ -113,8 +113,8 @@ internal class LocalSuwayomiEngine(private val directories: AppDirectories) : Au
     private fun bundledJar(): Path {
         System.getProperty("mihon.suwayomi.jar")?.takeIf(String::isNotBlank)?.let { return Path.of(it) }
         val resources = System.getProperty("compose.application.resources.dir")
-            ?: return Path.of("desktopApp", "build", "suwayomi-resources", "common", "suwayomi-server.jar")
-        return Path.of(resources).resolve("suwayomi-server.jar")
+            ?: return Path.of("desktopApp", "build", "suwayomi-resources", "common", "suwayomi-server.bin")
+        return Path.of(resources).resolve("suwayomi-server.bin")
     }
 
     private fun processCommand(jar: Path, settings: List<String>): List<String> {

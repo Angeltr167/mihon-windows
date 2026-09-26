@@ -36,7 +36,9 @@ fail).
 
 `desktopApp:prepareSuwayomiEngine` downloads Suwayomi-Server `v2.3.2243` and its
 MPL-2.0 license from that exact release/tag into ignored build resources. Both files
-are SHA-256 checked before MSI/EXE packaging. The JAR is not committed. Release JAR:
+are SHA-256 checked before MSI/EXE packaging. The JAR is packaged as
+`suwayomi-server.bin` so Compose does not add it to Mihon's application classpath;
+it remains a JAR archive run only in the separate process. It is not committed. Release JAR:
 
 `821141b32e170d4a02d3cbdfed577ed8f07bd22383ff5f4132ebb5ae40e98dd5`
 

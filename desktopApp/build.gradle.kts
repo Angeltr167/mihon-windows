@@ -61,7 +61,7 @@ compose.desktop {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             appResourcesRootDir.set(layout.buildDirectory.dir("suwayomi-resources"))
             packageName = "Mihon"
-            packageVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.1").get()
+            packageVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.2").get()
             description = "Mihon manga reader for Windows"
             vendor = "Mihon"
             licenseFile.set(rootProject.file("LICENSE"))
@@ -83,7 +83,8 @@ tasks.named<Test>("desktopTest") {
 
 val suwayomiVersion = "v2.3.2243"
 val suwayomiSha256 = "821141b32e170d4a02d3cbdfed577ed8f07bd22383ff5f4132ebb5ae40e98dd5"
-val suwayomiOutput = layout.buildDirectory.file("suwayomi-resources/common/suwayomi-server.jar")
+// Compose places .jar app resources on Mihon's classpath; keep this sidecar archive isolated.
+val suwayomiOutput = layout.buildDirectory.file("suwayomi-resources/common/suwayomi-server.bin")
 val suwayomiLicenseSha256 = "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04"
 val suwayomiLicense = layout.buildDirectory.file("suwayomi-resources/common/suwayomi-LICENSE.txt")
 
