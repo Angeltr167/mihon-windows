@@ -717,9 +717,48 @@ internal fun DesktopReader(
                 }
             }
         }
+        AnimatedVisibility(
+            visible = controlsVisible,
+            modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(8.dp),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150)),
+        ) {
+            MihonPanel(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onClose) { Text("←") }
+                    Column(Modifier.weight(1f)) {
+                        Text(
+                            target.manga.title,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                        )
+                        Text(
+                            chapters[chapterIndex].name,
+                            color = MihonPalette.muted,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                        )
+                    }
+                    Text(
+                        if (pages.isEmpty()) {
+                            "— / —"
+                        } else {
+                            "${viewedReaderPageIndex(mode, pageIndex, pages.size) + 1} / ${pages.size}"
+                        },
+                        color = MihonPalette.muted,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                    TextButton(onClick = onToggleFullscreen) { Text("Fullscreen") }
+                }
+            }
+        }
         val readerNotice = trackerError ?: pendingTrackerSync.firstOrNull { it.mangaId == mangaId }?.error
         if (readerNotice != null || pageActionMessage != null) {
-            MihonPanel(Modifier.align(Alignment.TopCenter).fillMaxWidth(0.82f).padding(top = 8.dp)) {
+            MihonPanel(Modifier.align(Alignment.TopCenter).fillMaxWidth(0.72f).padding(top = 68.dp)) {
                 Column(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
@@ -735,7 +774,7 @@ internal fun DesktopReader(
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
         ) {
-            Column {
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Slider(
                     value = (sliderTargetPage ?: pageIndex).toFloat(),
                     onValueChange = { value ->
@@ -758,14 +797,14 @@ internal fun DesktopReader(
                     },
                     enabled = pages.isNotEmpty(),
                     valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                    modifier = Modifier.fillMaxWidth(0.72f).padding(horizontal = 10.dp),
                     colors = SliderDefaults.colors(
                         thumbColor = MihonPalette.sage,
                         activeTrackColor = MihonPalette.sage,
                         inactiveTrackColor = MihonPalette.outline,
                     ),
                 )
-                MihonPanel(Modifier.fillMaxWidth()) {
+                MihonPanel(Modifier.fillMaxWidth(0.72f)) {
                     FlowRow(
                         Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
@@ -775,9 +814,9 @@ internal fun DesktopReader(
                                 openAtLastPage = false
                                 chapterIndex--
                             }
-                        }, enabled = chapterIndex > 0) { Text("Previous chapter") }
-                        TextButton(onClick = ::previous, enabled = pages.isNotEmpty()) { Text("Previous") }
-                        TextButton(onClick = ::next, enabled = pages.isNotEmpty()) { Text("Next") }
+                        }, enabled = chapterIndex > 0) { Text("‹ Ch") }
+                        TextButton(onClick = ::previous, enabled = pages.isNotEmpty()) { Text("‹") }
+                        TextButton(onClick = ::next, enabled = pages.isNotEmpty()) { Text("›") }
                         TextButton(onClick = {
                             if (pages.isNotEmpty()) {
                                 val currentPage = viewedReaderPageIndex(mode, pageIndex, pages.size)
