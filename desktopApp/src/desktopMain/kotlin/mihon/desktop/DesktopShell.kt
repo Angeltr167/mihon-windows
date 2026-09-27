@@ -750,8 +750,8 @@ fun DesktopShell(
                                                                     }
                                                                 },
                                                                 enabled =
-                                                                    selectedSource != null &&
-                                                                        continueChapter != null,
+                                                                selectedSource != null &&
+                                                                    continueChapter != null,
                                                             ) {
                                                                 Text(
                                                                     if (recentChapter != null) {
@@ -785,7 +785,7 @@ fun DesktopShell(
                                                         Column(
                                                             Modifier.fillMaxWidth().padding(MihonSpacing.md),
                                                             verticalArrangement =
-                                                                Arrangement.spacedBy(MihonSpacing.md),
+                                                            Arrangement.spacedBy(MihonSpacing.md),
                                                         ) {
                                                             Text(
                                                                 if (stored?.favorite == true) {
@@ -2005,7 +2005,7 @@ fun DesktopShell(
                                             MihonSectionHeader(
                                                 "Advanced extension management",
                                                 "Signed Desktop packages, repository indexes and local " +
-                                                "fingerprint trust",
+                                                    "fingerprint trust",
                                             )
                                             MihonPanel(Modifier.fillMaxWidth()) {
                                                 Column(
@@ -2132,7 +2132,7 @@ fun DesktopShell(
                                                         Row(
                                                             Modifier.fillMaxWidth(),
                                                             horizontalArrangement =
-                                                                Arrangement.spacedBy(MihonSpacing.sm),
+                                                            Arrangement.spacedBy(MihonSpacing.sm),
                                                             verticalAlignment = Alignment.CenterVertically,
                                                         ) {
                                                             Text(
