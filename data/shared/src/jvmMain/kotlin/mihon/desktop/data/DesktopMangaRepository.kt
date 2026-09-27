@@ -125,6 +125,8 @@ class DesktopMangaRepository private constructor(
     fun chapter(mangaId: Long, chapterUrl: String): Chapters? =
         database.chaptersQueries.getChapterByUrlAndMangaId(chapterUrl, mangaId).executeAsOneOrNull()
 
+    fun chapter(chapterId: Long): Chapters? = database.chaptersQueries.getChapterById(chapterId).executeAsOneOrNull()
+
     fun setChapterBookmark(chapterId: Long, bookmarked: Boolean) {
         driver.execute(null, "UPDATE chapters SET bookmark = ? WHERE _id = ?", 2) {
             bindBoolean(0, bookmarked)

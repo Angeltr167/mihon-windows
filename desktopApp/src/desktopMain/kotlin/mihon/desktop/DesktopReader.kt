@@ -1,6 +1,8 @@
 package mihon.desktop
 
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
@@ -15,11 +17,13 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
@@ -31,6 +35,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
@@ -40,9 +45,11 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.ImageBitmap
@@ -64,6 +71,7 @@ import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -71,12 +79,50 @@ import mihon.core.reader.FitMode
 import mihon.core.reader.ReaderPageLoadState
 import mihon.core.reader.ReadingMode
 import mihon.core.reader.nextPageToPreload
-import mihon.core.reader.viewedPageIndex
 import mihon.platform.desktop.DesktopPlatformGraph
 import tachiyomi.i18n.MR
 import java.nio.file.Files
 import java.nio.file.Path
 import kotlin.math.roundToInt
+
+/** First page stands alone; following pages are paired without dropping an odd final page. */
+internal fun doublePageSpread(pageIndex: Int, pageCount: Int): List<Int> {
+    require(pageCount > 0 && pageIndex in 0 until pageCount)
+    if (pageIndex == 0) return listOf(0)
+    val first = 1 + ((pageIndex - 1) / 2) * 2
+    return (first..minOf(first + 1, pageCount - 1)).toList()
+}
+
+internal fun normalizeReaderPageIndex(mode: ReadingMode, pageIndex: Int, pageCount: Int): Int {
+    require(pageCount > 0 && pageIndex in 0 until pageCount)
+    return if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) {
+        doublePageSpread(pageIndex, pageCount).first()
+    } else {
+        pageIndex
+    }
+}
+
+internal fun viewedReaderPageIndex(mode: ReadingMode, pageIndex: Int, pageCount: Int): Int =
+    if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) {
+        doublePageSpread(pageIndex, pageCount).last()
+    } else {
+        pageIndex
+    }
+
+internal fun nextReaderPageIndex(mode: ReadingMode, pageIndex: Int, pageCount: Int): Int? {
+    val next = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) {
+        doublePageSpread(pageIndex, pageCount).last() + 1
+    } else {
+        pageIndex + 1
+    }
+    return next.takeIf { it < pageCount }?.let { normalizeReaderPageIndex(mode, it, pageCount) }
+}
+
+internal fun previousReaderPageIndex(mode: ReadingMode, pageIndex: Int, pageCount: Int): Int? {
+    if (pageIndex == 0) return null
+    val step = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) 2 else 1
+    return normalizeReaderPageIndex(mode, (pageIndex - step).coerceAtLeast(0), pageCount)
+}
 
 internal data class ReaderTarget(
     val source: Source,
@@ -152,6 +198,8 @@ internal fun DesktopReader(
     var requestedScroll by remember(target) { mutableStateOf<Int?>(null) }
     var showAppearance by remember(target) { mutableStateOf(false) }
     var showShortcuts by remember(target) { mutableStateOf(false) }
+    var controlsVisible by remember(target) { mutableStateOf(true) }
+    var lastInteraction by remember(target) { mutableLongStateOf(0L) }
     var shortcuts by remember(target) {
         val next = ReaderShortcutKey.restore(
             graph.keyValueStore.getString("desktop.reader.shortcut.next", null),
@@ -238,8 +286,7 @@ internal fun DesktopReader(
         }.onSuccess { (loaded, stored) ->
             val restored =
                 if (openAtLastPage) loaded.lastIndex else stored.last_page_read.toInt().coerceIn(0, loaded.lastIndex)
-            pageIndex =
-                if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) restored / 2 * 2 else restored
+            pageIndex = normalizeReaderPageIndex(mode, restored, loaded.size)
             pages = loaded
             chapterId = stored._id
             chapterBookmarked = stored.bookmark
@@ -258,7 +305,7 @@ internal fun DesktopReader(
         val id = chapterId ?: return@LaunchedEffect
         if (loadedChapterIndex != chapterIndex) return@LaunchedEffect
         if (pages.isEmpty()) return@LaunchedEffect
-        val viewedIndex = viewedPageIndex(pageIndex, pages.size, mode)
+        val viewedIndex = viewedReaderPageIndex(mode, pageIndex, pages.size)
         withContext(Dispatchers.IO) { session.library.saveProgress(id, viewedIndex, pages.size) }
         if (viewedIndex == pages.lastIndex && !trackerSyncAttempted) {
             trackerSyncAttempted = true
@@ -290,9 +337,15 @@ internal fun DesktopReader(
     }
 
     LaunchedEffect(chapterIndex, pageIndex, pages, mode) {
-        nextPageToPreload(pageIndex, pages.size, mode)?.let { next ->
+        if (pages.isEmpty()) return@LaunchedEffect
+        val next = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) {
+            nextReaderPageIndex(mode, pageIndex, pages.size)
+        } else {
+            nextPageToPreload(pageIndex, pages.size, mode)
+        }
+        next?.let {
             try {
-                loader.prefetch(pages[next])
+                loader.prefetch(pages[it])
             } catch (cancelled: CancellationException) {
                 throw cancelled
             } catch (_: Exception) {
@@ -302,9 +355,10 @@ internal fun DesktopReader(
     }
 
     fun next() {
-        val step = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) 2 else 1
-        if (pageIndex + step < pages.size) {
-            pageIndex += step
+        if (pages.isEmpty()) return
+        val destination = nextReaderPageIndex(mode, pageIndex, pages.size)
+        if (destination != null) {
+            pageIndex = destination
             if (mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON) {
                 requestedScroll = pageIndex
             }
@@ -315,9 +369,10 @@ internal fun DesktopReader(
     }
 
     fun previous() {
-        val step = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) 2 else 1
-        if (pageIndex > 0) {
-            pageIndex = (pageIndex - step).coerceAtLeast(0)
+        if (pages.isEmpty()) return
+        val destination = previousReaderPageIndex(mode, pageIndex, pages.size)
+        if (destination != null) {
+            pageIndex = destination
             if (mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON) {
                 requestedScroll = pageIndex
             }
@@ -328,59 +383,103 @@ internal fun DesktopReader(
     }
 
     val rightToLeft = mode == ReadingMode.SINGLE_RTL || mode == ReadingMode.DOUBLE_RTL
+    LaunchedEffect(controlsVisible, lastInteraction, loadState, showAppearance, showShortcuts) {
+        if (controlsVisible && !showAppearance && !showShortcuts && loadState is ReaderPageLoadState.Ready) {
+            delay(2800)
+            if (System.currentTimeMillis() - lastInteraction >= 2600L) controlsVisible = false
+        }
+    }
     Column(
-        Modifier.fillMaxSize().onPreviewKeyEvent { event ->
-            if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
-            when (shortcuts.action(event.key)) {
-                ReaderShortcuts.Action.NEXT -> {
-                    next()
-                    return@onPreviewKeyEvent true
-                }
-                ReaderShortcuts.Action.PREVIOUS -> {
-                    previous()
-                    return@onPreviewKeyEvent true
-                }
-                null -> Unit
+        Modifier.fillMaxSize()
+            .onPointerEvent(PointerEventType.Move) {
+                controlsVisible = true
+                lastInteraction = System.currentTimeMillis()
             }
-            when (event.key) {
-                Key.DirectionRight -> if (rightToLeft) previous() else next()
-                Key.DirectionLeft -> if (rightToLeft) next() else previous()
-                Key.PageDown, Key.Spacebar -> next()
-                Key.PageUp -> previous()
-                Key.F11 -> onToggleFullscreen()
-                Key.Escape -> onClose()
-                else -> return@onPreviewKeyEvent false
+            .onPointerEvent(PointerEventType.Press) {
+                controlsVisible = true
+                lastInteraction = System.currentTimeMillis()
             }
-            true
-        }.focusRequester(focusRequester).focusable(),
+            .onPreviewKeyEvent { event ->
+                if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                controlsVisible = true
+                lastInteraction = System.currentTimeMillis()
+                when (shortcuts.action(event.key)) {
+                    ReaderShortcuts.Action.NEXT -> {
+                        next()
+                        return@onPreviewKeyEvent true
+                    }
+                    ReaderShortcuts.Action.PREVIOUS -> {
+                        previous()
+                        return@onPreviewKeyEvent true
+                    }
+                    null -> Unit
+                }
+                when (event.key) {
+                    Key.DirectionRight -> if (rightToLeft) previous() else next()
+                    Key.DirectionLeft -> if (rightToLeft) next() else previous()
+                    Key.PageDown, Key.Spacebar -> next()
+                    Key.PageUp -> previous()
+                    Key.F11 -> onToggleFullscreen()
+                    Key.Escape -> onClose()
+                    else -> return@onPreviewKeyEvent false
+                }
+                true
+            }.focusRequester(focusRequester).focusable(),
     ) {
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = onClose) { Text("Back") }
-            Text(chapters[chapterIndex].name, modifier = Modifier.weight(1f).padding(top = 12.dp))
-            TextButton(onClick = {
-                mode = ReadingMode.entries[(mode.ordinal + 1) % ReadingMode.entries.size]
-                if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) pageIndex = pageIndex / 2 * 2
-                graph.keyValueStore.putString("desktop.reader.mode", mode.name)
-            }) { Text(mode.name.replace('_', ' ')) }
-            TextButton(onClick = {
-                fit = FitMode.entries[(fit.ordinal + 1) % FitMode.entries.size]
-                graph.keyValueStore.putString("desktop.reader.fit", fit.name)
-            }) { Text("Fit ${fit.name.lowercase()}") }
-            TextButton(onClick = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) }) { Text("−") }
-            TextButton(onClick = { zoom = (zoom + 0.25f).coerceAtMost(4f) }) { Text("+") }
-            TextButton(onClick = { showAppearance = true }) { Text("Appearance") }
-            TextButton(onClick = onToggleFullscreen) { Text("Fullscreen") }
-            TextButton(onClick = { showShortcuts = true }) { Text("Keys") }
+        if (controlsVisible) {
+            MihonPanel(Modifier.fillMaxWidth()) {
+                Row(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TextButton(onClick = onClose) { Text("Back") }
+                    Column(Modifier.weight(1f)) {
+                        Text(target.manga.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
+                        Text(
+                            chapters[chapterIndex].name,
+                            color = MihonPalette.muted,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                        )
+                    }
+                    Text(
+                        if (pages.isEmpty()) {
+                            "— / —"
+                        } else {
+                            "${viewedReaderPageIndex(mode, pageIndex, pages.size) + 1} / ${pages.size}"
+                        },
+                        color = MihonPalette.muted,
+                        style = MaterialTheme.typography.labelLarge,
+                    )
+                }
+            }
         }
         (trackerError ?: pendingTrackerSync.firstOrNull { it.mangaId == mangaId }?.error)
             ?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        pageActionMessage?.let { Text(it) }
+        pageActionMessage?.let { Text(it, color = MihonPalette.muted) }
         when {
-            loadState is ReaderPageLoadState.Failed -> Column {
-                Text((loadState as ReaderPageLoadState.Failed).reason, color = MaterialTheme.colorScheme.error)
-                Button(onClick = { retry++ }) { Text("Retry") }
+            loadState is ReaderPageLoadState.Failed -> Box(
+                Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    Text((loadState as ReaderPageLoadState.Failed).reason, color = MaterialTheme.colorScheme.error)
+                    Button(onClick = {
+                        retry++
+                        controlsVisible = true
+                    }) { Text("Retry") }
+                }
             }
-            loadState is ReaderPageLoadState.Loading -> Text("Loading pages…")
+            loadState is ReaderPageLoadState.Loading -> Box(
+                Modifier.weight(1f).fillMaxWidth(),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text("Loading pages…", color = MihonPalette.muted)
+            }
             mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON -> {
                 val listState = rememberLazyListState()
                 LaunchedEffect(chapterIndex, pages) {
@@ -411,12 +510,13 @@ internal fun DesktopReader(
             }
             else -> {
                 val pair = if (mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) {
-                    pages.drop(pageIndex).take(2).mapIndexed { offset, page -> (pageIndex + offset) to page }
+                    doublePageSpread(pageIndex, pages.size).map { it to pages[it] }
                 } else {
                     listOf(pageIndex to pages[pageIndex])
                 }
                 BoxWithConstraints(
                     Modifier.weight(1f).fillMaxWidth()
+                        .background(MihonPalette.graphite)
                         .pointerInput(pageIndex, mode) {
                             detectTapGestures { offset ->
                                 if (offset.x < size.width / 3) {
@@ -427,6 +527,8 @@ internal fun DesktopReader(
                             }
                         }
                         .onPointerEvent(PointerEventType.Scroll) { event ->
+                            controlsVisible = true
+                            lastInteraction = System.currentTimeMillis()
                             val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
                             if (delta > 0) {
                                 next()
@@ -435,88 +537,136 @@ internal fun DesktopReader(
                             }
                         },
                 ) {
-                    Row(Modifier.fillMaxSize(), horizontalArrangement = Arrangement.Center) {
-                        (if (rightToLeft) pair.reversed() else pair).forEach { (index, page) ->
-                            ReaderImage(
-                                loader,
-                                page,
-                                fit,
-                                zoom,
-                                colorFilter,
-                                Modifier.weight(1f).fillMaxHeight(),
-                                index,
+                    Box(Modifier.fillMaxSize().background(MihonPalette.graphite)) {
+                        Row(
+                            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp),
+                            horizontalArrangement = Arrangement.Center,
+                        ) {
+                            (if (rightToLeft) pair.reversed() else pair).forEach { (index, page) ->
+                                Box(
+                                    Modifier.weight(1f).fillMaxHeight().padding(horizontal = 2.dp)
+                                        .shadow(12.dp, RoundedCornerShape(3.dp))
+                                        .background(Color(0xFF080B0D))
+                                        .border(1.dp, MihonPalette.outline, RoundedCornerShape(3.dp)),
+                                    contentAlignment = Alignment.Center,
+                                ) {
+                                    ReaderImage(loader, page, fit, zoom, colorFilter, Modifier.fillMaxSize(), index)
+                                }
+                            }
+                        }
+                        if ((mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) && pair.size == 2) {
+                            Box(
+                                Modifier.align(Alignment.Center).fillMaxHeight().padding(vertical = 10.dp)
+                                    .width(3.dp).background(Color(0xFF050708)),
                             )
                         }
                     }
                 }
             }
         }
-        FlowRow(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            TextButton(onClick = {
-                if (chapterIndex >
-                    0
-                ) {
-                    openAtLastPage = false
-                    chapterIndex--
-                }
-            }, enabled = chapterIndex > 0) {
-                Text("Previous chapter")
-            }
-            TextButton(onClick = ::previous) { Text("Previous page") }
-            Text("${pageIndex + 1} / ${pages.size}", modifier = Modifier.padding(top = 12.dp))
-            TextButton(onClick = ::next) { Text("Next page") }
-            TextButton(onClick = {
-                val current = pages.getOrNull(pageIndex) ?: return@TextButton
-                val currentIndex = pageIndex
-                val folder = graph.fileDialogService.chooseDirectory("Save reader page") ?: return@TextButton
-                scope.launch {
-                    runCatching {
-                        withContext(Dispatchers.IO) {
-                            val bytes = DesktopPageFetcher(session.localPages).bytes(current)
-                            val output = Files.createTempFile(
-                                Path.of(folder),
-                                "mihon-page-${currentIndex + 1}-",
-                                ".${imageExtension(bytes)}",
-                            )
-                            Files.write(output, bytes)
-                            output
-                        }
-                    }.onSuccess {
-                        savedPage = it
-                        pageActionMessage = "Saved page: $it"
-                    }.onFailure { pageActionMessage = it.message ?: "Could not save page" }
-                }
-            }, enabled = pages.isNotEmpty()) { Text("Save page…") }
-            savedPage?.let { path ->
-                TextButton(onClick = { graph.externalOpenService.openPath(path.toString()) }) {
-                    Text("Open saved page")
-                }
-            }
-            TextButton(onClick = {
-                val id = chapterId ?: return@TextButton
-                chapterBookmarked = !chapterBookmarked
-                val bookmarked = chapterBookmarked
-                scope.launch { withContext(Dispatchers.IO) { session.library.setChapterBookmark(id, bookmarked) } }
-            }, enabled = chapterId != null) {
-                Text(
-                    stringResource(
-                        if (chapterBookmarked) MR.strings.action_remove_bookmark else MR.strings.action_bookmark,
-                    ),
-                )
-            }
-            TextButton(
-                onClick = {
-                    if (chapterIndex <
-                        chapters.lastIndex
-                    ) {
-                        openAtLastPage = false
-                        chapterIndex++
+        if (controlsVisible) {
+            Slider(
+                value = pageIndex.toFloat(),
+                onValueChange = { value ->
+                    if (pages.isNotEmpty()) {
+                        pageIndex = normalizeReaderPageIndex(
+                            mode,
+                            value.roundToInt().coerceIn(pages.indices),
+                            pages.size,
+                        )
                     }
                 },
-                enabled =
-                chapterIndex < chapters.lastIndex,
-            ) {
-                Text("Next chapter")
+                enabled = pages.isNotEmpty(),
+                valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+            )
+            MihonPanel(Modifier.fillMaxWidth()) {
+                FlowRow(
+                    Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                ) {
+                    TextButton(onClick = {
+                        if (chapterIndex > 0) {
+                            openAtLastPage = false
+                            chapterIndex--
+                        }
+                    }, enabled = chapterIndex > 0) { Text("Previous chapter") }
+                    TextButton(onClick = ::previous, enabled = pages.isNotEmpty()) { Text("Previous") }
+                    TextButton(onClick = ::next, enabled = pages.isNotEmpty()) { Text("Next") }
+                    TextButton(onClick = {
+                        if (pages.isNotEmpty()) {
+                            val currentPage = viewedReaderPageIndex(mode, pageIndex, pages.size)
+                            mode = ReadingMode.entries[(mode.ordinal + 1) % ReadingMode.entries.size]
+                            pageIndex = normalizeReaderPageIndex(mode, currentPage, pages.size)
+                        }
+                        graph.keyValueStore.putString("desktop.reader.mode", mode.name)
+                    }) { Text(mode.name.replace('_', ' ')) }
+                    TextButton(onClick = {
+                        fit = FitMode.entries[(fit.ordinal + 1) % FitMode.entries.size]
+                        graph.keyValueStore.putString("desktop.reader.fit", fit.name)
+                    }) { Text("Fit ${fit.name.lowercase()}") }
+                    TextButton(onClick = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) }) { Text("−") }
+                    TextButton(onClick = { zoom = (zoom + 0.25f).coerceAtMost(4f) }) { Text("+") }
+                    TextButton(onClick = { showAppearance = true }) { Text("Appearance") }
+                    TextButton(onClick = onToggleFullscreen) { Text("Fullscreen") }
+                    TextButton(onClick = { showShortcuts = true }) { Text("Keys") }
+                    TextButton(onClick = {
+                        val currentIndex = viewedReaderPageIndex(mode, pageIndex, pages.size)
+                        val current = pages.getOrNull(currentIndex) ?: return@TextButton
+                        val folder = graph.fileDialogService.chooseDirectory("Save reader page") ?: return@TextButton
+                        scope.launch {
+                            runCatching {
+                                withContext(Dispatchers.IO) {
+                                    val bytes = DesktopPageFetcher(session.localPages).bytes(current)
+                                    val output = Files.createTempFile(
+                                        Path.of(folder),
+                                        "mihon-page-${currentIndex + 1}-",
+                                        ".${imageExtension(bytes)}",
+                                    )
+                                    Files.write(output, bytes)
+                                    output
+                                }
+                            }.onSuccess {
+                                savedPage = it
+                                pageActionMessage = "Saved page: $it"
+                            }.onFailure { pageActionMessage = it.message ?: "Could not save page" }
+                        }
+                    }, enabled = pages.isNotEmpty()) { Text("Save page…") }
+                    savedPage?.let { path ->
+                        TextButton(onClick = { graph.externalOpenService.openPath(path.toString()) }) {
+                            Text("Open saved page")
+                        }
+                    }
+                    TextButton(onClick = {
+                        val id = chapterId ?: return@TextButton
+                        chapterBookmarked = !chapterBookmarked
+                        val bookmarked = chapterBookmarked
+                        scope.launch {
+                            withContext(Dispatchers.IO) {
+                                session.library.setChapterBookmark(
+                                    id,
+                                    bookmarked,
+                                )
+                            }
+                        }
+                    }, enabled = chapterId != null) {
+                        Text(
+                            stringResource(
+                                if (chapterBookmarked) {
+                                    MR.strings.action_remove_bookmark
+                                } else {
+                                    MR.strings.action_bookmark
+                                },
+                            ),
+                        )
+                    }
+                    TextButton(onClick = {
+                        if (chapterIndex < chapters.lastIndex) {
+                            openAtLastPage = false
+                            chapterIndex++
+                        }
+                    }, enabled = chapterIndex < chapters.lastIndex) { Text("Next chapter") }
+                }
             }
         }
     }

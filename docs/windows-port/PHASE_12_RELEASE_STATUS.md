@@ -10,12 +10,17 @@ Build on Windows with JDK 21:
 
 The packages are written under `desktopApp/build/compose/binaries/main/{msi,exe}`. The Windows CI matrix builds each format independently after Android and Desktop tests, then publishes the installer and its SHA-256 file. The release operator must copy those exact checksums into the release notes and verify each uploaded file again before publication. Do not treat a checksum posted alongside an unsigned download as proof of publisher identity.
 
-Local packaging fixture (2026-09-26; unsigned, not a published release):
+Local packaging fixtures (2026-09-26; unsigned, not published releases). The latest local application distribution and installers are version 1.0.4; the 1.0.3 rows are retained as the preceding upgrade fixture. The portable `Mihon.exe` is the application executable, distinct from the EXE installer.
 
-| Artifact | SHA-256 |
-| --- | --- |
-| `Mihon-1.0.3.msi` | `5b364758fb03a84ebd4c6655c2ba629b899016ccc166082dbfbdccf0ed768a51` |
-| `Mihon-1.0.3.exe` | `6746c5f2397d3eb56569c8284827109d35ab66faf219061c2247a823b88e3e9b` |
+| Version | Artifact | SHA-256 |
+| --- | --- | --- |
+| `1.0.4` | `Mihon.exe` (application executable) | `9b23510b8b26c60f2ee96c96730cb6eb26c9973f5e93f6c4ad47b79fd0dbdd1b` |
+| `1.0.4` | `Mihon-1.0.4.msi` | `e65fc61a810bf9eba25fc00ac6d983439a3d553c9680eb60fd9a8777c5a86a49` |
+| `1.0.4` | `Mihon-1.0.4.exe` (installer) | `74cdc377626b9bba8ce9ddd100c377c40204997b581b6f22d966caf224912405` |
+| `1.0.3` | `Mihon-1.0.3.msi` | `5b364758fb03a84ebd4c6655c2ba629b899016ccc166082dbfbdccf0ed768a51` |
+| `1.0.3` | `Mihon-1.0.3.exe` | `6746c5f2397d3eb56569c8284827109d35ab66faf219061c2247a823b88e3e9b` |
+
+The 1.0.4 portable application executable was launched directly from the distribution with the isolated `build/ui-test-profile`; no installer was run against the personal profile. The distribution contains the pinned `suwayomi-server.bin` and bundled `runtime/bin/javaw.exe`. The engine starts as a separate JVM process and is not listed in `Mihon.cfg`'s application classpath.
 
 For installer-driven upgrades, download the new installer from the project's official HTTPS release location, compare its SHA-256 with the published release record, close Mihon, then run the newer installer. The installer must be launched only after the digest matches. Back up the profile before an RC upgrade. The stable upgrade UUID is `c764cc56-8996-49ef-b813-1ee3815d9da2`; do not change it between Windows releases. The version supplied through `-PmihonWindowsVersion` must increase for upgrades and use the numeric `major.minor.patch` format required by Windows packaging.
 

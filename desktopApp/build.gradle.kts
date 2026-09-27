@@ -56,18 +56,22 @@ multiplatformResources {
 
 compose.desktop {
     application {
+        val windowsVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.3").get()
         mainClass = "mihon.desktop.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             appResourcesRootDir.set(layout.buildDirectory.dir("suwayomi-resources"))
             packageName = "Mihon"
-            packageVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.3").get()
+            packageVersion = windowsVersion
             description = "Mihon manga reader for Windows"
             vendor = "Mihon"
             licenseFile.set(rootProject.file("LICENSE"))
             includeAllModules = true
 
             windows {
+                packageVersion = windowsVersion
+                msiPackageVersion = windowsVersion
+                exePackageVersion = windowsVersion
                 perUserInstall = true
                 shortcut = true
                 menuGroup = "Mihon"
