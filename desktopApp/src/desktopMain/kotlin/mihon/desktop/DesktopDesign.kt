@@ -1,21 +1,8 @@
 package mihon.desktop
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.BoxWithConstraints
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninDesktopTheme
 import mihon.desktop.design.RoninLayout
@@ -81,18 +68,19 @@ internal fun MihonDesktopTheme(content: @Composable () -> Unit) {
     RoninDesktopTheme(content)
 }
 
+/**
+ * Compatibility bridge for pre-Ronin desktop call sites.
+ *
+ * New UI should call the Ronin* primitives directly. Existing screens keep
+ * their current names until their dedicated redesign phase, but render through
+ * the shared Ronin component system now.
+ */
 @Composable
 internal fun MihonPanel(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
-    Surface(
-        modifier = modifier,
-        shape = RoundedCornerShape(MihonRadius.panel),
-        color = MihonPalette.panel,
-        border = BorderStroke(1.dp, MihonPalette.outline),
-        content = content,
-    )
+    RoninPanel(modifier = modifier, content = content)
 }
 
 @Composable
@@ -101,35 +89,11 @@ internal fun MihonSectionHeader(
     subtitle: String? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = MihonSpacing.md)) {
-        val narrow = maxWidth < 720.dp
-        val label: @Composable () -> Unit = {
-            Column(verticalArrangement = Arrangement.spacedBy(MihonSpacing.xxs)) {
-                androidx.compose.material3.Text(title, style = MaterialTheme.typography.headlineSmall)
-                subtitle?.let {
-                    androidx.compose.material3.Text(
-                        it,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MihonPalette.muted,
-                    )
-                }
-            }
-        }
-        if (narrow) {
-            Column(verticalArrangement = Arrangement.spacedBy(MihonSpacing.md)) {
-                label()
-                trailing?.invoke()
-            }
-        } else {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                label()
-                trailing?.invoke()
-            }
-        }
-    }
+    RoninSectionHeader(
+        title = title,
+        subtitle = subtitle,
+        trailing = trailing,
+    )
 }
 
 @Composable
@@ -137,21 +101,10 @@ internal fun MihonEmptyState(
     title: String,
     detail: String? = null,
 ) {
-    MihonPanel(Modifier.fillMaxWidth()) {
-        Column(
-            Modifier.fillMaxWidth().padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-        ) {
-            androidx.compose.material3.Text(title, style = MaterialTheme.typography.titleMedium)
-            detail?.let {
-                androidx.compose.material3.Text(
-                    it,
-                    color = MihonPalette.muted,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-        }
-    }
+    RoninEmptyState(
+        title = title,
+        detail = detail,
+    )
 }
 
 @Composable
@@ -161,22 +114,13 @@ internal fun MihonChoiceChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Surface(
-        modifier = modifier.clickable(role = Role.Tab, onClick = onClick),
-        shape = RoundedCornerShape(999.dp),
-        color = if (selected) MihonPalette.sage.copy(alpha = 0.14f) else MihonPalette.panel,
-        border = BorderStroke(
-            1.dp,
-            if (selected) MihonPalette.sage.copy(alpha = 0.62f) else MihonPalette.outlineSoft,
-        ),
-    ) {
-        androidx.compose.material3.Text(
-            label,
-            modifier = Modifier.padding(horizontal = MihonSpacing.md, vertical = MihonSpacing.sm),
-            color = if (selected) MihonPalette.sage else MihonPalette.muted,
-            style = MaterialTheme.typography.labelMedium,
-        )
-    }
+    RoninChip(
+        label = label,
+        selected = selected,
+        onClick = onClick,
+        modifier = modifier,
+        role = Role.Tab,
+    )
 }
 
 @Composable
@@ -186,27 +130,12 @@ internal fun MihonCompactChip(
     onClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
-    val interactiveModifier = if (onClick != null) {
-        modifier.clickable(role = Role.Button, onClick = onClick)
-    } else {
-        modifier
-    }
-    Surface(
-        modifier = interactiveModifier,
-        shape = RoundedCornerShape(999.dp),
-        color = if (accent) MihonPalette.sage.copy(alpha = 0.12f) else MihonPalette.raised,
-        border = BorderStroke(
-            1.dp,
-            if (accent) MihonPalette.sage.copy(alpha = 0.48f) else MihonPalette.outlineSoft,
-        ),
-    ) {
-        androidx.compose.material3.Text(
-            label,
-            modifier = Modifier.padding(horizontal = MihonSpacing.sm, vertical = MihonSpacing.xs),
-            color = if (accent) MihonPalette.sage else MihonPalette.muted,
-            style = MaterialTheme.typography.labelSmall,
-        )
-    }
+    RoninChip(
+        label = label,
+        accent = accent,
+        onClick = onClick,
+        modifier = modifier,
+    )
 }
 
 @Composable
@@ -216,19 +145,12 @@ internal fun MihonTabStrip(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    FlowRow(
+    RoninTabStrip(
+        labels = labels,
+        selectedIndex = selectedIndex,
+        onSelect = onSelect,
         modifier = modifier,
-        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
-        verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
-    ) {
-        labels.forEachIndexed { index, label ->
-            MihonChoiceChip(
-                label = label,
-                selected = selectedIndex == index,
-                onClick = { onSelect(index) },
-            )
-        }
-    }
+    )
 }
 
 internal fun desktopDateGroup(epochMillis: Long): String {
