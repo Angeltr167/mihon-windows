@@ -1526,13 +1526,12 @@ fun DesktopShell(
                                                         MihonCompactChip("Queued")
                                                     DesktopDownloadStatus.PAUSED,
                                                     DesktopDownloadStatus.FAILED,
-                                                    null,
-                                                    -> TextButton(
+                                                    null -> TextButton(
                                                         onClick = {
                                                             when (queued?.status) {
                                                                 DesktopDownloadStatus.PAUSED,
-                                                                DesktopDownloadStatus.FAILED,
-                                                                -> session.downloads.resume(queued.key)
+                                                                DesktopDownloadStatus.FAILED ->
+                                                                    session.downloads.resume(queued.key)
                                                                 null -> session.downloads.enqueue(
                                                                     selectedSource,
                                                                     item,
