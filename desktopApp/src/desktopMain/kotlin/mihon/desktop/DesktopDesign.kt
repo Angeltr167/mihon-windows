@@ -59,6 +59,12 @@ internal object MihonRadius {
 internal object MihonSizes {
     val navigationExpanded = RoninLayout.sidebarExpanded
     val navigationCompact = RoninLayout.sidebarCompact
+    val navigationCompactBreakpoint = RoninLayout.sidebarCompactBreakpoint
+    val gutterCompact = RoninLayout.gutterCompact
+    val gutterDesktop = RoninLayout.gutterDesktop
+    val gutterWide = RoninLayout.gutterWide
+    val contentMaxWidth = RoninLayout.contentMaxWidth
+    val rightPanelWidth = RoninLayout.rightPanelWidth
     val coverSmallWidth = RoninMangaMetrics.coverCompactWidth
     val coverSmallHeight = RoninMangaMetrics.coverCompactHeight
     val coverDetailWidth = RoninMangaMetrics.coverDetailWidth
