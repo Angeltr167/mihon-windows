@@ -734,12 +734,168 @@ fun DesktopShell(
                                                                 color = MihonPalette.muted,
                                                                 maxLines = 7,
                                                             )
-                                                            FlowRow(
-                                                                horizontalArrangement =
-                                                                    Arrangement.spacedBy(MihonSpacing.sm),
-                                                                verticalArrangement =
-                                                                    Arrangement.spacedBy(MihonSpacing.xs),
+                                                            Button(
+                                                                onClick = {
+                                                                    if (
+                                                                        selectedSource != null &&
+                                                                        continueChapter != null
+                                                                    ) {
+                                                                        readerTarget = ReaderTarget(
+                                                                            selectedSource,
+                                                                            item,
+                                                                            chapters,
+                                                                            continueChapter.url,
+                                                                        )
+                                                                    }
+                                                                },
+                                                                enabled =
+                                                                    selectedSource != null &&
+                                                                        continueChapter != null,
                                                             ) {
+                                                                Text(
+                                                                    if (recentChapter != null) {
+                                                                        "▶ Continue reading"
+                                                                    } else {
+                                                                        "▶ Start reading"
+                                                                    },
+                                                                )
+                                                            }
+                                                            if (recentChapter != null) {
+                                                                Text(
+                                                                    if (recentChapter.read) {
+                                                                        "Last chapter finished"
+                                                                    } else {
+                                                                        "Continue from page ${recentChapter.last_page_read + 1}"
+                                                                    },
+                                                                    color = MihonPalette.sage,
+                                                                    style = MaterialTheme.typography.labelMedium,
+                                                                )
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                                val statusPanel: @Composable () -> Unit = {
+                                                    Surface(
+                                                        color = MihonPalette.raised,
+                                                        shape = RoundedCornerShape(MihonRadius.card),
+                                                        border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                                    ) {
+                                                        Column(
+                                                            Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                            verticalArrangement =
+                                                                Arrangement.spacedBy(MihonSpacing.md),
+                                                        ) {
+                                                            Text(
+                                                                if (stored?.favorite == true) {
+                                                                    "In library"
+                                                                } else {
+                                                                    "Not in library"
+                                                                },
+                                                                color = if (stored?.favorite == true) {
+                                                                    MihonPalette.sage
+                                                                } else {
+                                                                    MihonPalette.muted
+                                                                },
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                            )
+                                                            HorizontalDivider()
+                                                            Text(
+                                                                "Source",
+                                                                color = MihonPalette.muted,
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                            )
+                                                            Text(
+                                                                selectedSource?.displayName() ?: "Unknown",
+                                                                style = MaterialTheme.typography.bodyMedium,
+                                                            )
+                                                            HorizontalDivider()
+                                                            Text(
+                                                                "Tracking",
+                                                                color = MihonPalette.muted,
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                            )
+                                                            Text(
+                                                                if (linkedTrackers.isEmpty()) {
+                                                                    "No trackers linked"
+                                                                } else {
+                                                                    linkedTrackers.joinToString(" · ")
+                                                                },
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                            )
+                                                            TextButton(
+                                                                onClick = {
+                                                                    trackingExpanded = !trackingExpanded
+                                                                },
+                                                                enabled = stored != null,
+                                                            ) {
+                                                                Text(
+                                                                    if (trackingExpanded) {
+                                                                        "Close tracking"
+                                                                    } else {
+                                                                        "Manage tracking"
+                                                                    },
+                                                                )
+                                                            }
+                                                            HorizontalDivider()
+                                                            Text(
+                                                                "Categories",
+                                                                color = MihonPalette.muted,
+                                                                style = MaterialTheme.typography.labelSmall,
+                                                            )
+                                                            Text(
+                                                                if (selectedMangaCategories.isEmpty()) {
+                                                                    "Uncategorized"
+                                                                } else {
+                                                                    "${selectedMangaCategories.size} assigned"
+                                                                },
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                                if (compactDetails) {
+                                                    Column(
+                                                        verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                                                    ) {
+                                                        identity()
+                                                        statusPanel()
+                                                    }
+                                                } else {
+                                                    Row(
+                                                        Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.lg),
+                                                        verticalAlignment = Alignment.Top,
+                                                    ) {
+                                                        Box(Modifier.weight(1f)) { identity() }
+                                                        Box(Modifier.width(245.dp)) { statusPanel() }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        FlowRow(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
+                                            Button(onClick = {
+                                                if (stored == null && selectedSource != null) {
+                                                    session.library.addToLibrary(selectedSource.id, item)
+                                                } else if (stored != null) {
+                                                    session.library.setFavorite(stored._id, !stored.favorite)
+                                                }
+                                                refreshLibrary()
+                                                message = "Library updated"
+                                            }, enabled = snapshot != null) {
+                                                Text(
+                                                    if (stored?.favorite ==
+                                                        true
+                                                    ) {
+                                                        "Remove from library"
+                                                    } else {
+                                                        "Add to library"
+                                                    },
+                                                )
+                                            }
+                                            TextButton(onClick = { selectedManga = null }) { Text("Back") }
                                             if (selectedSource is HttpSource) {
                                                 TextButton(onClick = {
                                                     runCatching {
