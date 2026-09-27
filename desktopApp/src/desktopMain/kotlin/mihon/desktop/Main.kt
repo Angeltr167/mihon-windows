@@ -55,7 +55,7 @@ fun main(args: Array<String>) {
                     graph.keyValueStore.putLong("desktop.window.height", state.size.height.value.toLong())
                     exitApplication()
                 },
-                title = "Mihon",
+                title = "Ronin",
                 state = state,
             ) {
                 window.minimumSize = Dimension(800, 560)
