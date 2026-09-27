@@ -686,124 +686,60 @@ fun DesktopShell(
                                             if (mangaBakaTrack != null) add("MangaBaka")
                                             if (suwayomiTrack != null) add("Suwayomi")
                                         }
+                                        val recentChapter = stored?.let { manga ->
+                                            historyEntries.firstOrNull { it.mangaId == manga._id }
+                                                ?.let { historyChapters[it.chapterId] }
+                                        }
+                                        val continueChapter = recentChapter?.let { recent ->
+                                            chapters.firstOrNull { it.url == recent.url }
+                                        } ?: chapters.firstOrNull()
                                         MihonPanel(Modifier.fillMaxWidth()) {
-                                            Row(
-                                                Modifier.fillMaxWidth().padding(14.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(18.dp),
-                                                verticalAlignment = Alignment.Top,
+                                            BoxWithConstraints(
+                                                Modifier.fillMaxWidth().padding(MihonSpacing.lg),
                                             ) {
-                                                DesktopCover(
-                                                    item.thumbnail_url,
-                                                    selectedSource,
-                                                    Modifier.width(170.dp).height(245.dp),
-                                                )
-                                                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                    Text(item.title, style = MaterialTheme.typography.headlineSmall)
-                                                    selectedSource?.let {
-                                                        Text(it.displayName(), color = MihonPalette.muted)
-                                                    }
-                                                    listOfNotNull(item.author, item.artist)
-                                                        .filter(String::isNotBlank)
-                                                        .distinct()
-                                                        .takeIf { it.isNotEmpty() }
-                                                        ?.let {
-                                                            Text(
-                                                                it.joinToString(" · "),
-                                                                color = MihonPalette.muted,
-                                                            )
-                                                        }
-                                                    Text(
-                                                        item.description.orEmpty().ifBlank {
-                                                            "No description available."
-                                                        },
-                                                        color = MihonPalette.muted,
-                                                        maxLines = 8,
-                                                    )
-                                                    val recentChapter = stored?.let { manga ->
-                                                        historyEntries.firstOrNull { it.mangaId == manga._id }
-                                                            ?.let { historyChapters[it.chapterId] }
-                                                    }
-                                                    val continueChapter = recentChapter?.let { recent ->
-                                                        chapters.firstOrNull { it.url == recent.url }
-                                                    } ?: chapters.firstOrNull()
-                                                    Button(
-                                                        onClick = {
-                                                            if (selectedSource != null && continueChapter != null) {
-                                                                readerTarget = ReaderTarget(
-                                                                    selectedSource,
-                                                                    item,
-                                                                    chapters,
-                                                                    continueChapter.url,
-                                                                )
-                                                            }
-                                                        },
-                                                        enabled = selectedSource != null && continueChapter != null,
+                                                val compactDetails = maxWidth < 820.dp
+                                                val identity: @Composable () -> Unit = {
+                                                    Row(
+                                                        Modifier.fillMaxWidth(),
+                                                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.lg),
+                                                        verticalAlignment = Alignment.Top,
                                                     ) {
-                                                        Text(
-                                                            if (recentChapter != null) {
-                                                                "Continue reading"
-                                                            } else {
-                                                                "Start reading"
-                                                            },
+                                                        DesktopCover(
+                                                            item.thumbnail_url,
+                                                            selectedSource,
+                                                            Modifier.width(170.dp).height(245.dp),
                                                         )
-                                                    }
-                                                }
-                                            }
-                                        }
-                                        MihonPanel(Modifier.fillMaxWidth()) {
-                                            Row(
-                                                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Column(
-                                                    Modifier.weight(1f),
-                                                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.xxs),
-                                                ) {
-                                                    Text("Tracking", style = MaterialTheme.typography.titleMedium)
-                                                    Text(
-                                                        when {
-                                                            linkedTrackers.isNotEmpty() ->
-                                                                linkedTrackers.joinToString(" · ")
-                                                            stored == null ->
-                                                                "Add this manga to your library to link trackers."
-                                                            else -> "No trackers linked"
-                                                        },
-                                                        color = MihonPalette.muted,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                    )
-                                                }
-                                                TextButton(
-                                                    onClick = { trackingExpanded = !trackingExpanded },
-                                                    enabled = stored != null,
-                                                ) { Text(if (trackingExpanded) "Done" else "Manage") }
-                                            }
-                                        }
-                                        FlowRow(
-                                            Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                                        ) {
-                                            Button(onClick = {
-                                                if (stored == null && selectedSource != null) {
-                                                    session.library.addToLibrary(selectedSource.id, item)
-                                                } else if (stored != null) {
-                                                    session.library.setFavorite(stored._id, !stored.favorite)
-                                                }
-                                                refreshLibrary()
-                                                message = "Library updated"
-                                            }, enabled = snapshot != null) {
-                                                Text(
-                                                    if (stored?.favorite ==
-                                                        true
-                                                    ) {
-                                                        "Remove from library"
-                                                    } else {
-                                                        "Add to library"
-                                                    },
-                                                )
-                                            }
-                                            TextButton(onClick = { selectedManga = null }) { Text("Back") }
+                                                        Column(
+                                                            Modifier.weight(1f),
+                                                            verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                                        ) {
+                                                            Text(
+                                                                item.title,
+                                                                style = MaterialTheme.typography.headlineSmall,
+                                                            )
+                                                            listOfNotNull(item.author, item.artist)
+                                                                .filter(String::isNotBlank)
+                                                                .distinct()
+                                                                .takeIf { it.isNotEmpty() }
+                                                                ?.let {
+                                                                    Text(
+                                                                        it.joinToString(" · "),
+                                                                        color = MihonPalette.muted,
+                                                                    )
+                                                                }
+                                                            Text(
+                                                                item.description.orEmpty().ifBlank {
+                                                                    "No description available."
+                                                                },
+                                                                color = MihonPalette.muted,
+                                                                maxLines = 7,
+                                                            )
+                                                            FlowRow(
+                                                                horizontalArrangement =
+                                                                    Arrangement.spacedBy(MihonSpacing.sm),
+                                                                verticalArrangement =
+                                                                    Arrangement.spacedBy(MihonSpacing.xs),
+                                                            ) {
                                             if (selectedSource is HttpSource) {
                                                 TextButton(onClick = {
                                                     runCatching {
