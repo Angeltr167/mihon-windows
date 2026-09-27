@@ -153,7 +153,10 @@ internal fun LibraryScreen(
                                 ) {
                                     Text(
                                         badge,
-                                        modifier = Modifier.padding(horizontal = MihonSpacing.sm, vertical = MihonSpacing.xs),
+                                        modifier = Modifier.padding(
+                                            horizontal = MihonSpacing.sm,
+                                            vertical = MihonSpacing.xs,
+                                        ),
                                         color = if (chapter?.read == false) MihonPalette.sage else MihonPalette.ivory,
                                         style = MaterialTheme.typography.labelSmall,
                                     )
@@ -173,7 +176,11 @@ internal fun LibraryScreen(
                             )
                             if (chapter != null) {
                                 Text(
-                                    if (chapter.read) "Last chapter finished" else "Continue from page ${chapter.last_page_read + 1}",
+                                    if (chapter.read) {
+                                        "Last chapter finished"
+                                    } else {
+                                        "Continue from page ${chapter.last_page_read + 1}"
+                                    },
                                     color = if (chapter.read) MihonPalette.muted else MihonPalette.sage,
                                     style = MaterialTheme.typography.labelSmall,
                                     maxLines = 1,
