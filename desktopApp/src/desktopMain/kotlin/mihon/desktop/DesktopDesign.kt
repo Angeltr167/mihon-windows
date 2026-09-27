@@ -217,6 +217,36 @@ internal fun MihonChoiceChip(
 }
 
 @Composable
+internal fun MihonCompactChip(
+    label: String,
+    accent: Boolean = false,
+    onClick: (() -> Unit)? = null,
+    modifier: Modifier = Modifier,
+) {
+    val interactiveModifier = if (onClick != null) {
+        modifier.clickable(role = Role.Button, onClick = onClick)
+    } else {
+        modifier
+    }
+    Surface(
+        modifier = interactiveModifier,
+        shape = RoundedCornerShape(999.dp),
+        color = if (accent) MihonPalette.sage.copy(alpha = 0.12f) else MihonPalette.raised,
+        border = BorderStroke(
+            1.dp,
+            if (accent) MihonPalette.sage.copy(alpha = 0.48f) else MihonPalette.outlineSoft,
+        ),
+    ) {
+        androidx.compose.material3.Text(
+            label,
+            modifier = Modifier.padding(horizontal = MihonSpacing.sm, vertical = MihonSpacing.xs),
+            color = if (accent) MihonPalette.sage else MihonPalette.muted,
+            style = MaterialTheme.typography.labelSmall,
+        )
+    }
+}
+
+@Composable
 internal fun MihonTabStrip(
     labels: List<String>,
     selectedIndex: Int,
