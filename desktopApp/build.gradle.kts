@@ -56,15 +56,15 @@ multiplatformResources {
 
 compose.desktop {
     application {
-        val windowsVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.17").get()
+        val windowsVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.18").get()
         mainClass = "mihon.desktop.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
             appResourcesRootDir.set(layout.buildDirectory.dir("suwayomi-resources"))
-            packageName = "Mihon"
+            packageName = "Ronin"
             packageVersion = windowsVersion
-            description = "Mihon manga reader for Windows"
-            vendor = "Mihon"
+            description = "Ronin manga reader for Windows"
+            vendor = "Ronin"
             licenseFile.set(rootProject.file("LICENSE"))
             includeAllModules = true
 
@@ -74,7 +74,7 @@ compose.desktop {
                 exePackageVersion = windowsVersion
                 perUserInstall = true
                 shortcut = true
-                menuGroup = "Mihon"
+                menuGroup = "Ronin"
                 upgradeUuid = "c764cc56-8996-49ef-b813-1ee3815d9da2"
             }
         }
