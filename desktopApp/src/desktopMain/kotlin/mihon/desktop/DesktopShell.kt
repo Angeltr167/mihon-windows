@@ -660,13 +660,13 @@ fun DesktopShell(
                             }
                             val storedManga = snapshot?.stored
                             LazyColumn(
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.weight(1f).fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally,
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
                                 item {
                                     Column(
-                                        modifier = Modifier.widthIn(max = 1180.dp).fillMaxWidth(),
+                                        modifier = Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(10.dp),
                                     ) {
                                         val stored = snapshot?.stored
@@ -703,10 +703,12 @@ fun DesktopShell(
                                         val continueChapter = recentChapter?.let { recent ->
                                             chapters.firstOrNull { it.url == recent.url }
                                         } ?: chapters.firstOrNull()
-                                        MihonPanel(Modifier.fillMaxWidth()) {
-                                            BoxWithConstraints(
-                                                Modifier.fillMaxWidth().padding(MihonSpacing.lg),
-                                            ) {
+                                        TextButton(onClick = { selectedManga = null }) {
+                                            Text("← Back")
+                                        }
+                                        BoxWithConstraints(
+                                            Modifier.fillMaxWidth().padding(vertical = MihonSpacing.sm),
+                                        ) {
                                                 val compactDetails = maxWidth < 820.dp
                                                 val identity: @Composable () -> Unit = {
                                                     Row(
@@ -717,7 +719,7 @@ fun DesktopShell(
                                                         DesktopCover(
                                                             item.thumbnail_url,
                                                             selectedSource,
-                                                            Modifier.width(196.dp).height(282.dp),
+                                                            Modifier.width(208.dp).height(300.dp),
                                                         )
                                                         Column(
                                                             Modifier.weight(1f),
@@ -725,7 +727,7 @@ fun DesktopShell(
                                                         ) {
                                                             Text(
                                                                 item.title,
-                                                                style = MaterialTheme.typography.headlineMedium,
+                                                                style = MaterialTheme.typography.headlineLarge,
                                                             )
                                                             listOfNotNull(item.author, item.artist)
                                                                 .filter(String::isNotBlank)
@@ -742,7 +744,7 @@ fun DesktopShell(
                                                                     "No description available."
                                                                 },
                                                                 color = MihonPalette.muted,
-                                                                maxLines = 6,
+                                                                maxLines = 7,
                                                             )
                                                             Button(
                                                                 onClick = {
@@ -761,7 +763,7 @@ fun DesktopShell(
                                                                 enabled =
                                                                 selectedSource != null &&
                                                                     continueChapter != null,
-                                                                modifier = Modifier.widthIn(min = 176.dp),
+                                                                modifier = Modifier.widthIn(min = 188.dp),
                                                             ) {
                                                                 Text(
                                                                     if (recentChapter != null) {
@@ -788,23 +790,57 @@ fun DesktopShell(
                                                 }
                                                 val statusPanel: @Composable () -> Unit = {
                                                     Surface(
-                                                        color = MihonPalette.raised.copy(alpha = 0.72f),
+                                                        color = MihonPalette.raised.copy(alpha = 0.44f),
                                                         shape = RoundedCornerShape(MihonRadius.card),
-                                                        border = BorderStroke(1.dp, MihonPalette.outlineSoft),
                                                     ) {
                                                         Column(
-                                                            Modifier.fillMaxWidth().padding(MihonSpacing.lg),
+                                                            Modifier.fillMaxWidth().padding(MihonSpacing.md),
                                                             verticalArrangement =
-                                                            Arrangement.spacedBy(MihonSpacing.lg),
+                                                            Arrangement.spacedBy(MihonSpacing.md),
                                                         ) {
-                                                            MihonCompactChip(
-                                                                label = if (stored?.favorite == true) {
-                                                                    "In library"
-                                                                } else {
-                                                                    "Not in library"
-                                                                },
-                                                                accent = stored?.favorite == true,
-                                                            )
+                                                            Row(
+                                                                Modifier.fillMaxWidth(),
+                                                                horizontalArrangement = Arrangement.SpaceBetween,
+                                                                verticalAlignment = Alignment.CenterVertically,
+                                                            ) {
+                                                                MihonCompactChip(
+                                                                    label = if (stored?.favorite == true) {
+                                                                        "In library"
+                                                                    } else {
+                                                                        "Not in library"
+                                                                    },
+                                                                    accent = stored?.favorite == true,
+                                                                )
+                                                                TextButton(
+                                                                    onClick = {
+                                                                        if (
+                                                                            stored == null &&
+                                                                            selectedSource != null
+                                                                        ) {
+                                                                            session.library.addToLibrary(
+                                                                                selectedSource.id,
+                                                                                item,
+                                                                            )
+                                                                        } else if (stored != null) {
+                                                                            session.library.setFavorite(
+                                                                                stored._id,
+                                                                                !stored.favorite,
+                                                                            )
+                                                                        }
+                                                                        refreshLibrary()
+                                                                        message = "Library updated"
+                                                                    },
+                                                                    enabled = snapshot != null,
+                                                                ) {
+                                                                    Text(
+                                                                        if (stored?.favorite == true) {
+                                                                            "Remove"
+                                                                        } else {
+                                                                            "Add"
+                                                                        },
+                                                                    )
+                                                                }
+                                                            }
                                                             Column(
                                                                 verticalArrangement =
                                                                 Arrangement.spacedBy(MihonSpacing.xs),
@@ -891,39 +927,15 @@ fun DesktopShell(
                                                         verticalAlignment = Alignment.Top,
                                                     ) {
                                                         Box(Modifier.weight(1f)) { identity() }
-                                                        Box(Modifier.width(272.dp)) { statusPanel() }
+                                                        Box(Modifier.width(288.dp)) { statusPanel() }
                                                     }
                                                 }
                                             }
-                                        }
                                         FlowRow(
                                             Modifier.fillMaxWidth(),
                                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                                             verticalArrangement = Arrangement.spacedBy(4.dp),
                                         ) {
-                                            TextButton(onClick = { selectedManga = null }) {
-                                                Text("← Back")
-                                            }
-                                            TextButton(
-                                                onClick = {
-                                                    if (stored == null && selectedSource != null) {
-                                                        session.library.addToLibrary(selectedSource.id, item)
-                                                    } else if (stored != null) {
-                                                        session.library.setFavorite(stored._id, !stored.favorite)
-                                                    }
-                                                    refreshLibrary()
-                                                    message = "Library updated"
-                                                },
-                                                enabled = snapshot != null,
-                                            ) {
-                                                Text(
-                                                    if (stored?.favorite == true) {
-                                                        "Remove from library"
-                                                    } else {
-                                                        "Add to library"
-                                                    },
-                                                )
-                                            }
                                             if (selectedSource is HttpSource) {
                                                 TextButton(onClick = {
                                                     runCatching {
@@ -1418,7 +1430,7 @@ fun DesktopShell(
                                 }
                                 item {
                                     Box(
-                                        modifier = Modifier.widthIn(max = 1180.dp).fillMaxWidth(),
+                                        modifier = Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
                                     ) {
                                         MihonSectionHeader(
                                             "Chapters",
@@ -1429,7 +1441,7 @@ fun DesktopShell(
                                 if (chapters.isEmpty()) {
                                     item {
                                         Box(
-                                            modifier = Modifier.widthIn(max = 1180.dp).fillMaxWidth(),
+                                            modifier = Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
                                         ) {
                                             Column {
                                                 MihonEmptyState(
@@ -1464,7 +1476,7 @@ fun DesktopShell(
                                             it.chapterUrl == chapter.url
                                     }
                                     Column(
-                                        modifier = Modifier.widthIn(max = 1180.dp).fillMaxWidth(),
+                                        modifier = Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
                                     ) {
                                         Row(
                                             Modifier.fillMaxWidth()
@@ -1562,7 +1574,7 @@ fun DesktopShell(
                                 if (storedManga?.favorite == true) {
                                     item {
                                         MihonPanel(
-                                            Modifier.widthIn(max = 1180.dp).fillMaxWidth(),
+                                            Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
                                         ) {
                                             Column(
                                                 Modifier.fillMaxWidth().padding(MihonSpacing.md),
