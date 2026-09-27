@@ -55,7 +55,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -243,7 +242,6 @@ internal fun DesktopReader(
     var controlsVisible by remember(target) { mutableStateOf(true) }
     var showMore by remember(target) { mutableStateOf(false) }
     var sliderDragging by remember(target) { mutableStateOf(false) }
-    var controlsFocused by remember(target) { mutableStateOf(false) }
     var sliderTargetPage by remember(target) { mutableStateOf<Int?>(null) }
     var interactionVersion by remember(target) { mutableLongStateOf(0L) }
     var wheelAccumulator by remember(target) { mutableStateOf(0f) }
@@ -496,9 +494,8 @@ internal fun DesktopReader(
         showShortcuts,
         showMore,
         sliderDragging,
-        controlsFocused,
     ) {
-        if (controlsVisible && !showAppearance && !showShortcuts && !showMore && !sliderDragging && !controlsFocused) {
+        if (controlsVisible && !showAppearance && !showShortcuts && !showMore && !sliderDragging) {
             delay(2800)
             controlsVisible = false
         }
@@ -544,7 +541,7 @@ internal fun DesktopReader(
                     else -> return@onPreviewKeyEvent false
                 }
                 true
-            }.onFocusChanged { controlsFocused = it.hasFocus }.focusRequester(focusRequester).focusable(),
+            }.focusRequester(focusRequester).focusable(),
     ) {
         when {
             loadState is ReaderPageLoadState.Failed -> Box(
