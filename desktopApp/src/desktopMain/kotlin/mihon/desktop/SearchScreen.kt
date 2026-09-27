@@ -1,5 +1,6 @@
 package mihon.desktop
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -9,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
@@ -19,6 +21,7 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -28,6 +31,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.pointer.PointerEventType
+import androidx.compose.ui.input.pointer.onPointerEvent
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
@@ -90,13 +96,18 @@ internal fun SearchScreen(
             }
         }
 
-        MihonPanel(Modifier.fillMaxWidth()) {
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(MihonRadius.panel),
+            color = MihonPalette.panel,
+            border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+        ) {
             Row(
-                Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                Modifier.fillMaxWidth().padding(horizontal = MihonSpacing.md, vertical = MihonSpacing.sm),
                 horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                Box {
+                Box(Modifier.widthIn(min = 150.dp, max = 240.dp)) {
                     MihonChoiceChip(
                         label = selectedSource?.searchDisplayName() ?: "Choose source",
                         selected = selectedSource != null,
@@ -135,7 +146,11 @@ internal fun SearchScreen(
                     singleLine = true,
                     modifier = Modifier.weight(1f),
                 )
-                Button(onClick = onSearch, enabled = selectedSource != null && !loading) {
+                Button(
+                    onClick = onSearch,
+                    enabled = selectedSource != null && !loading,
+                    modifier = Modifier.width(104.dp),
+                ) {
                     Text(if (loading) "Searching…" else "Search")
                 }
             }
@@ -159,60 +174,52 @@ internal fun SearchScreen(
                     "Try a different query or source."
                 },
             )
-            else -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(320.dp),
-                modifier = Modifier.weight(1f).padding(top = MihonSpacing.md),
-                horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
-                verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
-            ) {
-                items(results, key = SManga::url) { manga ->
-                    MihonPanel(
-                        Modifier.fillMaxWidth().clickable { onOpenManga(manga) },
-                    ) {
-                        Row(
-                            Modifier.fillMaxWidth().padding(MihonSpacing.sm),
-                            horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            DesktopCover(
-                                manga.thumbnail_url,
-                                selectedSource,
-                                Modifier.width(78.dp).height(112.dp),
-                            )
-                            Column(
-                                Modifier.weight(1f),
-                                verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
-                            ) {
-                                Text(manga.title, style = MaterialTheme.typography.titleMedium, maxLines = 2)
-                                Text(
-                                    selectedSource.searchDisplayName(),
-                                    color = MihonPalette.muted,
-                                    style = MaterialTheme.typography.bodySmall,
-                                )
-                                Text(
-                                    "Open details",
-                                    color = MihonPalette.sage,
-                                    style = MaterialTheme.typography.labelMedium,
-                                )
-                            }
-                        }
-                    }
+            else -> {
+                Row(
+                    Modifier.fillMaxWidth().padding(top = MihonSpacing.md, bottom = MihonSpacing.xs),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        "${results.size} results",
+                        color = MihonPalette.muted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        selectedSource.searchDisplayName(),
+                        color = MihonPalette.muted,
+                        style = MaterialTheme.typography.labelSmall,
+                    )
                 }
-                if (loading || error != null || hasNext) {
-                    item(span = { GridItemSpan(maxLineSpan) }) {
-                        Row(
-                            Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.Center,
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            error?.let {
-                                Text(it, color = MaterialTheme.colorScheme.error)
-                            }
-                            if (loading) {
-                                Text("Loading…", color = MihonPalette.muted)
-                            } else if (hasNext || error != null) {
-                                TextButton(onClick = onLoadMore) {
-                                    Text(if (error == null) "Load more" else "Retry")
+                LazyVerticalGrid(
+                    columns = GridCells.Adaptive(390.dp),
+                    modifier = Modifier.weight(1f),
+                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                ) {
+                    items(results, key = SManga::url) { manga ->
+                        MihonMangaResultCard(
+                            manga = manga,
+                            source = selectedSource,
+                            onClick = { onOpenManga(manga) },
+                        )
+                    }
+                    if (loading || error != null || hasNext) {
+                        item(span = { GridItemSpan(maxLineSpan) }) {
+                            Row(
+                                Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                error?.let {
+                                    Text(it, color = MaterialTheme.colorScheme.error)
+                                }
+                                if (loading) {
+                                    Text("Loading…", color = MihonPalette.muted)
+                                } else if (hasNext || error != null) {
+                                    TextButton(onClick = onLoadMore) {
+                                        Text(if (error == null) "Load more" else "Retry")
+                                    }
                                 }
                             }
                         }
@@ -222,3 +229,60 @@ internal fun SearchScreen(
         }
     }
 }
+
+@Composable
+internal fun MihonMangaResultCard(
+    manga: SManga,
+    source: Source,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    var hovered by remember(manga.url) { mutableStateOf(false) }
+    Surface(
+        modifier = modifier.fillMaxWidth()
+            .onPointerEvent(PointerEventType.Enter) { hovered = true }
+            .onPointerEvent(PointerEventType.Exit) { hovered = false }
+            .clickable(onClick = onClick),
+        shape = RoundedCornerShape(MihonRadius.card),
+        color = if (hovered) MihonPalette.raised else MihonPalette.panel,
+        border = BorderStroke(
+            1.dp,
+            if (hovered) MihonPalette.sage.copy(alpha = 0.42f) else MihonPalette.outlineSoft,
+        ),
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(MihonSpacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            DesktopCover(
+                manga.thumbnail_url,
+                source,
+                Modifier.width(92.dp).height(132.dp),
+            )
+            Column(
+                Modifier.weight(1f).height(132.dp),
+                verticalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs)) {
+                    Text(
+                        manga.title,
+                        style = MaterialTheme.typography.titleMedium,
+                        maxLines = 3,
+                    )
+                    Text(
+                        source.searchDisplayName(),
+                        color = MihonPalette.muted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                Text(
+                    "Details →",
+                    color = MihonPalette.sage,
+                    style = MaterialTheme.typography.labelMedium,
+                )
+            }
+        }
+    }
+}
+
