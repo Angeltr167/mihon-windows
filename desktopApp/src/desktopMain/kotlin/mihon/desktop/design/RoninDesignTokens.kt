@@ -67,6 +67,8 @@ internal object RoninLayout {
     val gutterWide = 48.dp
     val contentMaxWidth = 1680.dp
     val rightPanelWidth = 320.dp
+    val rightPanelBreakpoint = 1320.dp
+    val wideContentBreakpoint = 1600.dp
 
     val gridGap = 16.dp
     val listRowMinHeight = 56.dp
