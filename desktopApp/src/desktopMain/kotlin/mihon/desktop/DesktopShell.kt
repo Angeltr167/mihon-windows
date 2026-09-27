@@ -1798,17 +1798,21 @@ fun DesktopShell(
                             Column(Modifier.fillMaxSize()) {
                                 MihonSectionHeader(
                                     "Extensions",
-                                    "Install and manage manga sources without exposing advanced trust " +
-                                        "controls by default",
+                                    "Discover, install, and manage manga sources",
                                 )
                                 MihonTabStrip(
                                     labels = listOf("Installed", "Browse", "Advanced"),
                                     selectedIndex = extensionSection,
                                     onSelect = { extensionSection = it },
-                                    modifier = Modifier.padding(bottom = MihonSpacing.md),
+                                    modifier = Modifier.widthIn(max = 1120.dp)
+                                        .align(Alignment.CenterHorizontally)
+                                        .padding(bottom = MihonSpacing.md),
                                 )
                                 Column(
-                                    Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                                    Modifier.weight(1f)
+                                        .widthIn(max = 1120.dp)
+                                        .align(Alignment.CenterHorizontally)
+                                        .verticalScroll(rememberScrollState()),
                                     verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
                                 ) {
                                     when (extensionSection) {
@@ -1828,9 +1832,17 @@ fun DesktopShell(
                                                 )
                                             }
                                             installedKeiyoushi.forEach { entry ->
-                                                MihonPanel(Modifier.fillMaxWidth()) {
+                                                Surface(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = RoundedCornerShape(MihonRadius.card),
+                                                    color = MihonPalette.panel,
+                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                                ) {
                                                     Row(
-                                                        Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                        Modifier.fillMaxWidth().padding(
+                                                            horizontal = MihonSpacing.md,
+                                                            vertical = MihonSpacing.sm,
+                                                        ),
                                                         horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
                                                         verticalAlignment = Alignment.CenterVertically,
                                                     ) {
@@ -1839,7 +1851,7 @@ fun DesktopShell(
                                                             color = MihonPalette.raised,
                                                         ) {
                                                             Box(
-                                                                Modifier.width(42.dp).height(42.dp),
+                                                                Modifier.width(38.dp).height(38.dp),
                                                                 contentAlignment = Alignment.Center,
                                                             ) {
                                                                 Text(
@@ -1860,7 +1872,10 @@ fun DesktopShell(
                                                             )
                                                         }
                                                         if (entry.hasUpdate) {
-                                                            Text("Update available", color = MihonPalette.sage)
+                                                            MihonCompactChip(
+                                                                "Update available",
+                                                                accent = true,
+                                                            )
                                                         }
                                                         TextButton(onClick = {
                                                             scope.launch {
@@ -1895,9 +1910,17 @@ fun DesktopShell(
                                                 }
                                             }
                                             installedDesktopExtensions.forEach { installed ->
-                                                MihonPanel(Modifier.fillMaxWidth()) {
+                                                Surface(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = RoundedCornerShape(MihonRadius.card),
+                                                    color = MihonPalette.panel,
+                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                                ) {
                                                     Row(
-                                                        Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                        Modifier.fillMaxWidth().padding(
+                                                            horizontal = MihonSpacing.md,
+                                                            vertical = MihonSpacing.sm,
+                                                        ),
                                                         verticalAlignment = Alignment.CenterVertically,
                                                     ) {
                                                         Column(Modifier.weight(1f)) {
@@ -1911,19 +1934,26 @@ fun DesktopShell(
                                                                 style = MaterialTheme.typography.bodySmall,
                                                             )
                                                         }
-                                                        Text(
+                                                        MihonCompactChip(
                                                             "Locally trusted",
-                                                            color = MihonPalette.sage,
-                                                            style = MaterialTheme.typography.labelMedium,
+                                                            accent = true,
                                                         )
                                                     }
                                                 }
                                             }
                                         }
                                         1 -> {
-                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                            Surface(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = RoundedCornerShape(MihonRadius.card),
+                                                    color = MihonPalette.panel,
+                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                                ) {
                                                 Row(
-                                                    Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                    Modifier.fillMaxWidth().padding(
+                                                            horizontal = MihonSpacing.md,
+                                                            vertical = MihonSpacing.sm,
+                                                        ),
                                                     horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
                                                     verticalAlignment = Alignment.CenterVertically,
                                                 ) {
@@ -1998,9 +2028,17 @@ fun DesktopShell(
                                                 MihonEmptyState("No matching extensions", "Try a different name.")
                                             }
                                             visible.forEach { entry ->
-                                                MihonPanel(Modifier.fillMaxWidth()) {
+                                                Surface(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = RoundedCornerShape(MihonRadius.card),
+                                                    color = MihonPalette.panel,
+                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                                ) {
                                                     Row(
-                                                        Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                        Modifier.fillMaxWidth().padding(
+                                                            horizontal = MihonSpacing.md,
+                                                            vertical = MihonSpacing.sm,
+                                                        ),
                                                         horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
                                                         verticalAlignment = Alignment.CenterVertically,
                                                     ) {
@@ -2009,7 +2047,7 @@ fun DesktopShell(
                                                             color = MihonPalette.raised,
                                                         ) {
                                                             Box(
-                                                                Modifier.width(42.dp).height(42.dp),
+                                                                Modifier.width(38.dp).height(38.dp),
                                                                 contentAlignment = Alignment.Center,
                                                             ) {
                                                                 Text(
@@ -2029,18 +2067,14 @@ fun DesktopShell(
                                                                 style = MaterialTheme.typography.bodySmall,
                                                             )
                                                         }
-                                                        Text(
-                                                            when {
-                                                                entry.installed && entry.hasUpdate -> "Update"
+                                                        MihonCompactChip(
+                                                            label = when {
+                                                                entry.installed && entry.hasUpdate ->
+                                                                    "Update available"
                                                                 entry.installed -> "Installed"
                                                                 else -> "Available"
                                                             },
-                                                            color = if (entry.installed) {
-                                                                MihonPalette.sage
-                                                            } else {
-                                                                MihonPalette.muted
-                                                            },
-                                                            style = MaterialTheme.typography.labelMedium,
+                                                            accent = entry.installed || entry.hasUpdate,
                                                         )
                                                         TextButton(onClick = {
                                                             scope.launch {
@@ -2087,7 +2121,12 @@ fun DesktopShell(
                                                 "Signed Desktop packages, repository indexes and local " +
                                                     "fingerprint trust",
                                             )
-                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                            Surface(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = RoundedCornerShape(MihonRadius.card),
+                                                    color = MihonPalette.panel,
+                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                                ) {
                                                 Column(
                                                     Modifier.fillMaxWidth().padding(MihonSpacing.lg),
                                                     verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
@@ -2120,7 +2159,12 @@ fun DesktopShell(
                                                     }
                                                 }
                                             }
-                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                            Surface(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = RoundedCornerShape(MihonRadius.card),
+                                                    color = MihonPalette.panel,
+                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                                ) {
                                                 Column(
                                                     Modifier.fillMaxWidth().padding(MihonSpacing.lg),
                                                     verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
@@ -2177,7 +2221,12 @@ fun DesktopShell(
                                                     }
                                                 }
                                             }
-                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                            Surface(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    shape = RoundedCornerShape(MihonRadius.card),
+                                                    color = MihonPalette.panel,
+                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                                ) {
                                                 Column(
                                                     Modifier.fillMaxWidth().padding(MihonSpacing.lg),
                                                     verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
