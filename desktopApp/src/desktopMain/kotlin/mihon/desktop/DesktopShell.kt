@@ -23,7 +23,6 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -90,6 +89,7 @@ import java.net.URI
 import java.nio.file.Path
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
+import androidx.compose.foundation.lazy.grid.items as gridItems
 
 private fun Source.displayName(): String =
     if (this is DesktopLocalSource || lang == "localsourcelang") name else "$name (${lang.uppercase()})"
@@ -1944,16 +1944,16 @@ fun DesktopShell(
                                         }
                                         1 -> {
                                             Surface(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    shape = RoundedCornerShape(MihonRadius.card),
-                                                    color = MihonPalette.panel,
-                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
-                                                ) {
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(MihonRadius.card),
+                                                color = MihonPalette.panel,
+                                                border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                            ) {
                                                 Row(
                                                     Modifier.fillMaxWidth().padding(
-                                                            horizontal = MihonSpacing.md,
-                                                            vertical = MihonSpacing.sm,
-                                                        ),
+                                                        horizontal = MihonSpacing.md,
+                                                        vertical = MihonSpacing.sm,
+                                                    ),
                                                     horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
                                                     verticalAlignment = Alignment.CenterVertically,
                                                 ) {
@@ -2122,11 +2122,11 @@ fun DesktopShell(
                                                     "fingerprint trust",
                                             )
                                             Surface(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    shape = RoundedCornerShape(MihonRadius.card),
-                                                    color = MihonPalette.panel,
-                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
-                                                ) {
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(MihonRadius.card),
+                                                color = MihonPalette.panel,
+                                                border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                            ) {
                                                 Column(
                                                     Modifier.fillMaxWidth().padding(MihonSpacing.lg),
                                                     verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
@@ -2160,11 +2160,11 @@ fun DesktopShell(
                                                 }
                                             }
                                             Surface(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    shape = RoundedCornerShape(MihonRadius.card),
-                                                    color = MihonPalette.panel,
-                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
-                                                ) {
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(MihonRadius.card),
+                                                color = MihonPalette.panel,
+                                                border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                            ) {
                                                 Column(
                                                     Modifier.fillMaxWidth().padding(MihonSpacing.lg),
                                                     verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
@@ -2222,11 +2222,11 @@ fun DesktopShell(
                                                 }
                                             }
                                             Surface(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    shape = RoundedCornerShape(MihonRadius.card),
-                                                    color = MihonPalette.panel,
-                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
-                                                ) {
+                                                modifier = Modifier.fillMaxWidth(),
+                                                shape = RoundedCornerShape(MihonRadius.card),
+                                                color = MihonPalette.panel,
+                                                border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                            ) {
                                                 Column(
                                                     Modifier.fillMaxWidth().padding(MihonSpacing.lg),
                                                     verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
