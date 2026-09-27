@@ -573,7 +573,7 @@ fun DesktopShell(
     MihonDesktopTheme {
         Surface(
             modifier = Modifier.fillMaxSize().onSizeChanged { size ->
-                compactNavigation = with(density) { size.width.toDp() < 900.dp }
+                compactNavigation = with(density) { size.width.toDp() < MihonSizes.navigationCompactBreakpoint }
             },
             color = MihonPalette.graphite,
         ) {
@@ -599,38 +599,10 @@ fun DesktopShell(
                 if (readerTarget == null) {
                     DesktopNavigation(screen, compactNavigation, ::navigateToScreen)
                 }
-                Column(
-                    Modifier.weight(1f).fillMaxHeight()
-                        .padding(
-                            start = if (readerTarget != null) {
-                                8.dp
-                            } else if (compactNavigation) {
-                                12.dp
-                            } else {
-                                24.dp
-                            },
-                            top = if (readerTarget != null) {
-                                8.dp
-                            } else if (compactNavigation) {
-                                12.dp
-                            } else {
-                                24.dp
-                            },
-                            end = if (readerTarget != null) {
-                                8.dp
-                            } else if (compactNavigation) {
-                                24.dp
-                            } else {
-                                48.dp
-                            },
-                            bottom = if (readerTarget != null) {
-                                8.dp
-                            } else if (compactNavigation) {
-                                12.dp
-                            } else {
-                                24.dp
-                            },
-                        ),
+                RoninMainContent(
+                    compactNavigation = compactNavigation,
+                    readerMode = readerTarget != null,
+                    modifier = Modifier.weight(1f).fillMaxHeight(),
                 ) {
                     if (message.isNotBlank()) {
                         MihonPanel(Modifier.fillMaxWidth()) {
@@ -2689,7 +2661,7 @@ fun DesktopShell(
                                                 Modifier.fillMaxWidth().padding(MihonSpacing.lg),
                                                 verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
                                             ) {
-                                                Text("Mihon for Windows", style = MaterialTheme.typography.titleMedium)
+                                                Text("Ronin for Windows", style = MaterialTheme.typography.titleMedium)
                                                 Text(
                                                     "Language follows Windows. " +
                                                         "Library and reader preferences are saved on this device.",
