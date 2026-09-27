@@ -4,10 +4,12 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
@@ -91,7 +93,7 @@ internal fun LibraryScreen(
                     onSearchChange,
                     label = { Text("Search your library…") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth(0.42f),
+                    modifier = Modifier.widthIn(min = 300.dp, max = 420.dp),
                 )
             },
         )
@@ -123,7 +125,7 @@ internal fun LibraryScreen(
                 "Change the search, shelf filter, or category.",
             )
             else -> LazyVerticalGrid(
-                columns = GridCells.Adaptive(190.dp),
+                columns = GridCells.Adaptive(232.dp),
                 modifier = Modifier.weight(1f),
                 horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
                 verticalArrangement = Arrangement.spacedBy(MihonSpacing.lg),
@@ -186,11 +188,19 @@ internal fun LibraryScreen(
                                     maxLines = 1,
                                 )
                             }
-                            TextButton(
-                                onClick = { onOpenManga(manga._id, chapter?.url) },
-                                modifier = Modifier.align(Alignment.End),
+                            Row(
+                                modifier = Modifier.fillMaxWidth().padding(top = MihonSpacing.xs),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(if (chapter != null) "Continue" else "Details")
+                                TextButton(onClick = { onOpenManga(manga._id, null) }) {
+                                    Text("Details")
+                                }
+                                if (chapter != null) {
+                                    TextButton(onClick = { onOpenManga(manga._id, chapter.url) }) {
+                                        Text("Continue")
+                                    }
+                                }
                             }
                         }
                     }
