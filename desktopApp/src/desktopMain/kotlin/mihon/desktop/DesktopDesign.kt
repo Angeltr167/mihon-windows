@@ -1,9 +1,11 @@
 package mihon.desktop
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -13,6 +15,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -184,6 +187,53 @@ internal fun MihonEmptyState(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
+        }
+    }
+}
+
+@Composable
+internal fun MihonChoiceChip(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Surface(
+        modifier = modifier.clickable(role = Role.Tab, onClick = onClick),
+        shape = RoundedCornerShape(999.dp),
+        color = if (selected) MihonPalette.sage.copy(alpha = 0.14f) else MihonPalette.panel,
+        border = BorderStroke(
+            1.dp,
+            if (selected) MihonPalette.sage.copy(alpha = 0.62f) else MihonPalette.outlineSoft,
+        ),
+    ) {
+        androidx.compose.material3.Text(
+            label,
+            modifier = Modifier.padding(horizontal = MihonSpacing.md, vertical = MihonSpacing.sm),
+            color = if (selected) MihonPalette.sage else MihonPalette.muted,
+            style = MaterialTheme.typography.labelMedium,
+        )
+    }
+}
+
+@Composable
+internal fun MihonTabStrip(
+    labels: List<String>,
+    selectedIndex: Int,
+    onSelect: (Int) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    FlowRow(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+        verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+    ) {
+        labels.forEachIndexed { index, label ->
+            MihonChoiceChip(
+                label = label,
+                selected = selectedIndex == index,
+                onClick = { onSelect(index) },
+            )
         }
     }
 }
