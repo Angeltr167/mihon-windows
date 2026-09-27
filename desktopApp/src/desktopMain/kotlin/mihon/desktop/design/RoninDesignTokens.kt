@@ -74,7 +74,7 @@ internal object RoninLayout {
 }
 
 internal object RoninMangaMetrics {
-    const val coverAspectRatio = 0.70f
+    const val COVER_ASPECT_RATIO = 0.70f
 
     val coverCompactWidth = 70.dp
     val coverCompactHeight = 100.dp
