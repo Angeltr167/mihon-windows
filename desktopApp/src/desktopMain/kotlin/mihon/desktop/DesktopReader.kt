@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -719,7 +720,10 @@ internal fun DesktopReader(
         }
         AnimatedVisibility(
             visible = controlsVisible,
-            modifier = Modifier.align(Alignment.TopCenter).fillMaxWidth().padding(8.dp),
+            modifier = Modifier.align(Alignment.TopCenter)
+                .widthIn(max = 1180.dp)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
         ) {
@@ -758,7 +762,12 @@ internal fun DesktopReader(
         }
         val readerNotice = trackerError ?: pendingTrackerSync.firstOrNull { it.mangaId == mangaId }?.error
         if (readerNotice != null || pageActionMessage != null) {
-            MihonPanel(Modifier.align(Alignment.TopCenter).fillMaxWidth(0.72f).padding(top = 68.dp)) {
+            MihonPanel(
+                Modifier.align(Alignment.TopCenter)
+                    .widthIn(max = 920.dp)
+                    .fillMaxWidth()
+                    .padding(top = 72.dp, start = 16.dp, end = 16.dp),
+            ) {
                 Column(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
                     verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
@@ -770,7 +779,10 @@ internal fun DesktopReader(
         }
         AnimatedVisibility(
             visible = controlsVisible,
-            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp),
+            modifier = Modifier.align(Alignment.BottomCenter)
+                .widthIn(max = 1040.dp)
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
         ) {
@@ -797,26 +809,26 @@ internal fun DesktopReader(
                     },
                     enabled = pages.isNotEmpty(),
                     valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
-                    modifier = Modifier.fillMaxWidth(0.72f).padding(horizontal = 10.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
                     colors = SliderDefaults.colors(
                         thumbColor = MihonPalette.sage,
                         activeTrackColor = MihonPalette.sage,
                         inactiveTrackColor = MihonPalette.outline,
                     ),
                 )
-                MihonPanel(Modifier.fillMaxWidth(0.72f)) {
+                MihonPanel(Modifier.fillMaxWidth()) {
                     FlowRow(
                         Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
                     ) {
                         TextButton(onClick = {
                             if (chapterIndex > 0) {
                                 openAtLastPage = false
                                 chapterIndex--
                             }
-                        }, enabled = chapterIndex > 0) { Text("‹ Ch") }
-                        TextButton(onClick = ::previous, enabled = pages.isNotEmpty()) { Text("‹") }
-                        TextButton(onClick = ::next, enabled = pages.isNotEmpty()) { Text("›") }
+                        }, enabled = chapterIndex > 0) { Text("‹ Chapter") }
+                        TextButton(onClick = ::previous, enabled = pages.isNotEmpty()) { Text("‹ Page") }
+                        TextButton(onClick = ::next, enabled = pages.isNotEmpty()) { Text("Page ›") }
                         TextButton(onClick = {
                             if (pages.isNotEmpty()) {
                                 val currentPage = viewedReaderPageIndex(mode, pageIndex, pages.size)
