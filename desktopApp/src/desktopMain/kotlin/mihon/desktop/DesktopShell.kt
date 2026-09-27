@@ -181,7 +181,7 @@ fun DesktopShell(
     var installedDesktopExtensions by remember { mutableStateOf(session.extensions.installedExtensions()) }
     var suwayomiExtensions by remember { mutableStateOf(emptyList<SuwayomiExtension>()) }
     var suwayomiSearch by remember { mutableStateOf("") }
-    var suwayomiStatus by remember { mutableStateOf("Starting local extension engine…") }
+    var suwayomiStatus by remember { mutableStateOf("Starting local extension engine…") }\n    var extensionSection by remember { mutableIntStateOf(0) }
     var fingerprint by remember { mutableStateOf("") }
     var categoryName by remember { mutableStateOf("") }
     var backupPath by remember { mutableStateOf("") }
@@ -1621,259 +1621,437 @@ fun DesktopShell(
                             }
                         }
                         screen == Screen.EXTENSIONS -> {
-                            Column(Modifier.verticalScroll(rememberScrollState())) {
+                            Column(Modifier.fillMaxSize()) {
                                 MihonSectionHeader(
                                     "Extensions",
-                                    "Keiyoushi sources through Suwayomi, plus signed Desktop .mihonext packages",
+                                    "Install and manage manga sources without exposing advanced trust controls by default",
                                 )
-                                MihonPanel(Modifier.fillMaxWidth()) {
-                                    Column(
-                                        Modifier.fillMaxWidth().padding(14.dp),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
-                                    ) {
-                                        Text("Keiyoushi catalog", style = MaterialTheme.typography.titleMedium)
-                                        Text(
-                                            "Only install code from publishers you trust. " +
-                                                "Fingerprint trust does not verify publisher identity.",
-                                            color = MihonPalette.muted,
-                                        )
-                                        Text(
-                                            suwayomiStatus,
-                                            color = if (session.suwayomiEngine.isRunning) {
-                                                MihonPalette.sage
-                                            } else {
-                                                MaterialTheme.colorScheme.error
-                                            },
-                                        )
-                                        if (!session.suwayomiEngine.isRunning) {
-                                            Text(
-                                                "The engine runs separately from Mihon.",
-                                                color = MihonPalette.muted,
+                                MihonTabStrip(
+                                    labels = listOf("Installed", "Browse", "Advanced"),
+                                    selectedIndex = extensionSection,
+                                    onSelect = { extensionSection = it },
+                                    modifier = Modifier.padding(bottom = MihonSpacing.md),
+                                )
+                                Column(
+                                    Modifier.weight(1f).verticalScroll(rememberScrollState()),
+                                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                                ) {
+                                    when (extensionSection) {
+                                        0 -> {
+                                            val installedKeiyoushi = suwayomiExtensions
+                                                .filter { it.installed && !it.obsolete }
+                                                .sortedBy { it.name }
+                                            MihonSectionHeader(
+                                                "Installed sources",
+                                                "${installedKeiyoushi.size + installedDesktopExtensions.size} extensions installed",
                                             )
-                                        }
-                                    }
-                                }
-                                if (session.suwayomiEngine.isRunning) {
-                                    Row(
-                                        Modifier.fillMaxWidth().padding(vertical = 8.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        Button(onClick = {
-                                            scope.launch {
-                                                suwayomiStatus = "Refreshing Keiyoushi…"
-                                                runCatching {
-                                                    withContext(Dispatchers.IO) {
-                                                        val client = session.suwayomiEngine.client()
-                                                        client.addStore(KEIYOUSHI_STORE_URL)
-                                                        client.refreshExtensions()
-                                                    }
-                                                }.onSuccess {
-                                                    suwayomiExtensions = it
-                                                    suwayomiStatus = "${it.size} extensions available"
-                                                }.onFailure {
-                                                    suwayomiStatus = it.message ?: "Could not refresh extensions"
-                                                }
-                                            }
-                                        }) { Text("Load Keiyoushi catalog") }
-                                        OutlinedTextField(
-                                            suwayomiSearch,
-                                            { suwayomiSearch = it },
-                                            label = { Text("Find extension") },
-                                            singleLine = true,
-                                        )
-                                    }
-                                    val visible = suwayomiExtensions
-                                        .filter { !it.obsolete || it.installed }
-                                        .filter {
-                                            suwayomiSearch.isBlank() ||
-                                                it.name.contains(suwayomiSearch, ignoreCase = true) ||
-                                                it.pkgName.contains(suwayomiSearch, ignoreCase = true)
-                                        }
-                                        .sortedWith(
-                                            compareByDescending<SuwayomiExtension> {
-                                                it.installed
-                                            }.thenBy { it.name },
-                                        )
-                                        .take(50)
-                                    Text(
-                                        "Search among ${visible.size} of ${suwayomiExtensions.size} sources",
-                                        color = MihonPalette.muted,
-                                    )
-                                    if (suwayomiExtensions.isEmpty()) {
-                                        MihonEmptyState(
-                                            "Keiyoushi catalog is not loaded",
-                                            "Load the catalog to browse and manage compatible sources.",
-                                        )
-                                    } else if (visible.isEmpty()) {
-                                        MihonEmptyState(
-                                            "No matching extensions",
-                                            "Change the search to see other extensions.",
-                                        )
-                                    }
-                                    visible.forEach { entry ->
-                                        MihonPanel(Modifier.fillMaxWidth()) {
-                                            Row(
-                                                Modifier.fillMaxWidth().padding(10.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Column(Modifier.weight(1f)) {
-                                                    Text(entry.name, style = MaterialTheme.typography.titleMedium)
-                                                    Text(
-                                                        "${entry.versionName} · ${entry.contentWarning}",
-                                                        color = MihonPalette.muted,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                    )
-                                                }
-                                                TextButton(onClick = {
-                                                    scope.launch {
-                                                        suwayomiStatus = "Updating ${entry.name}…"
-                                                        runCatching {
-                                                            withContext(Dispatchers.IO) {
-                                                                val client = session.suwayomiEngine.client()
-                                                                client.setInstalled(
-                                                                    entry.pkgName,
-                                                                    when {
-                                                                        !entry.installed -> "install"
-                                                                        entry.hasUpdate -> "update"
-                                                                        else -> "uninstall"
-                                                                    },
-                                                                )
-                                                                session.suwayomiEngine.refreshSources()
-                                                                client.extensions() to session.refreshSources()
-                                                            }
-                                                        }.onSuccess { (extensions, installedSources) ->
-                                                            suwayomiExtensions = extensions
-                                                            sources = installedSources
-                                                            suwayomiStatus = "${entry.name} changed"
-                                                        }.onFailure {
-                                                            suwayomiStatus = it.message ?: "Extension action failed"
-                                                        }
-                                                    }
-                                                }) {
-                                                    Text(
-                                                        when {
-                                                            !entry.installed -> "Install"
-                                                            entry.hasUpdate -> "Update"
-                                                            else -> "Remove"
-                                                        },
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                                HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                                MihonSectionHeader(
-                                    "Desktop .mihonext packages",
-                                    "Signed JVM extensions use explicit, local fingerprint trust.",
-                                )
-                                OutlinedTextField(fingerprint, {
-                                    fingerprint = it
-                                }, label = { Text("Signing fingerprint") })
-                                Button(onClick = {
-                                    runCatching { session.extensions.trust(fingerprint.trim()) }
-                                        .onSuccess { message = "Fingerprint trusted" }
-                                        .onFailure { notice.error(it.message ?: "Trust failed") }
-                                }) { Text("Trust fingerprint") }
-                                OutlinedTextField(
-                                    packagePath,
-                                    { packagePath = it },
-                                    label = { Text(".mihonext path") },
-                                )
-                                TextButton(onClick = {
-                                    graph.fileDialogService.chooseOpenFile(
-                                        OpenFileRequest(
-                                            "Install Desktop extension",
-                                            extensions = setOf("mihonext"),
-                                        ),
-                                    )?.let { packagePath = it }
-                                }) { Text("Choose package…") }
-                                Button(onClick = {
-                                    scope.launch {
-                                        message = "Installing Desktop extension…"
-                                        runCatching {
-                                            withContext(Dispatchers.IO) {
-                                                val result = session.extensions.install(Path.of(packagePath.trim()))
-                                                Triple(
-                                                    result,
-                                                    session.refreshSources(),
-                                                    session.extensions.installedExtensions(),
+                                            if (installedKeiyoushi.isEmpty() && installedDesktopExtensions.isEmpty()) {
+                                                MihonEmptyState(
+                                                    "No extensions installed",
+                                                    "Open Browse to install a source from Keiyoushi.",
                                                 )
                                             }
-                                        }.onSuccess { (result, installedSources, installedPackages) ->
-                                            message = result.toString()
-                                            sources = installedSources
-                                            installedDesktopExtensions = installedPackages
-                                        }
-                                            .onFailure { notice.error(it.message ?: "Install failed") }
-                                    }
-                                }, enabled = packagePath.isNotBlank()) { Text("Install") }
-                                if (installedDesktopExtensions.isEmpty()) {
-                                    MihonEmptyState(
-                                        "No Desktop extensions installed",
-                                        "Install a signed .mihonext package or discover a trusted HTTPS index.",
-                                    )
-                                }
-                                installedDesktopExtensions.forEach { installed ->
-                                    MihonPanel(Modifier.fillMaxWidth()) {
-                                        Column(Modifier.padding(12.dp)) {
-                                            Text(installed.id, style = MaterialTheme.typography.titleMedium)
-                                            Text("Version ${installed.versionCode}", color = MihonPalette.muted)
-                                            Text(
-                                                "Signing fingerprint accepted locally",
-                                                color = MihonPalette.muted,
-                                                style = MaterialTheme.typography.bodySmall,
-                                            )
-                                        }
-                                    }
-                                }
-                                HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                                OutlinedTextField(
-                                    indexUrl,
-                                    { indexUrl = it },
-                                    label = { Text("HTTPS repository index") },
-                                )
-                                Button(onClick = {
-                                    scope.launch {
-                                        runCatching {
-                                            withContext(Dispatchers.IO) {
-                                                session.extensionRepository.discover(URI(indexUrl.trim()))
-                                            }
-                                        }.onSuccess {
-                                            availableExtensions = it
-                                            message = "Repository loaded"
-                                        }
-                                            .onFailure { notice.error(it.message ?: "Repository failed") }
-                                    }
-                                }) { Text("Discover") }
-                                availableExtensions.forEach { entry ->
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        Text("${entry.name} · ${entry.versionCode}")
-                                        TextButton(onClick = {
-                                            fingerprint = entry.fingerprint
-                                        }) { Text("Show fingerprint") }
-                                        TextButton(onClick = {
-                                            scope.launch {
-                                                runCatching {
-                                                    withContext(Dispatchers.IO) {
-                                                        session.extensionRepository.install(
-                                                            URI(indexUrl.trim()),
-                                                            entry,
-                                                            session.extensions,
-                                                        )
-                                                    }
-                                                }.onSuccess { result ->
-                                                    message = result.toString()
-                                                    sources = withContext(Dispatchers.IO) { session.refreshSources() }
-                                                    installedDesktopExtensions = withContext(Dispatchers.IO) {
-                                                        session.extensions.installedExtensions()
+                                            installedKeiyoushi.forEach { entry ->
+                                                MihonPanel(Modifier.fillMaxWidth()) {
+                                                    Row(
+                                                        Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                    ) {
+                                                        Surface(
+                                                            shape = RoundedCornerShape(999.dp),
+                                                            color = MihonPalette.raised,
+                                                        ) {
+                                                            Box(
+                                                                Modifier.width(42.dp).height(42.dp),
+                                                                contentAlignment = Alignment.Center,
+                                                            ) {
+                                                                Text(
+                                                                    entry.name.firstOrNull()?.uppercase() ?: "?",
+                                                                    color = MihonPalette.sage,
+                                                                )
+                                                            }
+                                                        }
+                                                        Column(Modifier.weight(1f)) {
+                                                            Text(entry.name, style = MaterialTheme.typography.titleMedium)
+                                                            Text(
+                                                                "${entry.versionName} · Keiyoushi",
+                                                                color = MihonPalette.muted,
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                            )
+                                                        }
+                                                        if (entry.hasUpdate) {
+                                                            Text("Update available", color = MihonPalette.sage)
+                                                        }
+                                                        TextButton(onClick = {
+                                                            scope.launch {
+                                                                suwayomiStatus = "Updating ${entry.name}…"
+                                                                runCatching {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        val client = session.suwayomiEngine.client()
+                                                                        client.setInstalled(
+                                                                            entry.pkgName,
+                                                                            if (entry.hasUpdate) "update" else "uninstall",
+                                                                        )
+                                                                        session.suwayomiEngine.refreshSources()
+                                                                        client.extensions() to session.refreshSources()
+                                                                    }
+                                                                }.onSuccess { (extensions, installedSources) ->
+                                                                    suwayomiExtensions = extensions
+                                                                    sources = installedSources
+                                                                    suwayomiStatus = "${entry.name} changed"
+                                                                }.onFailure {
+                                                                    suwayomiStatus = it.message ?: "Extension action failed"
+                                                                }
+                                                            }
+                                                        }) {
+                                                            Text(if (entry.hasUpdate) "Update" else "Remove")
+                                                        }
                                                     }
                                                 }
-                                                    .onFailure { notice.error(it.message ?: "Update failed") }
                                             }
-                                        }) { Text("Install / Update") }
+                                            installedDesktopExtensions.forEach { installed ->
+                                                MihonPanel(Modifier.fillMaxWidth()) {
+                                                    Row(
+                                                        Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                    ) {
+                                                        Column(Modifier.weight(1f)) {
+                                                            Text(installed.id, style = MaterialTheme.typography.titleMedium)
+                                                            Text(
+                                                                "Version ${installed.versionCode} · Desktop .mihonext",
+                                                                color = MihonPalette.muted,
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                            )
+                                                        }
+                                                        Text(
+                                                            "Locally trusted",
+                                                            color = MihonPalette.sage,
+                                                            style = MaterialTheme.typography.labelMedium,
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        1 -> {
+                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                                Row(
+                                                    Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
+                                                    Column(Modifier.weight(1f)) {
+                                                        Text(
+                                                            "Keiyoushi catalog",
+                                                            style = MaterialTheme.typography.titleMedium,
+                                                        )
+                                                        Text(
+                                                            "Community sources through the isolated Suwayomi engine.",
+                                                            color = MihonPalette.muted,
+                                                        )
+                                                        Text(
+                                                            suwayomiStatus,
+                                                            color = if (session.suwayomiEngine.isRunning) {
+                                                                MihonPalette.sage
+                                                            } else {
+                                                                MaterialTheme.colorScheme.error
+                                                            },
+                                                            style = MaterialTheme.typography.bodySmall,
+                                                        )
+                                                    }
+                                                    Button(
+                                                        onClick = {
+                                                            scope.launch {
+                                                                suwayomiStatus = "Refreshing Keiyoushi…"
+                                                                runCatching {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        val client = session.suwayomiEngine.client()
+                                                                        client.addStore(KEIYOUSHI_STORE_URL)
+                                                                        client.refreshExtensions()
+                                                                    }
+                                                                }.onSuccess {
+                                                                    suwayomiExtensions = it
+                                                                    suwayomiStatus = "${it.size} extensions available"
+                                                                }.onFailure {
+                                                                    suwayomiStatus =
+                                                                        it.message ?: "Could not refresh extensions"
+                                                                }
+                                                            }
+                                                        },
+                                                        enabled = session.suwayomiEngine.isRunning,
+                                                    ) { Text("Refresh catalog") }
+                                                }
+                                            }
+                                            OutlinedTextField(
+                                                suwayomiSearch,
+                                                { suwayomiSearch = it },
+                                                label = { Text("Search extensions…") },
+                                                singleLine = true,
+                                                modifier = Modifier.fillMaxWidth(),
+                                            )
+                                            val visible = suwayomiExtensions
+                                                .filter { !it.obsolete || it.installed }
+                                                .filter {
+                                                    suwayomiSearch.isBlank() ||
+                                                        it.name.contains(suwayomiSearch, ignoreCase = true) ||
+                                                        it.pkgName.contains(suwayomiSearch, ignoreCase = true)
+                                                }
+                                                .sortedWith(
+                                                    compareByDescending<SuwayomiExtension> {
+                                                        it.installed
+                                                    }.thenBy { it.name },
+                                                )
+                                                .take(80)
+                                            if (suwayomiExtensions.isEmpty()) {
+                                                MihonEmptyState(
+                                                    "Catalog is not loaded",
+                                                    "Refresh the catalog to browse compatible sources.",
+                                                )
+                                            } else if (visible.isEmpty()) {
+                                                MihonEmptyState("No matching extensions", "Try a different name.")
+                                            }
+                                            visible.forEach { entry ->
+                                                MihonPanel(Modifier.fillMaxWidth()) {
+                                                    Row(
+                                                        Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                    ) {
+                                                        Surface(
+                                                            shape = RoundedCornerShape(999.dp),
+                                                            color = MihonPalette.raised,
+                                                        ) {
+                                                            Box(
+                                                                Modifier.width(42.dp).height(42.dp),
+                                                                contentAlignment = Alignment.Center,
+                                                            ) {
+                                                                Text(
+                                                                    entry.name.firstOrNull()?.uppercase() ?: "?",
+                                                                    color = MihonPalette.sage,
+                                                                )
+                                                            }
+                                                        }
+                                                        Column(Modifier.weight(1f)) {
+                                                            Text(entry.name, style = MaterialTheme.typography.titleMedium)
+                                                            Text(
+                                                                "${entry.versionName} · ${entry.contentWarning}",
+                                                                color = MihonPalette.muted,
+                                                                style = MaterialTheme.typography.bodySmall,
+                                                            )
+                                                        }
+                                                        Text(
+                                                            when {
+                                                                entry.installed && entry.hasUpdate -> "Update"
+                                                                entry.installed -> "Installed"
+                                                                else -> "Available"
+                                                            },
+                                                            color = if (entry.installed) MihonPalette.sage else MihonPalette.muted,
+                                                            style = MaterialTheme.typography.labelMedium,
+                                                        )
+                                                        TextButton(onClick = {
+                                                            scope.launch {
+                                                                suwayomiStatus = "Updating ${entry.name}…"
+                                                                runCatching {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        val client = session.suwayomiEngine.client()
+                                                                        client.setInstalled(
+                                                                            entry.pkgName,
+                                                                            when {
+                                                                                !entry.installed -> "install"
+                                                                                entry.hasUpdate -> "update"
+                                                                                else -> "uninstall"
+                                                                            },
+                                                                        )
+                                                                        session.suwayomiEngine.refreshSources()
+                                                                        client.extensions() to session.refreshSources()
+                                                                    }
+                                                                }.onSuccess { (extensions, installedSources) ->
+                                                                    suwayomiExtensions = extensions
+                                                                    sources = installedSources
+                                                                    suwayomiStatus = "${entry.name} changed"
+                                                                }.onFailure {
+                                                                    suwayomiStatus =
+                                                                        it.message ?: "Extension action failed"
+                                                                }
+                                                            }
+                                                        }) {
+                                                            Text(
+                                                                when {
+                                                                    !entry.installed -> "Install"
+                                                                    entry.hasUpdate -> "Update"
+                                                                    else -> "Remove"
+                                                                },
+                                                            )
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        else -> {
+                                            MihonSectionHeader(
+                                                "Advanced extension management",
+                                                "Signed Desktop packages, repository indexes and local fingerprint trust",
+                                            )
+                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                                Column(
+                                                    Modifier.fillMaxWidth().padding(MihonSpacing.lg),
+                                                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                                ) {
+                                                    Text(
+                                                        "Local trust",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    Text(
+                                                        "Trusting a fingerprint is a local decision and does not verify publisher identity.",
+                                                        color = MihonPalette.muted,
+                                                    )
+                                                    OutlinedTextField(
+                                                        fingerprint,
+                                                        { fingerprint = it },
+                                                        label = { Text("Signing fingerprint") },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                    )
+                                                    Button(onClick = {
+                                                        runCatching {
+                                                            session.extensions.trust(fingerprint.trim())
+                                                        }.onSuccess {
+                                                            message = "Fingerprint trusted"
+                                                        }.onFailure {
+                                                            notice.error(it.message ?: "Trust failed")
+                                                        }
+                                                    }, enabled = fingerprint.isNotBlank()) {
+                                                        Text("Trust fingerprint")
+                                                    }
+                                                }
+                                            }
+                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                                Column(
+                                                    Modifier.fillMaxWidth().padding(MihonSpacing.lg),
+                                                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                                ) {
+                                                    Text(
+                                                        "Install .mihonext package",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    OutlinedTextField(
+                                                        packagePath,
+                                                        { packagePath = it },
+                                                        label = { Text(".mihonext path") },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                    )
+                                                    Row(horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm)) {
+                                                        TextButton(onClick = {
+                                                            graph.fileDialogService.chooseOpenFile(
+                                                                OpenFileRequest(
+                                                                    "Install Desktop extension",
+                                                                    extensions = setOf("mihonext"),
+                                                                ),
+                                                            )?.let { packagePath = it }
+                                                        }) { Text("Choose package…") }
+                                                        Button(onClick = {
+                                                            scope.launch {
+                                                                message = "Installing Desktop extension…"
+                                                                runCatching {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        val result = session.extensions.install(
+                                                                            Path.of(packagePath.trim()),
+                                                                        )
+                                                                        Triple(
+                                                                            result,
+                                                                            session.refreshSources(),
+                                                                            session.extensions.installedExtensions(),
+                                                                        )
+                                                                    }
+                                                                }.onSuccess { (result, installedSources, installedPackages) ->
+                                                                    message = result.toString()
+                                                                    sources = installedSources
+                                                                    installedDesktopExtensions = installedPackages
+                                                                }.onFailure {
+                                                                    notice.error(it.message ?: "Install failed")
+                                                                }
+                                                            }
+                                                        }, enabled = packagePath.isNotBlank()) {
+                                                            Text("Install")
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                                Column(
+                                                    Modifier.fillMaxWidth().padding(MihonSpacing.lg),
+                                                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                                ) {
+                                                    Text(
+                                                        "HTTPS repository",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    OutlinedTextField(
+                                                        indexUrl,
+                                                        { indexUrl = it },
+                                                        label = { Text("Repository index URL") },
+                                                        modifier = Modifier.fillMaxWidth(),
+                                                    )
+                                                    Button(onClick = {
+                                                        scope.launch {
+                                                            runCatching {
+                                                                withContext(Dispatchers.IO) {
+                                                                    session.extensionRepository.discover(
+                                                                        URI(indexUrl.trim()),
+                                                                    )
+                                                                }
+                                                            }.onSuccess {
+                                                                availableExtensions = it
+                                                                message = "Repository loaded"
+                                                            }.onFailure {
+                                                                notice.error(it.message ?: "Repository failed")
+                                                            }
+                                                        }
+                                                    }, enabled = indexUrl.isNotBlank()) { Text("Discover") }
+                                                    availableExtensions.forEach { entry ->
+                                                        Row(
+                                                            Modifier.fillMaxWidth(),
+                                                            horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                        ) {
+                                                            Text(
+                                                                "${entry.name} · ${entry.versionCode}",
+                                                                modifier = Modifier.weight(1f),
+                                                            )
+                                                            TextButton(onClick = {
+                                                                fingerprint = entry.fingerprint
+                                                            }) { Text("Fingerprint") }
+                                                            TextButton(onClick = {
+                                                                scope.launch {
+                                                                    runCatching {
+                                                                        withContext(Dispatchers.IO) {
+                                                                            session.extensionRepository.install(
+                                                                                URI(indexUrl.trim()),
+                                                                                entry,
+                                                                                session.extensions,
+                                                                            )
+                                                                        }
+                                                                    }.onSuccess { result ->
+                                                                        message = result.toString()
+                                                                        sources = withContext(Dispatchers.IO) {
+                                                                            session.refreshSources()
+                                                                        }
+                                                                        installedDesktopExtensions =
+                                                                            withContext(Dispatchers.IO) {
+                                                                                session.extensions
+                                                                                    .installedExtensions()
+                                                                            }
+                                                                    }.onFailure {
+                                                                        notice.error(
+                                                                            it.message ?: "Update failed",
+                                                                        )
+                                                                    }
+                                                                }
+                                                            }) { Text("Install / update") }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
