@@ -31,9 +31,13 @@ internal object MihonPalette {
     val graphite = RoninColors.appBackground
     val panel = RoninColors.elevatedSurface
     val raised = RoninColors.secondarySurface
+    val selected = RoninColors.selectedSurface
+    val hover = RoninColors.hoverSurface
     val ivory = RoninColors.textPrimary
     val muted = RoninColors.textSecondary
+    val mutedQuiet = RoninColors.textMuted
     val sage = RoninColors.accentSage
+    val gold = RoninColors.accentGold
     val error = RoninColors.error
     val outline = RoninColors.border
     val outlineSoft = RoninColors.borderSubtle
