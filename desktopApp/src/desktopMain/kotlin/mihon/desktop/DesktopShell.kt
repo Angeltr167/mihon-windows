@@ -1939,7 +1939,10 @@ fun DesktopShell(
                                                             }
                                                         }
                                                         Column(Modifier.weight(1f)) {
-                                                            Text(entry.name, style = MaterialTheme.typography.titleMedium)
+                                                            Text(
+                                                                entry.name,
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                            )
                                                             Text(
                                                                 "${entry.versionName} · ${entry.contentWarning}",
                                                                 color = MihonPalette.muted,
@@ -2014,8 +2017,8 @@ fun DesktopShell(
                                                         style = MaterialTheme.typography.titleMedium,
                                                     )
                                                     Text(
-                                                        "Trusting a fingerprint is a local decision and does not verify " +
-                                                            "publisher identity.",
+                                                        "Trusting a fingerprint is a local decision and does not " +
+                                                            "verify publisher identity.",
                                                         color = MihonPalette.muted,
                                                     )
                                                     OutlinedTextField(
