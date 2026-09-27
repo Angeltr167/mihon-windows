@@ -72,7 +72,7 @@ class DesktopDownloadTest {
                 },
             )
             server.stop(0)
-            val offlinePages = DesktopPageLoader(local, store).pages(source, chapter, manga.url)
+            val offlinePages = DesktopPageLoader(local, store).pages(DownloadedSource(source.id), chapter, manga.url)
             assertEquals(2, offlinePages.size)
             assertTrue(offlinePages.all { it is DesktopPage.Local })
             assertEquals(1, DesktopPageLoader(local, store).image(offlinePages.first()).width)

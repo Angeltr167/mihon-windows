@@ -9,8 +9,11 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.produceState
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -20,6 +23,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.online.HttpSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import okhttp3.Request
@@ -43,10 +47,14 @@ fun DesktopCover(
         }
         return
     }
-    val bitmap by produceState<ImageBitmap?>(null, url, source) {
-        value = runCatching { loadCover(url, source) }.getOrNull()
+    var bitmap by remember(url, source) { mutableStateOf<Result<ImageBitmap>?>(null) }
+    LaunchedEffect(url, source) {
+        bitmap = null
+        val loaded = runCatching { loadCover(url, source) }
+        loaded.exceptionOrNull()?.let { if (it is CancellationException) throw it }
+        bitmap = loaded
     }
-    bitmap?.let { image ->
+    bitmap?.getOrNull()?.let { image ->
         Image(
             bitmap = image,
             contentDescription = "Manga cover",
@@ -58,13 +66,17 @@ fun DesktopCover(
             modifier.background(Color(0xFF182125)),
             contentAlignment = Alignment.Center,
         ) {
-            Text("Cover unavailable", style = MaterialTheme.typography.labelSmall, color = MihonPalette.muted)
+            Text(
+                if (bitmap == null) "Loading cover…" else "Cover unavailable",
+                style = MaterialTheme.typography.labelSmall,
+                color = MihonPalette.muted,
+            )
         }
     }
 }
 
 private suspend fun loadCover(url: String, source: Source?): ImageBitmap = withContext(Dispatchers.IO) {
-    val uri = URI(url)
+    val uri = URI(if (source is SuwayomiSource) source.coverUrl(url) else url)
     val bytes = if (uri.scheme.equals("file", ignoreCase = true)) {
         Files.newInputStream(Path.of(uri)).use { it.readNBytes(MAX_IMAGE_BYTES + 1) }
     } else {

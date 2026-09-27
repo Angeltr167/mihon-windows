@@ -56,7 +56,7 @@ multiplatformResources {
 
 compose.desktop {
     application {
-        val windowsVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.3").get()
+        val windowsVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.5").get()
         mainClass = "mihon.desktop.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)

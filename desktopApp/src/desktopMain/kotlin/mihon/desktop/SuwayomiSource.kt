@@ -13,6 +13,7 @@ import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
+import java.net.URI
 
 /** Presents Suwayomi's installed sources to Mihon's existing browser, library and reader. */
 internal class SuwayomiSource(
@@ -23,6 +24,20 @@ internal class SuwayomiSource(
     override val name: String get() = info.name
     override val lang: String get() = info.lang
     override val supportsLatest: Boolean get() = info.supportsLatest
+
+    /** Resolve persisted media paths against this launch's loopback port. */
+    internal fun coverUrl(savedUrl: String): String {
+        val uri = URI(savedUrl)
+        val path = if (uri.isAbsolute) {
+            require(uri.scheme == "http" && uri.host == "127.0.0.1" && uri.userInfo == null) {
+                "Unexpected Suwayomi cover origin"
+            }
+            uri.rawPath + (uri.rawQuery?.let { "?$it" } ?: "")
+        } else {
+            savedUrl
+        }
+        return client.absolute(path)
+    }
 
     override suspend fun getPopularManga(page: Int): MangasPage = browse("POPULAR", page)
 
@@ -62,7 +77,7 @@ internal class SuwayomiSource(
     private fun toManga(node: JsonObject): SManga = SManga.create().apply {
         url = node.requiredString("url")
         title = node.requiredString("title")
-        thumbnail_url = node.optionalString("thumbnailUrl")?.let(client::absolute)
+        thumbnail_url = node.optionalString("thumbnailUrl")
         artist = node.optionalString("artist")
         author = node.optionalString("author")
         description = node.optionalString("description")

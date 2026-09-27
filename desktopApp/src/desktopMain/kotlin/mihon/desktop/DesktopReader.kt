@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -23,11 +24,15 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -37,7 +42,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
@@ -63,7 +67,9 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.Source
@@ -124,6 +130,22 @@ internal fun previousReaderPageIndex(mode: ReadingMode, pageIndex: Int, pageCoun
     return normalizeReaderPageIndex(mode, (pageIndex - step).coerceAtLeast(0), pageCount)
 }
 
+internal data class ReaderSpreadGeometry(val height: Float, val widths: List<Float>)
+
+/** A previous spread may remain decoded briefly while Compose switches page sets. */
+internal fun safeReaderRatios(decodedRatios: List<Float>?, pageCount: Int): List<Float> =
+    decodedRatios?.takeIf { ratios ->
+        ratios.size == pageCount && ratios.all { it.isFinite() && it > 0f }
+    } ?: List(pageCount) { 0.7f }
+
+/** Keep every page complete while joining their inside edges at a shared height. */
+internal fun fitReaderSpread(ratios: List<Float>, width: Float, height: Float): ReaderSpreadGeometry {
+    require(ratios.isNotEmpty() && ratios.all { it.isFinite() && it > 0f })
+    require(width > 0f && height > 0f)
+    val fittedHeight = minOf(height, width / ratios.sum())
+    return ReaderSpreadGeometry(fittedHeight, ratios.map { it * fittedHeight })
+}
+
 internal data class ReaderTarget(
     val source: Source,
     val manga: SManga,
@@ -177,10 +199,10 @@ internal fun DesktopReader(
         mutableStateOf(
             runCatching {
                 FitMode.valueOf(
-                    graph.keyValueStore.getString("desktop.reader.fit", FitMode.WIDTH.name) ?: FitMode.WIDTH.name,
+                    graph.keyValueStore.getString("desktop.reader.fit", FitMode.HEIGHT.name) ?: FitMode.HEIGHT.name,
                 )
             }
-                .getOrDefault(FitMode.WIDTH),
+                .getOrDefault(FitMode.HEIGHT),
         )
     }
     var zoom by remember(target) { mutableStateOf(1f) }
@@ -199,7 +221,11 @@ internal fun DesktopReader(
     var showAppearance by remember(target) { mutableStateOf(false) }
     var showShortcuts by remember(target) { mutableStateOf(false) }
     var controlsVisible by remember(target) { mutableStateOf(true) }
+    var showMore by remember(target) { mutableStateOf(false) }
+    var sliderDragging by remember(target) { mutableStateOf(false) }
     var interactionVersion by remember(target) { mutableLongStateOf(0L) }
+    var headerHeight by remember(target) { mutableIntStateOf(0) }
+    var footerHeight by remember(target) { mutableIntStateOf(0) }
     var shortcuts by remember(target) {
         val next = ReaderShortcutKey.restore(
             graph.keyValueStore.getString("desktop.reader.shortcut.next", null),
@@ -354,14 +380,19 @@ internal fun DesktopReader(
         }
     }
 
+    fun navigateTo(destination: Int) {
+        if (mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON) {
+            requestedScroll = destination
+        } else {
+            pageIndex = destination
+        }
+    }
+
     fun next() {
         if (pages.isEmpty()) return
         val destination = nextReaderPageIndex(mode, pageIndex, pages.size)
         if (destination != null) {
-            pageIndex = destination
-            if (mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON) {
-                requestedScroll = pageIndex
-            }
+            navigateTo(destination)
         } else if (chapterIndex < chapters.lastIndex) {
             pageIndex = 0
             chapterIndex++
@@ -372,19 +403,59 @@ internal fun DesktopReader(
         if (pages.isEmpty()) return
         val destination = previousReaderPageIndex(mode, pageIndex, pages.size)
         if (destination != null) {
-            pageIndex = destination
-            if (mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON) {
-                requestedScroll = pageIndex
-            }
+            navigateTo(destination)
         } else if (chapterIndex > 0) {
             openAtLastPage = true
             chapterIndex--
         }
     }
 
+    fun saveCurrentPage() {
+        if (pages.isEmpty()) return
+        val currentIndex = viewedReaderPageIndex(mode, pageIndex, pages.size)
+        val current = pages.getOrNull(currentIndex) ?: return
+        val folder = graph.fileDialogService.chooseDirectory("Save reader page") ?: return
+        scope.launch {
+            runCatching {
+                withContext(Dispatchers.IO) {
+                    val bytes = DesktopPageFetcher(session.localPages).bytes(current)
+                    val prefix = "mihon-page-${currentIndex + 1}-"
+                    val suffix = ".${imageExtension(bytes)}"
+                    val output = Files.createTempFile(Path.of(folder), prefix, suffix)
+                    Files.write(output, bytes)
+                    output
+                }
+            }.onSuccess {
+                savedPage = it
+                pageActionMessage = "Saved page: $it"
+            }.onFailure { pageActionMessage = it.message ?: "Could not save page" }
+        }
+    }
+
+    fun toggleChapterBookmark() {
+        val id = chapterId ?: return
+        val bookmarked = !chapterBookmarked
+        chapterBookmarked = bookmarked
+        scope.launch {
+            withContext(Dispatchers.IO) {
+                session.library.setChapterBookmark(id, bookmarked)
+            }
+        }
+    }
+
+    fun nextChapter() {
+        if (chapterIndex < chapters.lastIndex) {
+            openAtLastPage = false
+            chapterIndex++
+        }
+    }
+
     val rightToLeft = mode == ReadingMode.SINGLE_RTL || mode == ReadingMode.DOUBLE_RTL
-    LaunchedEffect(controlsVisible, interactionVersion, showAppearance, showShortcuts) {
-        if (controlsVisible && !showAppearance && !showShortcuts) {
+    val bookmarkLabel = stringResource(
+        if (chapterBookmarked) MR.strings.action_remove_bookmark else MR.strings.action_bookmark,
+    )
+    LaunchedEffect(controlsVisible, interactionVersion, showAppearance, showShortcuts, showMore, sliderDragging) {
+        if (controlsVisible && !showAppearance && !showShortcuts && !showMore && !sliderDragging) {
             delay(2800)
             controlsVisible = false
         }
@@ -427,7 +498,7 @@ internal fun DesktopReader(
             }.focusRequester(focusRequester).focusable(),
     ) {
         if (controlsVisible) {
-            MihonPanel(Modifier.fillMaxWidth()) {
+            MihonPanel(Modifier.fillMaxWidth().onSizeChanged { headerHeight = it.height }) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -454,6 +525,8 @@ internal fun DesktopReader(
                     )
                 }
             }
+        } else {
+            Spacer(Modifier.height(with(LocalDensity.current) { headerHeight.toDp() }))
         }
         (trackerError ?: pendingTrackerSync.firstOrNull { it.mangaId == mangaId }?.error)
             ?.let { Text(it, color = MaterialTheme.colorScheme.error) }
@@ -494,6 +567,7 @@ internal fun DesktopReader(
                     requestedScroll?.let { destination ->
                         listState.animateScrollToItem(destination.coerceIn(pages.indices))
                         requestedScroll = null
+                        pageIndex = listState.firstVisibleItemIndex.coerceIn(pages.indices)
                     }
                 }
                 BoxWithConstraints(Modifier.weight(1f)) {
@@ -501,9 +575,10 @@ internal fun DesktopReader(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(bottom = maxHeight),
+                        verticalArrangement = Arrangement.spacedBy(if (mode == ReadingMode.VERTICAL) 16.dp else 0.dp),
                     ) {
                         itemsIndexed(pages) { index, page ->
-                            ReaderImage(loader, page, fit, zoom, colorFilter, Modifier.fillMaxWidth(), index)
+                            ReaderImage(loader, page, fit, zoom, colorFilter, Modifier.fillMaxWidth(), index, maxHeight)
                         }
                     }
                 }
@@ -513,6 +588,16 @@ internal fun DesktopReader(
                     doublePageSpread(pageIndex, pages.size).map { it to pages[it] }
                 } else {
                     listOf(pageIndex to pages[pageIndex])
+                }
+                var decodedPages by remember(pair) { mutableStateOf<List<ImageBitmap>?>(null) }
+                LaunchedEffect(pair) {
+                    decodedPages = try {
+                        pair.map { (_, page) -> loader.image(page) }
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (_: Exception) {
+                        null
+                    }
                 }
                 BoxWithConstraints(
                     Modifier.weight(1f).fillMaxWidth()
@@ -530,145 +615,207 @@ internal fun DesktopReader(
                             controlsVisible = true
                             interactionVersion++
                             val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
-                            if (delta > 0) {
-                                next()
-                            } else if (delta < 0) {
-                                previous()
+                            if (!(pair.size == 1 && fit == FitMode.WIDTH)) {
+                                if (delta > 0) {
+                                    next()
+                                } else if (delta < 0) {
+                                    previous()
+                                }
                             }
                         },
                 ) {
+                    val availableWidth = maxWidth
+                    val availableHeight = maxHeight
                     Box(Modifier.fillMaxSize().background(MihonPalette.graphite)) {
-                        Row(
-                            Modifier.fillMaxSize().padding(horizontal = 18.dp, vertical = 10.dp),
-                            horizontalArrangement = Arrangement.Center,
-                        ) {
-                            (if (rightToLeft) pair.reversed() else pair).forEach { (index, page) ->
-                                Box(
-                                    Modifier.weight(1f).fillMaxHeight().padding(horizontal = 2.dp)
-                                        .shadow(12.dp, RoundedCornerShape(3.dp))
-                                        .background(Color(0xFF080B0D))
-                                        .border(1.dp, MihonPalette.outline, RoundedCornerShape(3.dp)),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    ReaderImage(loader, page, fit, zoom, colorFilter, Modifier.fillMaxSize(), index)
+                        val isSpread = pair.size == 2
+                        val pageRatios = safeReaderRatios(
+                            decodedPages?.map { it.width.toFloat() / it.height },
+                            pair.size,
+                        )
+                        val geometry = fitReaderSpread(
+                            pageRatios,
+                            (availableWidth - 36.dp).coerceAtLeast(1.dp).value,
+                            (availableHeight - 20.dp).coerceAtLeast(1.dp).value,
+                        )
+                        val spreadHeight = geometry.height.dp
+                        if (pair.size == 1 && fit == FitMode.WIDTH) {
+                            val width = (availableWidth - 36.dp).coerceAtLeast(1.dp)
+                            val height = width / pageRatios.single()
+                            Column(
+                                Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                                horizontalAlignment = Alignment.CenterHorizontally,
+                            ) {
+                                Box(Modifier.width(width).height(height), contentAlignment = Alignment.Center) {
+                                    ReaderImage(
+                                        loader,
+                                        pair.single().second,
+                                        fit,
+                                        zoom,
+                                        colorFilter,
+                                        Modifier.fillMaxSize(),
+                                        pair.single().first,
+                                    )
                                 }
                             }
-                        }
-                        if ((mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL) && pair.size == 2) {
-                            Box(
-                                Modifier.align(Alignment.Center).fillMaxHeight().padding(vertical = 10.dp)
-                                    .width(3.dp).background(Color(0xFF050708)),
-                            )
+                        } else {
+                            Row(
+                                Modifier.align(Alignment.Center).padding(horizontal = 18.dp, vertical = 10.dp),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                (if (rightToLeft) pair.reversed() else pair).forEachIndexed { position, (index, page) ->
+                                    val originalIndex = if (rightToLeft) pair.lastIndex - position else position
+                                    val displayedHeight = if (fit == FitMode.ORIGINAL && !isSpread) {
+                                        val original = decodedPages?.getOrNull(originalIndex)
+                                        if (original == null) {
+                                            spreadHeight
+                                        } else {
+                                            minOf(
+                                                spreadHeight,
+                                                with(LocalDensity.current) { original.height.toDp() },
+                                            )
+                                        }
+                                    } else {
+                                        spreadHeight
+                                    }
+                                    val displayedWidth = if (displayedHeight == spreadHeight) {
+                                        geometry.widths[originalIndex].dp
+                                    } else {
+                                        displayedHeight * pageRatios[originalIndex]
+                                    }
+                                    Box(
+                                        Modifier.width(displayedWidth).height(displayedHeight)
+                                            .shadow(if (isSpread) 8.dp else 12.dp, RoundedCornerShape(2.dp))
+                                            .background(Color(0xFF080B0D))
+                                            .border(1.dp, MihonPalette.outline, RoundedCornerShape(2.dp)),
+                                        contentAlignment = Alignment.Center,
+                                    ) {
+                                        ReaderImage(loader, page, fit, zoom, colorFilter, Modifier.fillMaxSize(), index)
+                                    }
+                                }
+                            }
+                            if (isSpread) {
+                                Box(
+                                    Modifier.align(Alignment.Center).height(spreadHeight)
+                                        .width(2.dp).background(Color(0xAA050708)),
+                                )
+                            }
                         }
                     }
                 }
             }
         }
         if (controlsVisible) {
-            Slider(
-                value = pageIndex.toFloat(),
-                onValueChange = { value ->
-                    if (pages.isNotEmpty()) {
-                        pageIndex = normalizeReaderPageIndex(
-                            mode,
-                            value.roundToInt().coerceIn(pages.indices),
-                            pages.size,
-                        )
-                    }
-                },
-                enabled = pages.isNotEmpty(),
-                valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
-                modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
-            )
-            MihonPanel(Modifier.fillMaxWidth()) {
-                FlowRow(
-                    Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    TextButton(onClick = {
-                        if (chapterIndex > 0) {
-                            openAtLastPage = false
-                            chapterIndex--
-                        }
-                    }, enabled = chapterIndex > 0) { Text("Previous chapter") }
-                    TextButton(onClick = ::previous, enabled = pages.isNotEmpty()) { Text("Previous") }
-                    TextButton(onClick = ::next, enabled = pages.isNotEmpty()) { Text("Next") }
-                    TextButton(onClick = {
+            Column(Modifier.onSizeChanged { footerHeight = it.height }) {
+                Slider(
+                    value = pageIndex.toFloat(),
+                    onValueChange = { value ->
                         if (pages.isNotEmpty()) {
-                            val currentPage = viewedReaderPageIndex(mode, pageIndex, pages.size)
-                            mode = ReadingMode.entries[(mode.ordinal + 1) % ReadingMode.entries.size]
-                            pageIndex = normalizeReaderPageIndex(mode, currentPage, pages.size)
+                            sliderDragging = true
+                            navigateTo(
+                                normalizeReaderPageIndex(
+                                    mode,
+                                    value.roundToInt().coerceIn(pages.indices),
+                                    pages.size,
+                                ),
+                            )
                         }
-                        graph.keyValueStore.putString("desktop.reader.mode", mode.name)
-                    }) { Text(mode.name.replace('_', ' ')) }
-                    TextButton(onClick = {
-                        fit = FitMode.entries[(fit.ordinal + 1) % FitMode.entries.size]
-                        graph.keyValueStore.putString("desktop.reader.fit", fit.name)
-                    }) { Text("Fit ${fit.name.lowercase()}") }
-                    TextButton(onClick = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) }) { Text("−") }
-                    TextButton(onClick = { zoom = (zoom + 0.25f).coerceAtMost(4f) }) { Text("+") }
-                    TextButton(onClick = { showAppearance = true }) { Text("Appearance") }
-                    TextButton(onClick = onToggleFullscreen) { Text("Fullscreen") }
-                    TextButton(onClick = { showShortcuts = true }) { Text("Keys") }
-                    TextButton(onClick = {
-                        val currentIndex = viewedReaderPageIndex(mode, pageIndex, pages.size)
-                        val current = pages.getOrNull(currentIndex) ?: return@TextButton
-                        val folder = graph.fileDialogService.chooseDirectory("Save reader page") ?: return@TextButton
-                        scope.launch {
-                            runCatching {
-                                withContext(Dispatchers.IO) {
-                                    val bytes = DesktopPageFetcher(session.localPages).bytes(current)
-                                    val output = Files.createTempFile(
-                                        Path.of(folder),
-                                        "mihon-page-${currentIndex + 1}-",
-                                        ".${imageExtension(bytes)}",
-                                    )
-                                    Files.write(output, bytes)
-                                    output
-                                }
-                            }.onSuccess {
-                                savedPage = it
-                                pageActionMessage = "Saved page: $it"
-                            }.onFailure { pageActionMessage = it.message ?: "Could not save page" }
-                        }
-                    }, enabled = pages.isNotEmpty()) { Text("Save page…") }
-                    savedPage?.let { path ->
-                        TextButton(onClick = { graph.externalOpenService.openPath(path.toString()) }) {
-                            Text("Open saved page")
-                        }
-                    }
-                    TextButton(onClick = {
-                        val id = chapterId ?: return@TextButton
-                        chapterBookmarked = !chapterBookmarked
-                        val bookmarked = chapterBookmarked
-                        scope.launch {
-                            withContext(Dispatchers.IO) {
-                                session.library.setChapterBookmark(
-                                    id,
-                                    bookmarked,
+                    },
+                    onValueChangeFinished = { sliderDragging = false },
+                    enabled = pages.isNotEmpty(),
+                    valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
+                    colors = SliderDefaults.colors(
+                        thumbColor = MihonPalette.sage,
+                        activeTrackColor = MihonPalette.sage,
+                        inactiveTrackColor = MihonPalette.outline,
+                    ),
+                )
+                MihonPanel(Modifier.fillMaxWidth()) {
+                    FlowRow(
+                        Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
+                        horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    ) {
+                        TextButton(onClick = {
+                            if (chapterIndex > 0) {
+                                openAtLastPage = false
+                                chapterIndex--
+                            }
+                        }, enabled = chapterIndex > 0) { Text("Previous chapter") }
+                        TextButton(onClick = ::previous, enabled = pages.isNotEmpty()) { Text("Previous") }
+                        TextButton(onClick = ::next, enabled = pages.isNotEmpty()) { Text("Next") }
+                        TextButton(onClick = {
+                            if (pages.isNotEmpty()) {
+                                val currentPage = viewedReaderPageIndex(mode, pageIndex, pages.size)
+                                mode = ReadingMode.entries[(mode.ordinal + 1) % ReadingMode.entries.size]
+                                pageIndex = normalizeReaderPageIndex(mode, currentPage, pages.size)
+                            }
+                            graph.keyValueStore.putString("desktop.reader.mode", mode.name)
+                        }) { Text(mode.name.replace('_', ' ')) }
+                        TextButton(onClick = {
+                            fit = FitMode.entries[(fit.ordinal + 1) % FitMode.entries.size]
+                            graph.keyValueStore.putString("desktop.reader.fit", fit.name)
+                        }) { Text("Fit ${fit.name.lowercase()}") }
+                        Box {
+                            TextButton(onClick = { showMore = true }) { Text("More…") }
+                            DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
+                                ReaderMoreActions(
+                                    onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
+                                    onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
+                                    onAppearance = { showAppearance = true },
+                                    onFullscreen = onToggleFullscreen,
+                                    onShortcuts = { showShortcuts = true },
+                                    onSave = ::saveCurrentPage,
+                                    canSave = pages.isNotEmpty(),
+                                    onOpenSaved = savedPage?.let { path ->
+                                        {
+                                            graph.externalOpenService.openPath(path.toString())
+                                            Unit
+                                        }
+                                    },
+                                    onBookmark = ::toggleChapterBookmark,
+                                    canBookmark = chapterId != null,
+                                    bookmarkLabel = bookmarkLabel,
+                                    onNextChapter = ::nextChapter,
+                                    canNextChapter = chapterIndex < chapters.lastIndex,
                                 )
                             }
                         }
-                    }, enabled = chapterId != null) {
-                        Text(
-                            stringResource(
-                                if (chapterBookmarked) {
-                                    MR.strings.action_remove_bookmark
-                                } else {
-                                    MR.strings.action_bookmark
-                                },
-                            ),
-                        )
                     }
-                    TextButton(onClick = {
-                        if (chapterIndex < chapters.lastIndex) {
-                            openAtLastPage = false
-                            chapterIndex++
-                        }
-                    }, enabled = chapterIndex < chapters.lastIndex) { Text("Next chapter") }
                 }
             }
+        } else {
+            Spacer(Modifier.height(with(LocalDensity.current) { footerHeight.toDp() }))
         }
+    }
+}
+
+@Composable
+private fun ReaderMoreActions(
+    onZoomOut: () -> Unit,
+    onZoomIn: () -> Unit,
+    onAppearance: () -> Unit,
+    onFullscreen: () -> Unit,
+    onShortcuts: () -> Unit,
+    onSave: () -> Unit,
+    canSave: Boolean,
+    onOpenSaved: (() -> Unit)?,
+    onBookmark: () -> Unit,
+    canBookmark: Boolean,
+    bookmarkLabel: String,
+    onNextChapter: () -> Unit,
+    canNextChapter: Boolean,
+) {
+    Column {
+        TextButton(onClick = onZoomOut) { Text("Zoom −") }
+        TextButton(onClick = onZoomIn) { Text("Zoom +") }
+        TextButton(onClick = onAppearance) { Text("Appearance") }
+        TextButton(onClick = onFullscreen) { Text("Fullscreen") }
+        TextButton(onClick = onShortcuts) { Text("Keys") }
+        TextButton(onClick = onSave, enabled = canSave) { Text("Save page…") }
+        onOpenSaved?.let { TextButton(onClick = it) { Text("Open saved page") } }
+        TextButton(onClick = onBookmark, enabled = canBookmark) { Text(bookmarkLabel) }
+        TextButton(onClick = onNextChapter, enabled = canNextChapter) { Text("Next chapter") }
     }
 }
 
@@ -681,39 +828,60 @@ private fun ReaderImage(
     colorFilter: ColorFilter?,
     modifier: Modifier,
     index: Int,
+    continuousViewportHeight: Dp? = null,
 ) {
     var retry by remember(page) { mutableIntStateOf(0) }
     val density = LocalDensity.current
-    val result by produceState<Result<ImageBitmap>?>(null, page, retry) {
+    var result by remember(page) { mutableStateOf<Result<ImageBitmap>?>(null) }
+    LaunchedEffect(page, retry) {
+        result = null
         val loaded = runCatching { loader.image(page) }
         loaded.exceptionOrNull()?.let { if (it is CancellationException) throw it }
-        value = loaded
+        result = loaded
     }
     var pan by remember(page) { mutableStateOf(Offset.Zero) }
-    Box(modifier, contentAlignment = Alignment.Center) {
+    LaunchedEffect(zoom) {
+        if (zoom <= 1f) pan = Offset.Zero
+    }
+    BoxWithConstraints(modifier, contentAlignment = Alignment.Center) {
         result?.fold(
             onSuccess = { image ->
-                val imageModifier = when (fit) {
-                    FitMode.WIDTH -> Modifier.fillMaxWidth()
-                    FitMode.HEIGHT -> Modifier.fillMaxHeight()
-                    FitMode.ORIGINAL -> Modifier.width(with(density) { image.width.toDp() })
+                val ratio = image.width.toFloat() / image.height
+                val naturalWidth = with(density) { image.width.toDp() }
+                val availableHeight = continuousViewportHeight ?: maxHeight
+                val completeWidth = minOf(maxWidth, availableHeight * ratio)
+                val width = when (fit) {
+                    FitMode.WIDTH -> if (continuousViewportHeight != null) maxWidth else completeWidth
+                    FitMode.HEIGHT -> completeWidth
+                    FitMode.ORIGINAL -> minOf(naturalWidth, completeWidth)
                 }
                 Image(
                     bitmap = image,
                     contentDescription = "Page ${index + 1}",
                     contentScale = ContentScale.Fit,
                     colorFilter = colorFilter,
-                    modifier = imageModifier.graphicsLayer {
+                    modifier = Modifier.width(width).height(width / ratio).graphicsLayer {
                         scaleX = zoom
                         scaleY = zoom
                         translationX = pan.x
                         translationY = pan.y
-                    }.pointerInput(page, zoom) {
-                        detectDragGestures { change, drag ->
-                            change.consume()
-                            pan += drag
-                        }
-                    },
+                    }.then(
+                        if (continuousViewportHeight == null && zoom > 1f) {
+                            Modifier.pointerInput(page, zoom, width) {
+                                detectDragGestures { change, drag ->
+                                    change.consume()
+                                    val maxX = (zoom - 1f) * width.toPx() / 2f
+                                    val maxY = (zoom - 1f) * (width / ratio).toPx() / 2f
+                                    pan = Offset(
+                                        (pan.x + drag.x).coerceIn(-maxX, maxX),
+                                        (pan.y + drag.y).coerceIn(-maxY, maxY),
+                                    )
+                                }
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
                 )
             },
             onFailure = { failure ->

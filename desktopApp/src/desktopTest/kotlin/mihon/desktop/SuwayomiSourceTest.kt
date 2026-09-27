@@ -72,7 +72,15 @@ class SuwayomiSourceTest {
         val source = SuwayomiSource(client.sources().single(), client)
         val manga = source.getPopularManga(1).mangas.single()
         assertEquals("/manga/one", manga.url)
-        assertEquals("http://127.0.0.1:49100/api/v1/manga/7/thumbnail", manga.thumbnail_url)
+        assertEquals("/api/v1/manga/7/thumbnail", manga.thumbnail_url)
+        assertEquals(
+            "http://127.0.0.1:49100/api/v1/manga/7/thumbnail",
+            source.coverUrl(manga.thumbnail_url!!),
+        )
+        assertEquals(
+            "http://127.0.0.1:49100/api/v1/manga/7/thumbnail",
+            source.coverUrl("http://127.0.0.1:45678/api/v1/manga/7/thumbnail"),
+        )
         val update = source.getMangaUpdate(manga, emptyList(), true, true)
         assertEquals("Details", update.manga.description)
         assertEquals("/chapter/one", update.chapters.single().url)

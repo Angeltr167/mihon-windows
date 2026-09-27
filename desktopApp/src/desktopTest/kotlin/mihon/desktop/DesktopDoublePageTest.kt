@@ -3,6 +3,7 @@ package mihon.desktop
 import mihon.core.reader.ReadingMode
 import org.junit.jupiter.api.Assertions.assertEquals
 import org.junit.jupiter.api.Assertions.assertNull
+import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DesktopDoublePageTest {
@@ -36,5 +37,31 @@ class DesktopDoublePageTest {
         assertEquals(2, savedPage)
         val restoredSpread = normalizeReaderPageIndex(ReadingMode.DOUBLE_RTL, savedPage, 5)
         assertEquals(listOf(1, 2), doublePageSpread(restoredSpread, 5))
+    }
+
+    @Test
+    fun `spread fits both differently shaped pages without clipping or a middle gap`() {
+        for ((ratios, availableWidth, availableHeight) in listOf(
+            Triple(listOf(0.7f, 0.7f), 1000f, 600f),
+            Triple(listOf(0.5f, 1.3f), 600f, 900f),
+            Triple(listOf(1.6f), 800f, 500f),
+        )) {
+            val layout = fitReaderSpread(ratios, availableWidth, availableHeight)
+            assertEquals(ratios.size, layout.widths.size)
+            assertTrue(layout.height <= availableHeight)
+            assertTrue(layout.widths.sum() <= availableWidth + 0.001f)
+            layout.widths.forEachIndexed { index, width ->
+                assertEquals(ratios[index], width / layout.height, 0.0001f)
+            }
+        }
+    }
+
+    @Test
+    fun `switching from a single page to a spread ignores the previous decoded page`() {
+        val staleRatios = listOf(0.75f)
+        val activeRatios = safeReaderRatios(staleRatios, pageCount = 2)
+        assertEquals(listOf(0.7f, 0.7f), activeRatios)
+        assertEquals(2, fitReaderSpread(activeRatios, 900f, 700f).widths.size)
+        assertEquals(staleRatios, safeReaderRatios(staleRatios, pageCount = 1))
     }
 }

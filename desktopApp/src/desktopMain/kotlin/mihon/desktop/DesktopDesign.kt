@@ -2,6 +2,7 @@ package mihon.desktop
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +17,10 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 
 internal object MihonPalette {
     val graphite = Color(0xFF0B1013)
@@ -35,6 +40,8 @@ internal fun MihonDesktopTheme(content: @Composable () -> Unit) {
         colorScheme = darkColorScheme(
             primary = MihonPalette.sage,
             onPrimary = MihonPalette.graphite,
+            primaryContainer = MihonPalette.raised,
+            onPrimaryContainer = MihonPalette.sage,
             secondary = MihonPalette.muted,
             onSecondary = MihonPalette.graphite,
             background = MihonPalette.graphite,
@@ -42,6 +49,10 @@ internal fun MihonDesktopTheme(content: @Composable () -> Unit) {
             surface = MihonPalette.panel,
             onSurface = MihonPalette.ivory,
             surfaceVariant = MihonPalette.raised,
+            surfaceContainer = MihonPalette.panel,
+            surfaceContainerHigh = MihonPalette.raised,
+            surfaceContainerHighest = MihonPalette.raised,
+            surfaceTint = MihonPalette.sage,
             onSurfaceVariant = MihonPalette.muted,
             outline = MihonPalette.outline,
             error = MihonPalette.error,
@@ -80,21 +91,34 @@ internal fun MihonSectionHeader(
     subtitle: String? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    Row(
-        modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            androidx.compose.material3.Text(title, style = MaterialTheme.typography.headlineSmall)
-            subtitle?.let {
-                androidx.compose.material3.Text(
-                    it,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MihonPalette.muted,
-                )
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+        val narrow = maxWidth < 720.dp
+        val label: @Composable () -> Unit = {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                androidx.compose.material3.Text(title, style = MaterialTheme.typography.headlineSmall)
+                subtitle?.let {
+                    androidx.compose.material3.Text(
+                        it,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MihonPalette.muted,
+                    )
+                }
             }
         }
-        trailing?.invoke()
+        if (narrow) {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                label()
+                trailing?.invoke()
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                label()
+                trailing?.invoke()
+            }
+        }
     }
 }
 
@@ -117,5 +141,15 @@ internal fun MihonEmptyState(
                 )
             }
         }
+    }
+}
+
+internal fun desktopDateGroup(epochMillis: Long): String {
+    if (epochMillis <= 0L) return "Date unavailable"
+    val date = Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+    return when (date) {
+        LocalDate.now() -> "Today"
+        LocalDate.now().minusDays(1) -> "Yesterday"
+        else -> date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
     }
 }

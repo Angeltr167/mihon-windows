@@ -6,10 +6,13 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -38,6 +41,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -54,7 +58,10 @@ import androidx.compose.ui.input.key.isCtrlPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -67,7 +74,9 @@ import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
 import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.online.HttpSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -75,11 +84,18 @@ import mihon.core.extension.desktop.DesktopRepositoryEntry
 import mihon.platform.api.OpenFileRequest
 import mihon.platform.desktop.DesktopPlatformGraph
 import mihon.platform.desktop.WindowsProtocolRegistrar
+import tachiyomi.data.Chapters
+import tachiyomi.data.GetCategories
+import tachiyomi.data.Manga_sync
 import tachiyomi.data.Mangas
 import tachiyomi.i18n.MR
 import tachiyomi.source.local.desktop.DesktopLocalSource
+import tachiyomi.view.History
+import tachiyomi.view.UpdatesView
 import java.net.URI
 import java.nio.file.Path
+import kotlin.properties.ReadWriteProperty
+import kotlin.reflect.KProperty
 import androidx.compose.foundation.lazy.grid.items as gridItems
 
 private enum class Screen(val title: StringResource) {
@@ -95,9 +111,42 @@ private enum class Screen(val title: StringResource) {
 }
 
 private fun Source.displayName(): String =
-    if (lang == "localsourcelang") name else "$name (${lang.uppercase()})"
+    if (this is DesktopLocalSource || lang == "localsourcelang") name else "$name (${lang.uppercase()})"
 
 private const val KEIYOUSHI_STORE_URL = "https://github.com/keiyoushi/extensions/raw/repo/index.pb"
+
+private data class DetailSnapshot(
+    val sourceId: Long,
+    val mangaUrl: String,
+    val stored: Mangas?,
+    val tracks: Map<Long, Manga_sync>,
+)
+
+private data class LibrarySnapshot(
+    val manga: List<Mangas>,
+    val memberships: Map<Long, Set<Long>>,
+    val history: List<History>,
+    val updates: List<UpdatesView>,
+    val categories: List<GetCategories>,
+)
+
+private class DesktopNoticeState : ReadWriteProperty<Any?, String> {
+    private var text by mutableStateOf("")
+    var isError by mutableStateOf(false)
+        private set
+
+    override fun getValue(thisRef: Any?, property: KProperty<*>): String = text
+
+    override fun setValue(thisRef: Any?, property: KProperty<*>, value: String) {
+        text = value
+        isError = false
+    }
+
+    fun error(value: String) {
+        text = value
+        isError = true
+    }
+}
 
 @Composable
 fun DesktopShell(
@@ -114,17 +163,36 @@ fun DesktopShell(
     LaunchedEffect(focusRequester) { focusRequester.requestFocus() }
     var screen by remember { mutableStateOf(Screen.LIBRARY) }
     var sources by remember { mutableStateOf(session.sources()) }
-    var library by remember { mutableStateOf(session.library.library()) }
-    var historyEntries by remember { mutableStateOf(session.library.history()) }
-    var updateEntries by remember { mutableStateOf(session.library.updates()) }
-    var categories by remember { mutableStateOf(session.library.categories()) }
+    var library by remember { mutableStateOf(emptyList<Mangas>()) }
+    var libraryMembership by remember { mutableStateOf<Map<Long, Set<Long>>>(emptyMap()) }
+    var historyEntries by remember { mutableStateOf(emptyList<History>()) }
+    var historyChapters by remember { mutableStateOf<Map<Long, Chapters?>>(emptyMap()) }
+    var updateEntries by remember { mutableStateOf(emptyList<UpdatesView>()) }
+    var categories by remember { mutableStateOf(emptyList<GetCategories>()) }
+    var libraryLoading by remember { mutableStateOf(true) }
+    var libraryJob by remember { mutableStateOf<Job?>(null) }
+    var libraryRequestId by remember { mutableIntStateOf(0) }
     var selectedCategory by remember { mutableStateOf<Long?>(null) }
     var librarySearch by remember { mutableStateOf("") }
     var historySearch by remember { mutableStateOf("") }
+    var sourceSearch by remember { mutableStateOf("") }
     var categorySearch by remember { mutableStateOf("") }
     var source by remember { mutableStateOf<Source?>(null) }
     var browseItems by remember { mutableStateOf(emptyList<SManga>()) }
+    var browsePage by remember { mutableIntStateOf(0) }
+    var browseHasNext by remember { mutableStateOf(false) }
+    var browseLoading by remember { mutableStateOf(false) }
+    var browseError by remember { mutableStateOf<String?>(null) }
+    var browseQuery by remember { mutableStateOf("") }
+    var browseRequestId by remember { mutableIntStateOf(0) }
+    var browseJob by remember { mutableStateOf<Job?>(null) }
+    var detailRequestId by remember { mutableIntStateOf(0) }
+    var detailJob by remember { mutableStateOf<Job?>(null) }
     var selectedManga by remember { mutableStateOf<SManga?>(null) }
+    var detailSnapshot by remember { mutableStateOf<DetailSnapshot?>(null) }
+    var detailsLoading by remember { mutableStateOf(false) }
+    var detailsError by remember { mutableStateOf<String?>(null) }
+    var selectedMangaCategories by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var chapters by remember { mutableStateOf(emptyList<SChapter>()) }
     var readerTarget by remember { mutableStateOf<ReaderTarget?>(null) }
     var query by remember { mutableStateOf("") }
@@ -132,6 +200,7 @@ fun DesktopShell(
     var packagePath by remember { mutableStateOf("") }
     var indexUrl by remember { mutableStateOf("") }
     var availableExtensions by remember { mutableStateOf(emptyList<DesktopRepositoryEntry>()) }
+    var installedDesktopExtensions by remember { mutableStateOf(session.extensions.installedExtensions()) }
     var suwayomiExtensions by remember { mutableStateOf(emptyList<SuwayomiExtension>()) }
     var suwayomiSearch by remember { mutableStateOf("") }
     var suwayomiStatus by remember { mutableStateOf("Starting local extension engine…") }
@@ -165,75 +234,153 @@ fun DesktopShell(
     var mangaBakaSeriesId by remember { mutableStateOf("") }
     var mangaBakaLoggedIn by remember { mutableStateOf(session.mangaBakaTracker.isLoggedIn) }
     var aniListLoggedIn by remember { mutableStateOf(session.aniListTracker.isLoggedIn) }
-    var message by remember { mutableStateOf("") }
+    val notice = remember { DesktopNoticeState() }
+    var message by notice
     var mihonProtocolRegistered by remember { mutableStateOf(protocolRegistrar.isRegistered()) }
     val downloads by session.downloads.queue.collectAsState()
+    var downloadMangas by remember { mutableStateOf<Map<String, Mangas?>>(emptyMap()) }
     val trackerSyncQueue by session.trackerSync.pending.collectAsState()
     val incomingLink by incomingLinks.collectAsState()
     val libraryUpdate by session.libraryUpdates.state.collectAsState()
     var updateInterval by remember { mutableLongStateOf(session.libraryUpdates.intervalHours()) }
 
     fun refreshLibrary() {
-        library = session.library.library()
-        historyEntries = session.library.history()
-        updateEntries = session.library.updates()
-        categories = session.library.categories()
+        libraryJob?.cancel()
+        libraryRequestId++
+        val requestId = libraryRequestId
+        libraryLoading = true
+        libraryJob = scope.launch {
+            try {
+                val snapshot = withContext(Dispatchers.IO) {
+                    val manga = session.library.library()
+                    LibrarySnapshot(
+                        manga,
+                        manga.associate { it._id to session.library.mangaCategories(it._id) },
+                        session.library.history(),
+                        session.library.updates(),
+                        session.library.categories(),
+                    )
+                }
+                if (requestId == libraryRequestId) {
+                    library = snapshot.manga
+                    libraryMembership = snapshot.memberships
+                    historyEntries = snapshot.history
+                    updateEntries = snapshot.updates
+                    categories = snapshot.categories
+                }
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                if (requestId == libraryRequestId) notice.error(error.message ?: "Could not load library")
+            } finally {
+                if (requestId == libraryRequestId) libraryLoading = false
+            }
+        }
+    }
+    fun navigateToScreen(destination: Screen) {
+        screen = destination
+        readerTarget = null
+        selectedManga = null
+        chapters = emptyList()
+        message = ""
+        if (destination == Screen.SOURCES || destination == Screen.SEARCH) {
+            browseJob?.cancel()
+            browseRequestId++
+            source = null
+            browseItems = emptyList()
+            browseError = null
+            browseLoading = false
+        }
+        if (destination == Screen.LIBRARY) refreshLibrary()
+    }
+    fun fetchBrowsePage(selectedSource: Source, search: String, page: Int, requestId: Int) {
+        browseJob?.cancel()
+        browseLoading = true
+        browseError = null
+        browseJob = scope.launch {
+            try {
+                val result = withContext(Dispatchers.IO) {
+                    if (search.isBlank()) {
+                        selectedSource.getPopularManga(page)
+                    } else {
+                        selectedSource.getSearchManga(page, search, FilterList())
+                    }
+                }
+                if (requestId != browseRequestId || source?.id != selectedSource.id) return@launch
+                browseItems = (if (page == 1) result.mangas else browseItems + result.mangas).distinctBy(SManga::url)
+                browsePage = page
+                browseHasNext = result.hasNextPage
+                message = ""
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (requestId == browseRequestId) browseError = failure.message ?: "Source failed"
+            } finally {
+                if (requestId == browseRequestId) browseLoading = false
+            }
+        }
     }
     fun browse(selectedSource: Source, search: String = "") {
         source = selectedSource
         selectedManga = null
         chapters = emptyList()
+        browseItems = emptyList()
+        browsePage = 0
+        browseHasNext = false
+        browseQuery = search
+        browseRequestId++
         screen = if (screen == Screen.SEARCH) Screen.SEARCH else Screen.SOURCES
-        scope.launch {
-            message = "Loading ${selectedSource.displayName()}…"
-            runCatching {
-                withContext(Dispatchers.IO) {
-                    if (search.isBlank()) {
-                        selectedSource.getPopularManga(1).mangas
-                    } else {
-                        selectedSource.getSearchManga(1, search, FilterList()).mangas
-                    }
-                }
-            }.onSuccess {
-                browseItems = it
-                message = ""
-            }
-                .onFailure { message = it.message ?: "Source failed" }
-        }
+        fetchBrowsePage(selectedSource, search, 1, browseRequestId)
     }
     fun loadMangaDetails(selectedSource: Source, manga: SManga, chapterUrl: String? = null) {
+        detailJob?.cancel()
+        detailRequestId++
+        val requestId = detailRequestId
         source = selectedSource
         selectedManga = manga
+        selectedMangaCategories = emptySet()
         chapters = emptyList()
-        message = "Loading ${manga.title}…"
-        scope.launch {
-            runCatching {
-                withContext(Dispatchers.IO) {
+        detailsLoading = true
+        detailsError = null
+        message = ""
+        detailJob = scope.launch {
+            try {
+                val update = withContext(Dispatchers.IO) {
                     selectedSource.getMangaUpdate(manga, emptyList(), true, true)
                 }
-            }.onSuccess { update ->
+                if (
+                    requestId != detailRequestId || source?.id != selectedSource.id ||
+                    selectedManga?.url != manga.url
+                ) {
+                    return@launch
+                }
                 selectedManga = update.manga
                 chapters = update.chapters
                 message = ""
                 if (chapterUrl != null) {
                     if (update.chapters.none { it.url == chapterUrl }) {
-                        message = "The saved chapter is no longer available from this source"
+                        notice.error("The saved chapter is no longer available from this source")
                     } else {
                         readerTarget = ReaderTarget(selectedSource, update.manga, update.chapters, chapterUrl)
                     }
                 }
-            }.onFailure { message = it.message ?: "Details failed" }
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (failure: Exception) {
+                if (requestId == detailRequestId) {
+                    detailsError = failure.message ?: "Details failed"
+                }
+            } finally {
+                if (requestId == detailRequestId) detailsLoading = false
+            }
         }
     }
     fun openStoredManga(mangaId: Long, chapterUrl: String? = null) {
         val stored = session.library.manga(mangaId) ?: run {
-            message = "This manga is no longer in the library"
+            notice.error("This manga is no longer in the library")
             return
         }
-        val installedSource = sources.firstOrNull { it.id == stored.source } ?: run {
-            message = "Install this manga’s source to browse its details and continue reading"
-            return
-        }
+        val installedSource = sources.firstOrNull { it.id == stored.source }
         val manga = SManga.create().apply {
             url = stored.url
             title = stored.title
@@ -243,15 +390,40 @@ fun DesktopShell(
             author = stored.author
             genre = stored.genre?.joinToString(", ")
         }
+        if (
+            chapterUrl != null &&
+            session.downloads.store.completedPages(stored.source, stored.url, chapterUrl) != null
+        ) {
+            val savedChapters = session.library.chapters(mangaId).map { chapter ->
+                SChapter.create().apply {
+                    url = chapter.url
+                    name = chapter.name
+                    chapter_number = chapter.chapter_number.toFloat()
+                    date_upload = chapter.date_upload
+                    scanlator = chapter.scanlator
+                    memo = chapter.memo
+                }
+            }
+            if (savedChapters.any { it.url == chapterUrl }) {
+                val readingSource = installedSource ?: DownloadedSource(stored.source)
+                source = readingSource
+                readerTarget = ReaderTarget(readingSource, manga, savedChapters, chapterUrl)
+                return
+            }
+        }
+        if (installedSource == null) {
+            notice.error("Install this manga’s source to browse its details or read undownloaded chapters")
+            return
+        }
         loadMangaDetails(installedSource, manga, chapterUrl)
     }
     fun queueStoredChapter(mangaId: Long, chapterUrl: String) {
         val stored = session.library.manga(mangaId) ?: run {
-            message = "This manga is no longer in the library"
+            notice.error("This manga is no longer in the library")
             return
         }
         val installedSource = sources.firstOrNull { it.id == stored.source } ?: run {
-            message = "Install this manga’s source before downloading chapters"
+            notice.error("Install this manga’s source before downloading chapters")
             return
         }
         val manga = SManga.create().apply {
@@ -272,7 +444,7 @@ fun DesktopShell(
             }.onSuccess { (updatedManga, chapter, updatedSource) ->
                 session.downloads.enqueue(updatedSource, updatedManga, chapter)
                 message = "Added ${chapter.name} to downloads"
-            }.onFailure { message = it.message ?: "Could not queue chapter" }
+            }.onFailure { notice.error(it.message ?: "Could not queue chapter") }
         }
     }
 
@@ -307,12 +479,12 @@ fun DesktopShell(
                                         ReaderTarget(target.source, update.manga, update.chapters, chapterUrl)
                                 }
                                 message = ""
-                            }.onFailure { message = it.message ?: "Could not load chapters" }
+                            }.onFailure { notice.error(it.message ?: "Could not load chapters") }
                         }
                     }
-                    null -> message = "No installed source recognizes this link"
+                    null -> notice.error("No installed source recognizes this link")
                 }
-            }.onFailure { message = it.message ?: "Could not open link" }
+            }.onFailure { notice.error(it.message ?: "Could not open link") }
         }
     }
 
@@ -352,9 +524,11 @@ fun DesktopShell(
                     "MangaBaka" -> mangaBakaLoggedIn = true
                 }
                 message = "Signed in to $tracker as $name"
-            }.onFailure { message = it.message ?: "$tracker sign-in failed" }
+            }.onFailure { notice.error(it.message ?: "$tracker sign-in failed") }
         }
     }
+
+    LaunchedEffect(session) { refreshLibrary() }
 
     LaunchedEffect(session) {
         runCatching {
@@ -382,9 +556,43 @@ fun DesktopShell(
     LaunchedEffect(libraryUpdate.running, libraryUpdate.message) {
         if (!libraryUpdate.running && libraryUpdate.message.isNotBlank()) refreshLibrary()
     }
+    LaunchedEffect(historyEntries) {
+        historyChapters = withContext(Dispatchers.IO) {
+            historyEntries.map { it.chapterId }.distinct().associateWith(session.library::chapter)
+        }
+    }
+    LaunchedEffect(selectedManga?.url, source?.id, message) {
+        val activeManga = selectedManga
+        val activeSource = source
+        if (activeManga == null || activeSource == null) {
+            detailSnapshot = null
+        } else {
+            val (snapshot, memberships) = withContext(Dispatchers.IO) {
+                val stored = session.library.find(activeSource.id, activeManga.url)
+                val tracks = stored?.let { session.library.tracks(it._id).associateBy(Manga_sync::sync_id) }
+                    ?: emptyMap()
+                DetailSnapshot(activeSource.id, activeManga.url, stored, tracks) to
+                    (stored?.let { session.library.mangaCategories(it._id) } ?: emptySet())
+            }
+            detailSnapshot = snapshot
+            selectedMangaCategories = memberships
+        }
+    }
+    LaunchedEffect(downloads.map(DesktopDownload::key)) {
+        downloadMangas = withContext(Dispatchers.IO) {
+            downloads.associate { item -> item.key to session.library.find(item.sourceId, item.mangaUrl) }
+        }
+    }
 
+    val density = LocalDensity.current
+    var compactNavigation by remember { mutableStateOf(false) }
     MihonDesktopTheme {
-        Surface(modifier = Modifier.fillMaxSize(), color = MihonPalette.graphite) {
+        Surface(
+            modifier = Modifier.fillMaxSize().onSizeChanged { size ->
+                compactNavigation = with(density) { size.width.toDp() < 900.dp }
+            },
+            color = MihonPalette.graphite,
+        ) {
             Row(
                 modifier = Modifier.fillMaxSize().onPreviewKeyEvent { event ->
                     if (event.type != KeyEventType.KeyDown || !event.isCtrlPressed) return@onPreviewKeyEvent false
@@ -400,73 +608,115 @@ fun DesktopShell(
                         Key.Nine -> 8
                         else -> return@onPreviewKeyEvent false
                     }
-                    screen = Screen.entries[index]
-                    readerTarget = null
-                    selectedManga = null
-                    chapters = emptyList()
-                    message = ""
-                    if (screen == Screen.LIBRARY) refreshLibrary()
+                    navigateToScreen(Screen.entries[index])
                     true
                 }.focusRequester(focusRequester).focusable(),
             ) {
                 if (readerTarget == null) {
                     Column(
-                        Modifier.width(190.dp).fillMaxSize().background(MihonPalette.panel).padding(12.dp),
+                        Modifier.width(if (compactNavigation) 64.dp else 202.dp).fillMaxSize()
+                            .background(MihonPalette.panel)
+                            .verticalScroll(rememberScrollState())
+                            .padding(if (compactNavigation) 5.dp else 12.dp),
                         verticalArrangement = Arrangement.spacedBy(5.dp),
                     ) {
-                        Text("Mihon", style = MaterialTheme.typography.titleLarge, modifier = Modifier.padding(8.dp))
                         Text(
-                            "WINDOWS",
-                            style = MaterialTheme.typography.labelSmall,
-                            color = MihonPalette.muted,
-                            modifier = Modifier.padding(start = 8.dp, bottom = 12.dp),
+                            if (compactNavigation) "M" else "Mihon",
+                            style = MaterialTheme.typography.titleLarge,
+                            modifier = Modifier.padding(8.dp),
                         )
+                        if (!compactNavigation) {
+                            Text(
+                                "WINDOWS",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MihonPalette.muted,
+                                modifier = Modifier.padding(start = 8.dp, bottom = 12.dp),
+                            )
+                        }
                         Screen.entries.forEachIndexed { index, item ->
                             val selected = screen == item
+                            val itemTitle = stringResource(item.title)
                             Surface(
                                 modifier = Modifier.fillMaxWidth()
-                                    .semantics { this.selected = selected }
+                                    .semantics {
+                                        this.selected = selected
+                                        contentDescription = itemTitle
+                                    }
                                     .clickable(role = Role.Tab) {
-                                        screen = item
-                                        readerTarget = null
-                                        selectedManga = null
-                                        chapters = emptyList()
-                                        message = ""
-                                        if (item == Screen.LIBRARY) refreshLibrary()
+                                        navigateToScreen(item)
                                     },
                                 shape = RoundedCornerShape(9.dp),
-                                color = if (selected) MihonPalette.raised else Color.Transparent,
-                                border = if (selected) BorderStroke(1.dp, MihonPalette.outline) else null,
+                                color = if (selected) MihonPalette.sage.copy(alpha = 0.13f) else Color.Transparent,
+                                border = if (selected) {
+                                    BorderStroke(1.dp, MihonPalette.sage.copy(alpha = 0.45f))
+                                } else {
+                                    null
+                                },
                             ) {
                                 Row(
-                                    Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 10.dp),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                    Modifier.fillMaxWidth().padding(
+                                        horizontal = if (compactNavigation) 4.dp else 8.dp,
+                                        vertical = 10.dp,
+                                    ),
+                                    horizontalArrangement = Arrangement.spacedBy(
+                                        if (compactNavigation) 4.dp else 12.dp,
+                                    ),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     Box(
-                                        Modifier.width(3.dp).background(
+                                        Modifier.width(3.dp).height(26.dp).background(
                                             if (selected) MihonPalette.sage else Color.Transparent,
                                             RoundedCornerShape(4.dp),
                                         ),
                                     )
-                                    Text(
-                                        "${index + 1}",
-                                        color = if (selected) MihonPalette.sage else MihonPalette.muted,
-                                        style = MaterialTheme.typography.labelMedium,
+                                    DesktopNavigationIcon(
+                                        index,
+                                        if (selected) MihonPalette.sage else MihonPalette.muted,
                                     )
-                                    Text(
-                                        stringResource(item.title),
-                                        color = if (selected) MihonPalette.ivory else MihonPalette.muted,
-                                        style = MaterialTheme.typography.labelLarge,
-                                    )
+                                    if (!compactNavigation) {
+                                        Text(
+                                            itemTitle,
+                                            color = if (selected) MihonPalette.sage else MihonPalette.ivory,
+                                            style = MaterialTheme.typography.labelLarge,
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
                 Column(
-                    Modifier.fillMaxSize()
-                        .padding(if (readerTarget == null) 24.dp else 8.dp)
+                    Modifier.weight(1f).fillMaxHeight()
+                        .padding(
+                            start = if (readerTarget != null) {
+                                8.dp
+                            } else if (compactNavigation) {
+                                12.dp
+                            } else {
+                                24.dp
+                            },
+                            top = if (readerTarget != null) {
+                                8.dp
+                            } else if (compactNavigation) {
+                                12.dp
+                            } else {
+                                24.dp
+                            },
+                            end = if (readerTarget != null) {
+                                8.dp
+                            } else if (compactNavigation) {
+                                24.dp
+                            } else {
+                                48.dp
+                            },
+                            bottom = if (readerTarget != null) {
+                                8.dp
+                            } else if (compactNavigation) {
+                                12.dp
+                            } else {
+                                24.dp
+                            },
+                        )
                         .then(
                             if (screen ==
                                 Screen.SETTINGS
@@ -477,21 +727,12 @@ fun DesktopShell(
                             },
                         ),
                 ) {
-                    if (readerTarget == null) {
-                        Text(
-                            selectedManga?.title ?: stringResource(screen.title),
-                            style = MaterialTheme.typography.headlineMedium,
-                        )
-                        HorizontalDivider(Modifier.padding(vertical = 12.dp))
-                    }
                     if (message.isNotBlank()) {
-                        val isError = listOf("failed", "could not", "error", "not available", "no installed")
-                            .any { message.contains(it, ignoreCase = true) }
                         MihonPanel(Modifier.fillMaxWidth()) {
                             Text(
                                 message,
                                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-                                color = if (isError) MaterialTheme.colorScheme.error else MihonPalette.muted,
+                                color = if (notice.isError) MaterialTheme.colorScheme.error else MihonPalette.muted,
                             )
                         }
                     }
@@ -515,40 +756,22 @@ fun DesktopShell(
                             ) {
                                 item {
                                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        val stored = selectedSource?.let { session.library.find(it.id, item.url) }
-                                        val komgaTrack = stored?.let {
-                                            session.library.track(it._id, DesktopKomgaTracker.TRACKER_ID)
+                                        val snapshot = detailSnapshot?.takeIf {
+                                            it.sourceId == selectedSource?.id && it.mangaUrl == item.url
                                         }
-                                        val aniListTrack = stored?.let {
-                                            session.library.track(it._id, DesktopAniListTracker.TRACKER_ID)
-                                        }
-                                        val kavitaTrack = stored?.let {
-                                            session.library.track(it._id, DesktopKavitaTracker.TRACKER_ID)
-                                        }
-                                        val mangaUpdatesTrack = stored?.let {
-                                            session.library.track(it._id, DesktopMangaUpdatesTracker.TRACKER_ID)
-                                        }
-                                        val kitsuTrack = stored?.let {
-                                            session.library.track(it._id, DesktopKitsuTracker.TRACKER_ID)
-                                        }
-                                        val malTrack = stored?.let {
-                                            session.library.track(it._id, DesktopMyAnimeListTracker.TRACKER_ID)
-                                        }
-                                        val shikimoriTrack = stored?.let {
-                                            session.library.track(it._id, DesktopShikimoriTracker.TRACKER_ID)
-                                        }
-                                        val hikkaTrack = stored?.let {
-                                            session.library.track(it._id, DesktopHikkaTracker.TRACKER_ID)
-                                        }
-                                        val bangumiTrack = stored?.let {
-                                            session.library.track(it._id, DesktopBangumiTracker.TRACKER_ID)
-                                        }
-                                        val mangaBakaTrack = stored?.let {
-                                            session.library.track(it._id, DesktopMangaBakaTracker.TRACKER_ID)
-                                        }
-                                        val suwayomiTrack = stored?.let {
-                                            session.library.track(it._id, DesktopSuwayomiTracker.TRACKER_ID)
-                                        }
+                                        val stored = snapshot?.stored
+                                        val tracks = snapshot?.tracks.orEmpty()
+                                        val komgaTrack = tracks[DesktopKomgaTracker.TRACKER_ID]
+                                        val aniListTrack = tracks[DesktopAniListTracker.TRACKER_ID]
+                                        val kavitaTrack = tracks[DesktopKavitaTracker.TRACKER_ID]
+                                        val mangaUpdatesTrack = tracks[DesktopMangaUpdatesTracker.TRACKER_ID]
+                                        val kitsuTrack = tracks[DesktopKitsuTracker.TRACKER_ID]
+                                        val malTrack = tracks[DesktopMyAnimeListTracker.TRACKER_ID]
+                                        val shikimoriTrack = tracks[DesktopShikimoriTracker.TRACKER_ID]
+                                        val hikkaTrack = tracks[DesktopHikkaTracker.TRACKER_ID]
+                                        val bangumiTrack = tracks[DesktopBangumiTracker.TRACKER_ID]
+                                        val mangaBakaTrack = tracks[DesktopMangaBakaTracker.TRACKER_ID]
+                                        val suwayomiTrack = tracks[DesktopSuwayomiTracker.TRACKER_ID]
                                         MihonPanel(Modifier.fillMaxWidth()) {
                                             Row(
                                                 Modifier.fillMaxWidth().padding(14.dp),
@@ -584,7 +807,7 @@ fun DesktopShell(
                                                 }
                                                 refreshLibrary()
                                                 message = "Library updated"
-                                            }) {
+                                            }, enabled = snapshot != null) {
                                                 Text(
                                                     if (stored?.favorite ==
                                                         true
@@ -608,7 +831,7 @@ fun DesktopShell(
                                                             ) && uri.userInfo == null,
                                                         )
                                                         check(graph.browserService.open(url))
-                                                    }.onFailure { message = it.message ?: "Could not open browser" }
+                                                    }.onFailure { notice.error(it.message ?: "Could not open browser") }
                                                 }) { Text("Open in browser") }
                                                 TextButton(onClick = {
                                                     runCatching {
@@ -622,7 +845,7 @@ fun DesktopShell(
                                                         )
                                                         check(graph.externalOpenService.shareText(url))
                                                     }.onSuccess { message = "Link copied" }
-                                                        .onFailure { message = it.message ?: "Could not copy link" }
+                                                        .onFailure { notice.error(it.message ?: "Could not copy link") }
                                                 }) { Text("Copy link") }
                                             }
                                             if (stored != null && item.url.contains("/api/v1/series/")) {
@@ -662,7 +885,9 @@ fun DesktopShell(
                                                                 } else {
                                                                     "Komga sync queued"
                                                                 }
-                                                        }.onFailure { message = it.message ?: "Komga tracking failed" }
+                                                        }.onFailure {
+                                                            notice.error(it.message ?: "Komga tracking failed")
+                                                        }
                                                     }
                                                 }) { Text(if (komgaTrack == null) "Link Komga" else "Sync Komga") }
                                                 trackerSyncQueue.firstOrNull { it.mangaId == stored._id }?.error?.let {
@@ -687,8 +912,7 @@ fun DesktopShell(
                                                                 session.kavitaTracker.bind(stored._id, item.url, key)
                                                             }.onSuccess { message = "Kavita tracking linked" }
                                                                 .onFailure {
-                                                                    message =
-                                                                        it.message ?: "Kavita link failed"
+                                                                    notice.error(it.message ?: "Kavita link failed")
                                                                 }
                                                         }
                                                     }) { Text("Link Kavita") }
@@ -730,7 +954,7 @@ fun DesktopShell(
                                                                 aniListMediaId = ""
                                                                 message = "AniList tracking linked"
                                                             }.onFailure {
-                                                                message = it.message ?: "AniList link failed"
+                                                                notice.error(it.message ?: "AniList link failed")
                                                             }
                                                         }
                                                     }) { Text("Link AniList") }
@@ -768,8 +992,7 @@ fun DesktopShell(
                                                                 mangaUpdatesSeriesId = ""
                                                                 message = "MangaUpdates tracking linked"
                                                             }.onFailure {
-                                                                message =
-                                                                    it.message ?: "MangaUpdates link failed"
+                                                                notice.error(it.message ?: "MangaUpdates link failed")
                                                             }
                                                         }
                                                     }) { Text("Link MangaUpdates") }
@@ -810,7 +1033,9 @@ fun DesktopShell(
                                                             }.onSuccess {
                                                                 kitsuMangaId = ""
                                                                 message = "Kitsu tracking linked"
-                                                            }.onFailure { message = it.message ?: "Kitsu link failed" }
+                                                            }.onFailure {
+                                                                notice.error(it.message ?: "Kitsu link failed")
+                                                            }
                                                         }
                                                     }) { Text("Link Kitsu") }
                                                 }
@@ -851,8 +1076,7 @@ fun DesktopShell(
                                                                 malMangaId = ""
                                                                 message = "MyAnimeList tracking linked"
                                                             }.onFailure {
-                                                                message =
-                                                                    it.message ?: "MyAnimeList link failed"
+                                                                notice.error(it.message ?: "MyAnimeList link failed")
                                                             }
                                                         }
                                                     }) { Text("Link MyAnimeList") }
@@ -894,8 +1118,7 @@ fun DesktopShell(
                                                                 shikimoriMangaId = ""
                                                                 message = "Shikimori tracking linked"
                                                             }.onFailure {
-                                                                message =
-                                                                    it.message ?: "Shikimori link failed"
+                                                                notice.error(it.message ?: "Shikimori link failed")
                                                             }
                                                         }
                                                     }) { Text("Link Shikimori") }
@@ -936,8 +1159,7 @@ fun DesktopShell(
                                                                     hikkaSlug = ""
                                                                     message = "Hikka tracking linked"
                                                                 }.onFailure {
-                                                                    message =
-                                                                        it.message ?: "Hikka link failed"
+                                                                    notice.error(it.message ?: "Hikka link failed")
                                                                 }
                                                         }
                                                     }) { Text("Link Hikka") }
@@ -979,7 +1201,7 @@ fun DesktopShell(
                                                                 bangumiMangaId = ""
                                                                 message = "Bangumi tracking linked"
                                                             }.onFailure {
-                                                                message = it.message ?: "Bangumi link failed"
+                                                                notice.error(it.message ?: "Bangumi link failed")
                                                             }
                                                         }
                                                     }) { Text("Link Bangumi") }
@@ -1021,8 +1243,7 @@ fun DesktopShell(
                                                                 mangaBakaSeriesId = ""
                                                                 message = "MangaBaka tracking linked"
                                                             }.onFailure {
-                                                                message =
-                                                                    it.message ?: "MangaBaka link failed"
+                                                                notice.error(it.message ?: "MangaBaka link failed")
                                                             }
                                                         }
                                                     }) { Text("Link MangaBaka") }
@@ -1046,7 +1267,7 @@ fun DesktopShell(
                                                 }) { Text("Sync MangaBaka") }
                                             }
                                         }
-                                        if (stored != null &&
+                                        if (stored != null && selectedSource != null &&
                                             selectedSource.javaClass.name == DesktopSuwayomiTracker.SOURCE_CLASS
                                         ) {
                                             TextButton(onClick = {
@@ -1079,26 +1300,28 @@ fun DesktopShell(
                                                         } else {
                                                             "Suwayomi sync queued"
                                                         }
-                                                    }.onFailure { message = it.message ?: "Suwayomi tracking failed" }
+                                                    }.onFailure {
+                                                        notice.error(it.message ?: "Suwayomi tracking failed")
+                                                    }
                                                 }
                                             }) { Text(if (suwayomiTrack == null) "Link Suwayomi" else "Sync Suwayomi") }
                                         }
                                         if (stored?.favorite == true) {
-                                            val selected = session.library.mangaCategories(stored._id)
-                                            session.library.categories().forEach { category ->
+                                            categories.forEach { category ->
                                                 Row {
                                                     Checkbox(
-                                                        checked = category.id in selected,
+                                                        checked = category.id in selectedMangaCategories,
                                                         onCheckedChange = { checked ->
+                                                            val updated = if (checked) {
+                                                                selectedMangaCategories + category.id
+                                                            } else {
+                                                                selectedMangaCategories - category.id
+                                                            }
                                                             session.library.setMangaCategories(
                                                                 stored._id,
-                                                                if (checked) {
-                                                                    selected + category.id
-                                                                } else {
-                                                                    selected -
-                                                                        category.id
-                                                                },
+                                                                updated,
                                                             )
+                                                            selectedMangaCategories = updated
                                                             message = "Categories updated"
                                                         },
                                                     )
@@ -1117,9 +1340,22 @@ fun DesktopShell(
                                 if (chapters.isEmpty()) {
                                     item {
                                         MihonEmptyState(
-                                            "No chapters available",
-                                            "Try refreshing details from the source.",
+                                            when {
+                                                detailsLoading -> "Loading chapters…"
+                                                detailsError != null -> "Could not load chapters"
+                                                else -> "No chapters available"
+                                            },
+                                            detailsError ?: if (detailsLoading) {
+                                                null
+                                            } else {
+                                                "Try refreshing details from the source."
+                                            },
                                         )
+                                        if (detailsError != null && selectedSource != null) {
+                                            Button(onClick = { loadMangaDetails(selectedSource, item) }) {
+                                                Text("Retry")
+                                            }
+                                        }
                                     }
                                 }
                                 items(chapters, key = SChapter::url) { chapter ->
@@ -1170,7 +1406,7 @@ fun DesktopShell(
                                 .filter { it.title.contains(librarySearch, ignoreCase = true) }
                                 .filter {
                                     selectedCategory == null || run {
-                                        val membership = session.library.mangaCategories(it._id)
+                                        val membership = libraryMembership[it._id].orEmpty()
                                         if (selectedCategory ==
                                             0L
                                         ) {
@@ -1201,7 +1437,9 @@ fun DesktopShell(
                             if (selectedCategory != null) {
                                 TextButton(onClick = { selectedCategory = null }) { Text("All library") }
                             }
-                            if (library.isEmpty()) {
+                            if (libraryLoading) {
+                                MihonEmptyState("Loading library…")
+                            } else if (library.isEmpty()) {
                                 MihonEmptyState(
                                     "Your library is empty",
                                     "Browse an installed source and add a manga to start reading.",
@@ -1210,7 +1448,7 @@ fun DesktopShell(
                                 MihonEmptyState("No manga found", "Try a different search or category.")
                             } else {
                                 LazyVerticalGrid(
-                                    columns = GridCells.Adaptive(160.dp),
+                                    columns = GridCells.Adaptive(220.dp),
                                     modifier = Modifier.weight(1f),
                                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -1218,13 +1456,13 @@ fun DesktopShell(
                                     gridItems(visibleLibrary, key = Mangas::_id) { item ->
                                         val itemSource = sources.firstOrNull { it.id == item.source }
                                         val lastRead = historyEntries.firstOrNull { it.mangaId == item._id }
-                                        val chapter = lastRead?.let { session.library.chapter(it.chapterId) }
+                                        val chapter = lastRead?.let { historyChapters[it.chapterId] }
                                         MihonPanel {
                                             Column(Modifier.fillMaxWidth().padding(10.dp)) {
                                                 DesktopCover(
                                                     item.thumbnail_url,
                                                     itemSource,
-                                                    Modifier.fillMaxWidth().aspectRatio(0.69f)
+                                                    Modifier.fillMaxWidth().aspectRatio(0.75f)
                                                         .clickable { openStoredManga(item._id) },
                                                 )
                                                 Text(
@@ -1283,18 +1521,33 @@ fun DesktopShell(
                                 MihonSectionHeader(
                                     if (screen == Screen.SEARCH) "Search manga" else "Sources",
                                     "Local source and ${sources.count { it !is DesktopLocalSource }} installed sources",
+                                    trailing = {
+                                        OutlinedTextField(
+                                            sourceSearch,
+                                            { sourceSearch = it },
+                                            label = { Text("Find source or language") },
+                                            singleLine = true,
+                                            modifier = Modifier.width(250.dp),
+                                        )
+                                    },
                                 )
+                                val visibleSources = sources.filter {
+                                    it.displayName().contains(sourceSearch, ignoreCase = true) ||
+                                        it.lang.contains(sourceSearch, ignoreCase = true)
+                                }
                                 if (sources.isEmpty()) {
                                     MihonEmptyState(
                                         "No sources available",
                                         "Check the Extensions screen or browse your local library.",
                                     )
+                                } else if (visibleSources.isEmpty()) {
+                                    MihonEmptyState("No sources found", "Try another name or language.")
                                 } else {
                                     LazyColumn(
                                         modifier = Modifier.weight(1f),
                                         verticalArrangement = Arrangement.spacedBy(8.dp),
                                     ) {
-                                        items(sources, key = Source::id) { available ->
+                                        items(visibleSources, key = Source::id) { available ->
                                             MihonPanel(Modifier.fillMaxWidth().clickable { browse(available) }) {
                                                 Row(
                                                     Modifier.fillMaxWidth().padding(16.dp),
@@ -1351,7 +1604,9 @@ fun DesktopShell(
                                     )
                                     Button(onClick = { source?.let { browse(it, query) } }) { Text("Search") }
                                 }
-                                if (browseItems.isEmpty() && message.isBlank()) {
+                                if (browseLoading && browseItems.isEmpty()) {
+                                    MihonEmptyState("Loading manga…", activeSource.displayName())
+                                } else if (browseItems.isEmpty() && browseError == null) {
                                     MihonEmptyState(
                                         "No manga to show",
                                         "Search this source or select another installed source.",
@@ -1382,6 +1637,26 @@ fun DesktopShell(
                                                             color = MihonPalette.sage,
                                                             style = MaterialTheme.typography.labelMedium,
                                                         )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        if (browseLoading || browseError != null || browseHasNext) {
+                                            item {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                    browseError?.let {
+                                                        Text(it, color = MaterialTheme.colorScheme.error)
+                                                    }
+                                                    if (browseLoading) Text("Loading…", color = MihonPalette.muted)
+                                                    if (!browseLoading) {
+                                                        TextButton(onClick = {
+                                                            fetchBrowsePage(
+                                                                activeSource,
+                                                                browseQuery,
+                                                                browsePage + 1,
+                                                                browseRequestId,
+                                                            )
+                                                        }) { Text(if (browseError == null) "Load more" else "Retry") }
                                                     }
                                                 }
                                             }
@@ -1545,7 +1820,7 @@ fun DesktopShell(
                                 Button(onClick = {
                                     runCatching { session.extensions.trust(fingerprint.trim()) }
                                         .onSuccess { message = "Fingerprint trusted" }
-                                        .onFailure { message = it.message ?: "Trust failed" }
+                                        .onFailure { notice.error(it.message ?: "Trust failed") }
                                 }) { Text("Trust fingerprint") }
                                 OutlinedTextField(
                                     packagePath,
@@ -1561,14 +1836,25 @@ fun DesktopShell(
                                     )?.let { packagePath = it }
                                 }) { Text("Choose package…") }
                                 Button(onClick = {
-                                    runCatching { session.extensions.install(Path.of(packagePath.trim())) }
-                                        .onSuccess { result ->
+                                    scope.launch {
+                                        message = "Installing Desktop extension…"
+                                        runCatching {
+                                            withContext(Dispatchers.IO) {
+                                                val result = session.extensions.install(Path.of(packagePath.trim()))
+                                                Triple(
+                                                    result,
+                                                    session.refreshSources(),
+                                                    session.extensions.installedExtensions(),
+                                                )
+                                            }
+                                        }.onSuccess { (result, installedSources, installedPackages) ->
                                             message = result.toString()
-                                            sources = session.refreshSources()
+                                            sources = installedSources
+                                            installedDesktopExtensions = installedPackages
                                         }
-                                        .onFailure { message = it.message ?: "Install failed" }
-                                }) { Text("Install") }
-                                val installedDesktopExtensions = session.extensions.installedExtensions()
+                                            .onFailure { notice.error(it.message ?: "Install failed") }
+                                    }
+                                }, enabled = packagePath.isNotBlank()) { Text("Install") }
                                 if (installedDesktopExtensions.isEmpty()) {
                                     MihonEmptyState(
                                         "No Desktop extensions installed",
@@ -1604,7 +1890,7 @@ fun DesktopShell(
                                             availableExtensions = it
                                             message = "Repository loaded"
                                         }
-                                            .onFailure { message = it.message ?: "Repository failed" }
+                                            .onFailure { notice.error(it.message ?: "Repository failed") }
                                     }
                                 }) { Text("Discover") }
                                 availableExtensions.forEach { entry ->
@@ -1625,10 +1911,12 @@ fun DesktopShell(
                                                     }
                                                 }.onSuccess { result ->
                                                     message = result.toString()
-                                                    sources =
-                                                        session.refreshSources()
+                                                    sources = withContext(Dispatchers.IO) { session.refreshSources() }
+                                                    installedDesktopExtensions = withContext(Dispatchers.IO) {
+                                                        session.extensions.installedExtensions()
+                                                    }
                                                 }
-                                                    .onFailure { message = it.message ?: "Update failed" }
+                                                    .onFailure { notice.error(it.message ?: "Update failed") }
                                             }
                                         }) { Text("Install / Update") }
                                     }
@@ -1661,13 +1949,16 @@ fun DesktopShell(
                                 )
                                 Button(
                                     onClick = {
-                                        runCatching { session.library.addCategory(categoryName) }
-                                            .onSuccess {
-                                                categoryName = ""
-                                                categories = session.library.categories()
+                                        val name = categoryName
+                                        scope.launch {
+                                            runCatching {
+                                                withContext(Dispatchers.IO) { session.library.addCategory(name) }
+                                            }.onSuccess {
+                                                if (categoryName == name) categoryName = ""
+                                                refreshLibrary()
                                                 message = "Category added"
-                                            }
-                                            .onFailure { message = it.message ?: "Category failed" }
+                                            }.onFailure { notice.error(it.message ?: "Category failed") }
+                                        }
                                     },
                                     enabled = categoryName.isNotBlank(),
                                 ) { Text("Add") }
@@ -1675,7 +1966,9 @@ fun DesktopShell(
                             val visibleCategories = categories.filter {
                                 (it.name.ifBlank { "Uncategorized" }).contains(categorySearch, ignoreCase = true)
                             }
-                            if (visibleCategories.isEmpty()) {
+                            if (libraryLoading) {
+                                MihonEmptyState("Loading categories…")
+                            } else if (visibleCategories.isEmpty()) {
                                 MihonEmptyState("No categories found", "Create a category or change the search.")
                             } else {
                                 LazyColumn(
@@ -1684,7 +1977,7 @@ fun DesktopShell(
                                 ) {
                                     items(visibleCategories, key = { it.id }) { category ->
                                         val categoryManga = library.filter { manga ->
-                                            val membership = session.library.mangaCategories(manga._id)
+                                            val membership = libraryMembership[manga._id].orEmpty()
                                             if (category.id == 0L) membership.isEmpty() else category.id in membership
                                         }
                                         MihonPanel(
@@ -1694,42 +1987,56 @@ fun DesktopShell(
                                                 librarySearch = ""
                                             },
                                         ) {
-                                            Row(
-                                                Modifier.fillMaxWidth().padding(14.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(18.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                Column(
-                                                    Modifier.width(170.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                                ) {
-                                                    Text(
-                                                        category.name.ifBlank { "Uncategorized" },
-                                                        style = MaterialTheme.typography.titleLarge,
-                                                    )
-                                                    Text(
-                                                        "${categoryManga.size} manga",
-                                                        color = MihonPalette.muted,
-                                                    )
-                                                    Text(
-                                                        "Open library",
-                                                        color = MihonPalette.sage,
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                    )
-                                                }
-                                                Row(
-                                                    Modifier.weight(1f),
-                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                                ) {
-                                                    categoryManga.take(5).forEach { manga ->
-                                                        DesktopCover(
-                                                            manga.thumbnail_url,
-                                                            sources.firstOrNull { it.id == manga.source },
-                                                            Modifier.width(52.dp).height(74.dp),
-                                                        )
+                                            BoxWithConstraints(Modifier.fillMaxWidth().padding(14.dp)) {
+                                                val label: @Composable () -> Unit = {
+                                                    Row(
+                                                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                    ) {
+                                                        DesktopNavigationIcon(6, MihonPalette.sage)
+                                                        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                            Text(
+                                                                category.name.ifBlank { "Uncategorized" },
+                                                                style = MaterialTheme.typography.titleLarge,
+                                                            )
+                                                            Text(
+                                                                "${categoryManga.size} manga",
+                                                                color = MihonPalette.muted,
+                                                            )
+                                                            Text(
+                                                                "Open library",
+                                                                color = MihonPalette.sage,
+                                                                style = MaterialTheme.typography.labelMedium,
+                                                            )
+                                                        }
                                                     }
-                                                    if (categoryManga.isEmpty()) {
-                                                        Text("No manga assigned", color = MihonPalette.muted)
+                                                }
+                                                val previews: @Composable () -> Unit = {
+                                                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        categoryManga.take(5).forEach { manga ->
+                                                            DesktopCover(
+                                                                manga.thumbnail_url,
+                                                                sources.firstOrNull { it.id == manga.source },
+                                                                Modifier.width(52.dp).height(74.dp),
+                                                            )
+                                                        }
+                                                        if (categoryManga.isEmpty()) {
+                                                            Text("No manga assigned", color = MihonPalette.muted)
+                                                        }
+                                                    }
+                                                }
+                                                if (maxWidth < 520.dp) {
+                                                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                                        label()
+                                                        previews()
+                                                    }
+                                                } else {
+                                                    Row(
+                                                        horizontalArrangement = Arrangement.spacedBy(18.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                    ) {
+                                                        Box(Modifier.width(190.dp)) { label() }
+                                                        Box(Modifier.weight(1f)) { previews() }
                                                     }
                                                 }
                                             }
@@ -1758,7 +2065,9 @@ fun DesktopShell(
                                     ignoreCase = true,
                                 )
                             }
-                            if (visibleHistory.isEmpty()) {
+                            if (libraryLoading) {
+                                MihonEmptyState("Loading history…")
+                            } else if (visibleHistory.isEmpty()) {
                                 MihonEmptyState(
                                     if (historySearch.isBlank()) "Nothing read yet" else "No history found",
                                     if (historySearch.isBlank()) {
@@ -1772,64 +2081,30 @@ fun DesktopShell(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    items(visibleHistory, key = { it.id }) { entry ->
-                                        val storedChapter = session.library.chapter(entry.chapterId)
-                                        val manga = session.library.manga(entry.mangaId)
-                                        MihonPanel {
-                                            Row(
-                                                Modifier.fillMaxWidth().padding(10.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                DesktopCover(
-                                                    entry.thumbnailUrl,
-                                                    sources.firstOrNull { it.id == entry.source },
-                                                    Modifier.width(70.dp).height(100.dp),
+                                    visibleHistory.groupBy { desktopDateGroup(it.readAt?.time ?: 0L) }
+                                        .forEach { (day, entries) ->
+                                            item {
+                                                Text(
+                                                    day,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = MihonPalette.sage,
                                                 )
-                                                Column(
-                                                    Modifier.weight(1f),
-                                                    verticalArrangement = Arrangement.spacedBy(3.dp),
+                                            }
+                                            items(entries, key = { it.id }) { entry ->
+                                                val storedChapter = historyChapters[entry.chapterId]
+                                                DesktopHistoryCard(
+                                                    entry,
+                                                    storedChapter,
+                                                    sources.firstOrNull { it.id == entry.source },
                                                 ) {
-                                                    Text(entry.title, style = MaterialTheme.typography.titleMedium)
-                                                    Text(
-                                                        storedChapter?.name ?: "Chapter ${entry.chapterNumber}",
-                                                        color = MihonPalette.muted,
-                                                    )
-                                                    Text(
-                                                        if (storedChapter?.read == true) {
-                                                            "Chapter finished"
-                                                        } else {
-                                                            "Page ${(storedChapter?.last_page_read ?: 0) + 1}"
-                                                        },
-                                                        color = MihonPalette.muted,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                    )
-                                                }
-                                                Column(horizontalAlignment = Alignment.End) {
-                                                    Text(
-                                                        java.time.Instant.ofEpochMilli(entry.readAt?.time ?: 0L)
-                                                            .atZone(java.time.ZoneId.systemDefault())
-                                                            .format(
-                                                                java.time.format.DateTimeFormatter.ofPattern(
-                                                                    "MMM d · HH:mm",
-                                                                ),
-                                                            ),
-                                                        color = MihonPalette.muted,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                    )
-                                                    TextButton(
-                                                        onClick = {
-                                                            if (manga != null && storedChapter != null) {
-                                                                openStoredManga(entry.mangaId, storedChapter.url)
-                                                            } else {
-                                                                message = "The saved chapter is no longer available"
-                                                            }
-                                                        },
-                                                    ) { Text("Continue") }
+                                                    if (storedChapter != null) {
+                                                        openStoredManga(entry.mangaId, storedChapter.url)
+                                                    } else {
+                                                        notice.error("The saved chapter is no longer available")
+                                                    }
                                                 }
                                             }
                                         }
-                                    }
                                 }
                             }
                         }
@@ -1860,7 +2135,9 @@ fun DesktopShell(
                                     )
                                 }
                             }
-                            if (updateEntries.isEmpty()) {
+                            if (libraryLoading) {
+                                MihonEmptyState("Loading updates…")
+                            } else if (updateEntries.isEmpty()) {
                                 MihonEmptyState(
                                     "No updates yet",
                                     "Check your library when sources are available to look for new chapters.",
@@ -1870,61 +2147,26 @@ fun DesktopShell(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    items(updateEntries, key = { it.chapterId }) { entry ->
-                                        MihonPanel {
-                                            Row(
-                                                Modifier.fillMaxWidth().padding(10.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                DesktopCover(
-                                                    entry.thumbnailUrl,
-                                                    sources.firstOrNull { it.id == entry.source },
-                                                    Modifier.width(70.dp).height(100.dp),
+                                    updateEntries.groupBy { desktopDateGroup(it.dateUpload) }
+                                        .forEach { (day, entries) ->
+                                            item {
+                                                Text(
+                                                    day,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = MihonPalette.sage,
                                                 )
-                                                Column(Modifier.weight(1f)) {
-                                                    Text(entry.mangaTitle, style = MaterialTheme.typography.titleMedium)
-                                                    Text(entry.chapterName, color = MihonPalette.muted)
-                                                    Text(
-                                                        if (entry.read) "Read" else "Unread",
-                                                        color = if (entry.read) {
-                                                            MihonPalette.muted
-                                                        } else {
-                                                            MihonPalette.sage
-                                                        },
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                    )
-                                                }
-                                                Column(horizontalAlignment = Alignment.End) {
-                                                    Text(
-                                                        java.time.Instant.ofEpochMilli(entry.dateUpload)
-                                                            .atZone(java.time.ZoneId.systemDefault())
-                                                            .format(
-                                                                java.time.format.DateTimeFormatter.ofPattern("MMM d"),
-                                                            ),
-                                                        color = MihonPalette.muted,
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                    )
-                                                    TextButton(onClick = {
-                                                        openStoredManga(
-                                                            entry.mangaId,
-                                                            entry.chapterUrl,
-                                                        )
-                                                    }) {
-                                                        Text("Read")
-                                                    }
-                                                    TextButton(onClick = {
-                                                        queueStoredChapter(
-                                                            entry.mangaId,
-                                                            entry.chapterUrl,
-                                                        )
-                                                    }) {
-                                                        Text("Download")
-                                                    }
-                                                }
+                                            }
+                                            items(entries, key = { it.chapterId }) { entry ->
+                                                DesktopUpdateCard(
+                                                    entry,
+                                                    sources.firstOrNull { it.id == entry.source },
+                                                    onRead = { openStoredManga(entry.mangaId, entry.chapterUrl) },
+                                                    onDownload = {
+                                                        queueStoredChapter(entry.mangaId, entry.chapterUrl)
+                                                    },
+                                                )
                                             }
                                         }
-                                    }
                                 }
                             }
                         }
@@ -1973,7 +2215,7 @@ fun DesktopShell(
                                                         append(", ${result.categories} categories")
                                                         append(", ${result.trackerEntries} tracker entries")
                                                     }
-                                                }.onFailure { message = it.message ?: "Backup import failed" }
+                                                }.onFailure { notice.error(it.message ?: "Backup import failed") }
                                             }
                                         }, enabled = backupPath.isNotBlank()) { Text("Import backup") }
                                     }
@@ -2008,7 +2250,7 @@ fun DesktopShell(
                                                         mihonProtocolRegistered = false
                                                         message = "Mihon browser links unregistered"
                                                     }.onFailure {
-                                                        message = it.message ?: "Could not unregister Mihon links"
+                                                        notice.error(it.message ?: "Could not unregister Mihon links")
                                                     }
                                             }) { Text("Unregister Mihon browser links") }
                                         } else {
@@ -2018,7 +2260,7 @@ fun DesktopShell(
                                                         mihonProtocolRegistered = true
                                                         message = "Mihon browser links registered for this Windows user"
                                                     }.onFailure {
-                                                        message = it.message ?: "Could not register Mihon links"
+                                                        notice.error(it.message ?: "Could not register Mihon links")
                                                     }
                                             }) { Text("Register Mihon browser links") }
                                         }
@@ -2043,7 +2285,7 @@ fun DesktopShell(
                             } else {
                                 TextButton(onClick = {
                                     if (!graph.browserService.open(DesktopAniListTracker.AUTH_URL)) {
-                                        message = "Could not open AniList in the browser"
+                                        notice.error("Could not open AniList in the browser")
                                     }
                                 }) { Text("Sign in to AniList in browser") }
                                 Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
@@ -2062,7 +2304,7 @@ fun DesktopShell(
                                                 aniListLoggedIn = true
                                                 message = "Signed in to AniList as $name"
                                             }
-                                            .onFailure { message = it.message ?: "AniList sign-in failed" }
+                                            .onFailure { notice.error(it.message ?: "AniList sign-in failed") }
                                     }
                                 }) { Text("Complete AniList sign-in") }
                             }
@@ -2098,7 +2340,7 @@ fun DesktopShell(
                                             .onSuccess { name ->
                                                 mangaUpdatesLoggedIn = true
                                                 message = "Signed in to MangaUpdates as $name"
-                                            }.onFailure { message = it.message ?: "MangaUpdates sign-in failed" }
+                                            }.onFailure { notice.error(it.message ?: "MangaUpdates sign-in failed") }
                                     }
                                 }) { Text("Sign in to MangaUpdates") }
                             }
@@ -2134,7 +2376,7 @@ fun DesktopShell(
                                             .onSuccess { name ->
                                                 kitsuLoggedIn = true
                                                 message = "Signed in to Kitsu as $name"
-                                            }.onFailure { message = it.message ?: "Kitsu sign-in failed" }
+                                            }.onFailure { notice.error(it.message ?: "Kitsu sign-in failed") }
                                     }
                                 }) { Text("Sign in to Kitsu") }
                             }
@@ -2154,7 +2396,7 @@ fun DesktopShell(
                                     runCatching {
                                         val url = session.myAnimeListTracker.beginLogin()
                                         check(graph.browserService.open(url))
-                                    }.onFailure { message = it.message ?: "Could not open MyAnimeList" }
+                                    }.onFailure { notice.error(it.message ?: "Could not open MyAnimeList") }
                                 }) { Text("Sign in to MyAnimeList in browser") }
                                 Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
                                 OutlinedTextField(
@@ -2171,7 +2413,7 @@ fun DesktopShell(
                                             .onSuccess { name ->
                                                 malLoggedIn = true
                                                 message = "Signed in to MyAnimeList as $name"
-                                            }.onFailure { message = it.message ?: "MyAnimeList sign-in failed" }
+                                            }.onFailure { notice.error(it.message ?: "MyAnimeList sign-in failed") }
                                     }
                                 }) { Text("Complete MyAnimeList sign-in") }
                             }
@@ -2190,7 +2432,7 @@ fun DesktopShell(
                                 TextButton(onClick = {
                                     runCatching {
                                         check(graph.browserService.open(session.shikimoriTracker.beginLogin()))
-                                    }.onFailure { message = it.message ?: "Could not open Shikimori" }
+                                    }.onFailure { notice.error(it.message ?: "Could not open Shikimori") }
                                 }) { Text("Sign in to Shikimori in browser") }
                                 Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
                                 OutlinedTextField(
@@ -2207,7 +2449,7 @@ fun DesktopShell(
                                             .onSuccess { name ->
                                                 shikimoriLoggedIn = true
                                                 message = "Signed in to Shikimori as $name"
-                                            }.onFailure { message = it.message ?: "Shikimori sign-in failed" }
+                                            }.onFailure { notice.error(it.message ?: "Shikimori sign-in failed") }
                                     }
                                 }) { Text("Complete Shikimori sign-in") }
                             }
@@ -2226,7 +2468,7 @@ fun DesktopShell(
                                 TextButton(onClick = {
                                     runCatching {
                                         check(graph.browserService.open(session.hikkaTracker.beginLogin()))
-                                    }.onFailure { message = it.message ?: "Could not open Hikka" }
+                                    }.onFailure { notice.error(it.message ?: "Could not open Hikka") }
                                 }) { Text("Sign in to Hikka in browser") }
                                 Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
                                 OutlinedTextField(
@@ -2243,7 +2485,7 @@ fun DesktopShell(
                                             .onSuccess { name ->
                                                 hikkaLoggedIn = true
                                                 message = "Signed in to Hikka as $name"
-                                            }.onFailure { message = it.message ?: "Hikka sign-in failed" }
+                                            }.onFailure { notice.error(it.message ?: "Hikka sign-in failed") }
                                     }
                                 }) { Text("Complete Hikka sign-in") }
                             }
@@ -2262,7 +2504,7 @@ fun DesktopShell(
                                 TextButton(onClick = {
                                     runCatching {
                                         check(graph.browserService.open(session.bangumiTracker.beginLogin()))
-                                    }.onFailure { message = it.message ?: "Could not open Bangumi" }
+                                    }.onFailure { notice.error(it.message ?: "Could not open Bangumi") }
                                 }) { Text("Sign in to Bangumi in browser") }
                                 Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
                                 OutlinedTextField(
@@ -2279,7 +2521,7 @@ fun DesktopShell(
                                             .onSuccess { name ->
                                                 bangumiLoggedIn = true
                                                 message = "Signed in to Bangumi as $name"
-                                            }.onFailure { message = it.message ?: "Bangumi sign-in failed" }
+                                            }.onFailure { notice.error(it.message ?: "Bangumi sign-in failed") }
                                     }
                                 }) { Text("Complete Bangumi sign-in") }
                             }
@@ -2298,7 +2540,7 @@ fun DesktopShell(
                                 TextButton(onClick = {
                                     runCatching {
                                         check(graph.browserService.open(session.mangaBakaTracker.beginLogin()))
-                                    }.onFailure { message = it.message ?: "Could not open MangaBaka" }
+                                    }.onFailure { notice.error(it.message ?: "Could not open MangaBaka") }
                                 }) { Text("Sign in to MangaBaka in browser") }
                                 Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
                                 OutlinedTextField(
@@ -2315,7 +2557,7 @@ fun DesktopShell(
                                             .onSuccess { name ->
                                                 mangaBakaLoggedIn = true
                                                 message = "Signed in to MangaBaka as $name"
-                                            }.onFailure { message = it.message ?: "MangaBaka sign-in failed" }
+                                            }.onFailure { notice.error(it.message ?: "MangaBaka sign-in failed") }
                                     }
                                 }) { Text("Complete MangaBaka sign-in") }
                             }
@@ -2352,8 +2594,20 @@ fun DesktopShell(
                                 "${downloads.size} chapters in the persisted queue",
                                 trailing = {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        TextButton(onClick = { session.downloads.pause() }) { Text("Pause all") }
-                                        Button(onClick = { session.downloads.resume() }) { Text("Resume all") }
+                                        TextButton(
+                                            onClick = { session.downloads.pause() },
+                                            enabled = downloads.any {
+                                                it.status == DesktopDownloadStatus.RUNNING ||
+                                                    it.status == DesktopDownloadStatus.PENDING
+                                            },
+                                        ) { Text("Pause all") }
+                                        Button(
+                                            onClick = { session.downloads.resume() },
+                                            enabled = downloads.any {
+                                                it.status == DesktopDownloadStatus.PAUSED ||
+                                                    it.status == DesktopDownloadStatus.FAILED
+                                            },
+                                        ) { Text("Resume all") }
                                     }
                                 },
                             )
@@ -2367,100 +2621,58 @@ fun DesktopShell(
                                     modifier = Modifier.weight(1f),
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
-                                    items(downloads, key = DesktopDownload::key) { download ->
-                                        val savedManga = session.library.find(download.sourceId, download.mangaUrl)
-                                        val downloadSource = sources.firstOrNull { it.id == download.sourceId }
-                                        MihonPanel {
-                                            Row(
-                                                Modifier.fillMaxWidth().padding(12.dp),
-                                                horizontalArrangement = Arrangement.spacedBy(14.dp),
-                                                verticalAlignment = Alignment.CenterVertically,
-                                            ) {
-                                                DesktopCover(
-                                                    savedManga?.thumbnail_url,
-                                                    downloadSource,
-                                                    Modifier.width(68.dp).height(96.dp),
+                                    listOf(
+                                        "In progress" to setOf(
+                                            DesktopDownloadStatus.RUNNING,
+                                            DesktopDownloadStatus.PENDING,
+                                        ),
+                                        "Paused" to setOf(DesktopDownloadStatus.PAUSED),
+                                        "Failed" to setOf(DesktopDownloadStatus.FAILED),
+                                        "Completed" to setOf(DesktopDownloadStatus.COMPLETED),
+                                    ).forEach { (heading, statuses) ->
+                                        val grouped = downloads.filter { it.status in statuses }
+                                        if (grouped.isNotEmpty()) {
+                                            item {
+                                                Text(
+                                                    heading,
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                    color = MihonPalette.sage,
                                                 )
-                                                Column(
-                                                    Modifier.weight(1f),
-                                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                                ) {
-                                                    Text(
-                                                        download.mangaTitle,
-                                                        style = MaterialTheme.typography.titleMedium,
-                                                    )
-                                                    Text(download.chapterName, color = MihonPalette.muted)
-                                                    Text(
-                                                        when (download.status) {
-                                                            DesktopDownloadStatus.PENDING -> "Queued"
-                                                            DesktopDownloadStatus.RUNNING -> "Downloading"
-                                                            DesktopDownloadStatus.PAUSED -> "Paused"
-                                                            DesktopDownloadStatus.FAILED -> "Failed"
-                                                            DesktopDownloadStatus.COMPLETED -> "Completed"
-                                                        },
-                                                        color = if (download.status == DesktopDownloadStatus.FAILED) {
-                                                            MaterialTheme.colorScheme.error
-                                                        } else {
-                                                            MihonPalette.sage
-                                                        },
-                                                        style = MaterialTheme.typography.labelMedium,
-                                                    )
-                                                    if (
-                                                        download.pageCount > 0 &&
-                                                        download.status != DesktopDownloadStatus.FAILED
-                                                    ) {
-                                                        LinearProgressIndicator(
-                                                            progress = {
-                                                                download.pagesDone.toFloat()
-                                                                    .div(download.pageCount)
-                                                                    .coerceIn(0f, 1f)
-                                                            },
-                                                            modifier = Modifier.fillMaxWidth(),
-                                                            color = MihonPalette.sage,
-                                                            trackColor = MihonPalette.raised,
-                                                        )
-                                                        Text(
-                                                            "${download.pagesDone} / ${download.pageCount} pages",
-                                                            color = MihonPalette.muted,
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                        )
-                                                    }
-                                                    download.error?.let {
-                                                        Text(
-                                                            it,
-                                                            color = MaterialTheme.colorScheme.error,
-                                                            style = MaterialTheme.typography.bodySmall,
-                                                        )
-                                                    }
-                                                }
-                                                Column(horizontalAlignment = Alignment.End) {
-                                                    val retry = download.status == DesktopDownloadStatus.FAILED
-                                                    when (download.status) {
-                                                        DesktopDownloadStatus.PENDING, DesktopDownloadStatus.RUNNING ->
-                                                            TextButton(
-                                                                onClick = { session.downloads.pause(download.key) },
-                                                            ) {
-                                                                Text("Pause")
-                                                            }
-                                                        DesktopDownloadStatus.PAUSED, DesktopDownloadStatus.FAILED ->
-                                                            TextButton(
-                                                                onClick = { session.downloads.resume(download.key) },
-                                                            ) {
-                                                                Text(
-                                                                    if (retry) "Retry" else "Resume",
-                                                                )
-                                                            }
-                                                        DesktopDownloadStatus.COMPLETED -> Unit
-                                                    }
-                                                    if (download.status != DesktopDownloadStatus.COMPLETED) {
-                                                        TextButton(
-                                                            onClick = { session.downloads.cancel(download.key) },
-                                                        ) {
-                                                            Text("Cancel")
-                                                        }
-                                                    }
-                                                }
                                             }
+                                        }
+                                        items(grouped, key = DesktopDownload::key) { download ->
+                                            val savedManga = downloadMangas[download.key]
+                                            val downloadSource = sources.firstOrNull { it.id == download.sourceId }
+                                            DesktopDownloadCard(
+                                                download = download,
+                                                coverUrl = savedManga?.thumbnail_url,
+                                                source = downloadSource,
+                                                onPause = { session.downloads.pause(download.key) },
+                                                onResume = { session.downloads.resume(download.key) },
+                                                onCancel = { session.downloads.cancel(download.key) },
+                                                onRead = {
+                                                    if (savedManga != null) {
+                                                        openStoredManga(savedManga._id, download.chapterUrl)
+                                                    } else {
+                                                        val readingSource = downloadSource
+                                                            ?: DownloadedSource(download.sourceId)
+                                                        val readingManga = SManga.create().apply {
+                                                            url = download.mangaUrl
+                                                            title = download.mangaTitle
+                                                        }
+                                                        val readingChapter = SChapter.create().apply {
+                                                            url = download.chapterUrl
+                                                            name = download.chapterName
+                                                        }
+                                                        readerTarget = ReaderTarget(
+                                                            readingSource,
+                                                            readingManga,
+                                                            listOf(readingChapter),
+                                                            readingChapter.url,
+                                                        )
+                                                    }
+                                                },
+                                            )
                                         }
                                     }
                                 }

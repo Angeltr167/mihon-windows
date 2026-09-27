@@ -125,6 +125,8 @@ class DesktopMangaRepository private constructor(
     fun chapter(mangaId: Long, chapterUrl: String): Chapters? =
         database.chaptersQueries.getChapterByUrlAndMangaId(chapterUrl, mangaId).executeAsOneOrNull()
 
+    fun chapters(mangaId: Long): List<Chapters> = database.chaptersQueries.getChaptersByMangaId(mangaId, 0).executeAsList()
+
     fun chapter(chapterId: Long): Chapters? = database.chaptersQueries.getChapterById(chapterId).executeAsOneOrNull()
 
     fun setChapterBookmark(chapterId: Long, bookmarked: Boolean) {
@@ -137,6 +139,9 @@ class DesktopMangaRepository private constructor(
     fun track(mangaId: Long, trackerId: Long): Manga_sync? =
         database.manga_syncQueries.getTracksByMangaId(mangaId).executeAsList()
             .firstOrNull { it.sync_id == trackerId }
+
+    fun tracks(mangaId: Long): List<Manga_sync> =
+        database.manga_syncQueries.getTracksByMangaId(mangaId).executeAsList()
 
     fun addTrack(
         mangaId: Long,
