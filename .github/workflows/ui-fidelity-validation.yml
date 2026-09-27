@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   validate:
@@ -26,6 +26,8 @@ jobs:
           distribution: temurin
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
+      - name: Apply Spotless
+        run: .\gradlew.bat spotlessApply
       - name: Spotless Check
         run: .\gradlew.bat spotlessCheck
       - name: Compile Desktop
@@ -34,3 +36,16 @@ jobs:
         run: .\gradlew.bat :desktopApp:desktopTest
       - name: Package Windows EXE
         run: .\gradlew.bat :desktopApp:packageExe
+      - name: Commit formatting
+        shell: pwsh
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add desktopApp/src/desktopMain/kotlin/mihon/desktop/DesktopShell.kt desktopApp/build.gradle.kts
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "No formatting changes to commit."
+            exit 0
+          }
+          git commit -m "style: apply manga details formatting [skip ci]"
+          git push
