@@ -2078,8 +2078,12 @@ fun DesktopShell(
                                                                             session.extensions.installedExtensions(),
                                                                         )
                                                                     }
-                                                                }.onSuccess {
-                                                                    (result, installedSources, installedPackages) ->
+                                                                }.onSuccess { installed ->
+                                                                    val (
+                                                                        result,
+                                                                        installedSources,
+                                                                        installedPackages,
+                                                                    ) = installed
                                                                     message = result.toString()
                                                                     sources = installedSources
                                                                     installedDesktopExtensions = installedPackages
