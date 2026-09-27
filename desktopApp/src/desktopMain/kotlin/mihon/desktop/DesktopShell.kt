@@ -181,7 +181,8 @@ fun DesktopShell(
     var installedDesktopExtensions by remember { mutableStateOf(session.extensions.installedExtensions()) }
     var suwayomiExtensions by remember { mutableStateOf(emptyList<SuwayomiExtension>()) }
     var suwayomiSearch by remember { mutableStateOf("") }
-    var suwayomiStatus by remember { mutableStateOf("Starting local extension engine…") }\n    var extensionSection by remember { mutableIntStateOf(0) }
+    var suwayomiStatus by remember { mutableStateOf("Starting local extension engine…") }
+    var extensionSection by remember { mutableIntStateOf(0) }
     var fingerprint by remember { mutableStateOf("") }
     var categoryName by remember { mutableStateOf("") }
     var backupPath by remember { mutableStateOf("") }
@@ -765,7 +766,8 @@ fun DesktopShell(
                                                                     if (recentChapter.read) {
                                                                         "Last chapter finished"
                                                                     } else {
-                                                                        "Continue from page ${recentChapter.last_page_read + 1}"
+                                                                        "Continue from page " +
+                                                                            "${recentChapter.last_page_read + 1}"
                                                                     },
                                                                     color = MihonPalette.sage,
                                                                     style = MaterialTheme.typography.labelMedium,
@@ -1716,7 +1718,8 @@ fun DesktopShell(
                             Column(Modifier.fillMaxSize()) {
                                 MihonSectionHeader(
                                     "Extensions",
-                                    "Install and manage manga sources without exposing advanced trust controls by default",
+                                    "Install and manage manga sources without exposing advanced trust " +
+                                        "controls by default",
                                 )
                                 MihonTabStrip(
                                     labels = listOf("Installed", "Browse", "Advanced"),
@@ -1735,7 +1738,8 @@ fun DesktopShell(
                                                 .sortedBy { it.name }
                                             MihonSectionHeader(
                                                 "Installed sources",
-                                                "${installedKeiyoushi.size + installedDesktopExtensions.size} extensions installed",
+                                                "${installedKeiyoushi.size + installedDesktopExtensions.size} " +
+                                                    "extensions installed",
                                             )
                                             if (installedKeiyoushi.isEmpty() && installedDesktopExtensions.isEmpty()) {
                                                 MihonEmptyState(
@@ -1765,7 +1769,10 @@ fun DesktopShell(
                                                             }
                                                         }
                                                         Column(Modifier.weight(1f)) {
-                                                            Text(entry.name, style = MaterialTheme.typography.titleMedium)
+                                                            Text(
+                                                                entry.name,
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                            )
                                                             Text(
                                                                 "${entry.versionName} · Keiyoushi",
                                                                 color = MihonPalette.muted,
@@ -1783,7 +1790,11 @@ fun DesktopShell(
                                                                         val client = session.suwayomiEngine.client()
                                                                         client.setInstalled(
                                                                             entry.pkgName,
-                                                                            if (entry.hasUpdate) "update" else "uninstall",
+                                                                            if (entry.hasUpdate) {
+                                                                                "update"
+                                                                            } else {
+                                                                                "uninstall"
+                                                                            },
                                                                         )
                                                                         session.suwayomiEngine.refreshSources()
                                                                         client.extensions() to session.refreshSources()
@@ -1793,7 +1804,8 @@ fun DesktopShell(
                                                                     sources = installedSources
                                                                     suwayomiStatus = "${entry.name} changed"
                                                                 }.onFailure {
-                                                                    suwayomiStatus = it.message ?: "Extension action failed"
+                                                                    suwayomiStatus =
+                                                                        it.message ?: "Extension action failed"
                                                                 }
                                                             }
                                                         }) {
@@ -1809,7 +1821,10 @@ fun DesktopShell(
                                                         verticalAlignment = Alignment.CenterVertically,
                                                     ) {
                                                         Column(Modifier.weight(1f)) {
-                                                            Text(installed.id, style = MaterialTheme.typography.titleMedium)
+                                                            Text(
+                                                                installed.id,
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                            )
                                                             Text(
                                                                 "Version ${installed.versionCode} · Desktop .mihonext",
                                                                 color = MihonPalette.muted,
@@ -1937,7 +1952,11 @@ fun DesktopShell(
                                                                 entry.installed -> "Installed"
                                                                 else -> "Available"
                                                             },
-                                                            color = if (entry.installed) MihonPalette.sage else MihonPalette.muted,
+                                                            color = if (entry.installed) {
+                                                                MihonPalette.sage
+                                                            } else {
+                                                                MihonPalette.muted
+                                                            },
                                                             style = MaterialTheme.typography.labelMedium,
                                                         )
                                                         TextButton(onClick = {
@@ -1982,7 +2001,8 @@ fun DesktopShell(
                                         else -> {
                                             MihonSectionHeader(
                                                 "Advanced extension management",
-                                                "Signed Desktop packages, repository indexes and local fingerprint trust",
+                                                "Signed Desktop packages, repository indexes and local " +
+                                                "fingerprint trust",
                                             )
                                             MihonPanel(Modifier.fillMaxWidth()) {
                                                 Column(
@@ -1994,7 +2014,8 @@ fun DesktopShell(
                                                         style = MaterialTheme.typography.titleMedium,
                                                     )
                                                     Text(
-                                                        "Trusting a fingerprint is a local decision and does not verify publisher identity.",
+                                                        "Trusting a fingerprint is a local decision and does not verify " +
+                                                            "publisher identity.",
                                                         color = MihonPalette.muted,
                                                     )
                                                     OutlinedTextField(
@@ -2054,7 +2075,8 @@ fun DesktopShell(
                                                                             session.extensions.installedExtensions(),
                                                                         )
                                                                     }
-                                                                }.onSuccess { (result, installedSources, installedPackages) ->
+                                                                }.onSuccess {
+                                                                    (result, installedSources, installedPackages) ->
                                                                     message = result.toString()
                                                                     sources = installedSources
                                                                     installedDesktopExtensions = installedPackages
@@ -2102,7 +2124,8 @@ fun DesktopShell(
                                                     availableExtensions.forEach { entry ->
                                                         Row(
                                                             Modifier.fillMaxWidth(),
-                                                            horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                                            horizontalArrangement =
+                                                                Arrangement.spacedBy(MihonSpacing.sm),
                                                             verticalAlignment = Alignment.CenterVertically,
                                                         ) {
                                                             Text(
