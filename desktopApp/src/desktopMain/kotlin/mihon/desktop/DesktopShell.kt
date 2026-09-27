@@ -666,7 +666,7 @@ fun DesktopShell(
                             ) {
                                 item {
                                     Column(
-                                        modifier = Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
+                                        modifier = Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                         verticalArrangement = Arrangement.spacedBy(10.dp),
                                     ) {
                                         val stored = snapshot?.stored
@@ -709,7 +709,7 @@ fun DesktopShell(
                                         BoxWithConstraints(
                                             Modifier.fillMaxWidth().padding(vertical = MihonSpacing.sm),
                                         ) {
-                                            val compactDetails = maxWidth < 820.dp
+                                            val compactDetails = maxWidth < 900.dp
                                             val identity: @Composable () -> Unit = {
                                                 Row(
                                                     Modifier.fillMaxWidth(),
@@ -719,7 +719,7 @@ fun DesktopShell(
                                                     DesktopCover(
                                                         item.thumbnail_url,
                                                         selectedSource,
-                                                        Modifier.width(208.dp).height(300.dp),
+                                                        Modifier.width(224.dp).height(322.dp),
                                                     )
                                                     Column(
                                                         Modifier.weight(1f),
@@ -744,7 +744,7 @@ fun DesktopShell(
                                                                 "No description available."
                                                             },
                                                             color = MihonPalette.muted,
-                                                            maxLines = 7,
+                                                            maxLines = 8,
                                                         )
                                                         Button(
                                                             onClick = {
@@ -763,7 +763,7 @@ fun DesktopShell(
                                                             enabled =
                                                             selectedSource != null &&
                                                                 continueChapter != null,
-                                                            modifier = Modifier.widthIn(min = 188.dp),
+                                                            modifier = Modifier.widthIn(min = 204.dp),
                                                         ) {
                                                             Text(
                                                                 if (recentChapter != null) {
@@ -927,7 +927,7 @@ fun DesktopShell(
                                                     verticalAlignment = Alignment.Top,
                                                 ) {
                                                     Box(Modifier.weight(1f)) { identity() }
-                                                    Box(Modifier.width(288.dp)) { statusPanel() }
+                                                    Box(Modifier.width(312.dp)) { statusPanel() }
                                                 }
                                             }
                                         }
@@ -1430,7 +1430,7 @@ fun DesktopShell(
                                 }
                                 item {
                                     Box(
-                                        modifier = Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
+                                        modifier = Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                     ) {
                                         MihonSectionHeader(
                                             "Chapters",
@@ -1441,7 +1441,7 @@ fun DesktopShell(
                                 if (chapters.isEmpty()) {
                                     item {
                                         Box(
-                                            modifier = Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
+                                            modifier = Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                         ) {
                                             Column {
                                                 MihonEmptyState(
@@ -1476,7 +1476,7 @@ fun DesktopShell(
                                             it.chapterUrl == chapter.url
                                     }
                                     Column(
-                                        modifier = Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
+                                        modifier = Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                     ) {
                                         Row(
                                             Modifier.fillMaxWidth()
@@ -1574,7 +1574,7 @@ fun DesktopShell(
                                 if (storedManga?.favorite == true) {
                                     item {
                                         MihonPanel(
-                                            Modifier.widthIn(max = 1280.dp).fillMaxWidth(),
+                                            Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                         ) {
                                             Column(
                                                 Modifier.fillMaxWidth().padding(MihonSpacing.md),
