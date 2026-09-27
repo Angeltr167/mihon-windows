@@ -242,6 +242,7 @@ internal fun DesktopReader(
     var controlsVisible by remember(target) { mutableStateOf(true) }
     var showMore by remember(target) { mutableStateOf(false) }
     var sliderDragging by remember(target) { mutableStateOf(false) }
+    var controlsHovered by remember(target) { mutableStateOf(false) }
     var sliderTargetPage by remember(target) { mutableStateOf<Int?>(null) }
     var interactionVersion by remember(target) { mutableLongStateOf(0L) }
     var wheelAccumulator by remember(target) { mutableStateOf(0f) }
@@ -494,8 +495,16 @@ internal fun DesktopReader(
         showShortcuts,
         showMore,
         sliderDragging,
+        controlsHovered,
     ) {
-        if (controlsVisible && !showAppearance && !showShortcuts && !showMore && !sliderDragging) {
+        if (
+            controlsVisible &&
+            !showAppearance &&
+            !showShortcuts &&
+            !showMore &&
+            !sliderDragging &&
+            !controlsHovered
+        ) {
             delay(2800)
             controlsVisible = false
         }
@@ -724,7 +733,17 @@ internal fun DesktopReader(
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
         ) {
-            MihonPanel(Modifier.fillMaxWidth()) {
+            MihonPanel(
+                Modifier.fillMaxWidth()
+                    .onPointerEvent(PointerEventType.Enter) {
+                        controlsHovered = true
+                        controlsVisible = true
+                    }
+                    .onPointerEvent(PointerEventType.Exit) {
+                        controlsHovered = false
+                        interactionVersion++
+                    },
+            ) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
                     horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
@@ -783,7 +802,18 @@ internal fun DesktopReader(
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
         ) {
-            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Column(
+                modifier = Modifier
+                    .onPointerEvent(PointerEventType.Enter) {
+                        controlsHovered = true
+                        controlsVisible = true
+                    }
+                    .onPointerEvent(PointerEventType.Exit) {
+                        controlsHovered = false
+                        interactionVersion++
+                    },
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 Slider(
                     value = (sliderTargetPage ?: pageIndex).toFloat(),
                     onValueChange = { value ->
