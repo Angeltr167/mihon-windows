@@ -12,110 +12,63 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import mihon.desktop.design.RoninColors
+import mihon.desktop.design.RoninDesktopTheme
+import mihon.desktop.design.RoninLayout
+import mihon.desktop.design.RoninMangaMetrics
+import mihon.desktop.design.RoninRadius
+import mihon.desktop.design.RoninSpacing
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
 internal object MihonPalette {
-    val graphite = Color(0xFF0B1013)
-    val panel = Color(0xFF11191D)
-    val raised = Color(0xFF182125)
-    val ivory = Color(0xFFE8E9E2)
-    val muted = Color(0xFFA5ABA9)
-    val sage = Color(0xFFC6DEA1)
-    val error = Color(0xFFFFB4AB)
-    val outline = Color(0xFF344044)
-    val outlineSoft = Color(0xFF273237)
-    val errorContainer = Color(0xFF3A2525)
+    val graphite = RoninColors.appBackground
+    val panel = RoninColors.elevatedSurface
+    val raised = RoninColors.secondarySurface
+    val ivory = RoninColors.textPrimary
+    val muted = RoninColors.textSecondary
+    val sage = RoninColors.accentSage
+    val error = RoninColors.error
+    val outline = RoninColors.border
+    val outlineSoft = RoninColors.borderSubtle
+    val errorContainer = RoninColors.errorContainer
 }
 
 internal object MihonSpacing {
-    val xxs = 2.dp
-    val xs = 4.dp
-    val sm = 8.dp
-    val md = 12.dp
-    val lg = 16.dp
-    val xl = 24.dp
-    val section = 32.dp
+    val xxs = RoninSpacing.micro
+    val xs = RoninSpacing.xSmall
+    val sm = RoninSpacing.small
+    val md = RoninSpacing.small + RoninSpacing.xSmall
+    val lg = RoninSpacing.medium
+    val xl = RoninSpacing.large
+    val section = RoninSpacing.xLarge
 }
 
 internal object MihonRadius {
-    val control = 6.dp
-    val card = 10.dp
-    val panel = 12.dp
+    val control = RoninRadius.control
+    val card = RoninRadius.card
+    val panel = RoninRadius.panel
 }
 
 internal object MihonSizes {
-    val navigationExpanded = 202.dp
-    val navigationCompact = 64.dp
-    val coverSmallWidth = 70.dp
-    val coverSmallHeight = 100.dp
-    val coverDetailWidth = 170.dp
-    val coverDetailHeight = 245.dp
-    val controlHeight = 40.dp
+    val navigationExpanded = RoninLayout.sidebarExpanded
+    val navigationCompact = RoninLayout.sidebarCompact
+    val coverSmallWidth = RoninMangaMetrics.coverCompactWidth
+    val coverSmallHeight = RoninMangaMetrics.coverCompactHeight
+    val coverDetailWidth = RoninMangaMetrics.coverDetailWidth
+    val coverDetailHeight = RoninMangaMetrics.coverDetailHeight
+    val controlHeight = RoninMangaMetrics.controlHeight
 }
 
 @Composable
 internal fun MihonDesktopTheme(content: @Composable () -> Unit) {
-    val base = MaterialTheme.typography
-    MaterialTheme(
-        colorScheme = darkColorScheme(
-            primary = MihonPalette.sage,
-            onPrimary = MihonPalette.graphite,
-            primaryContainer = MihonPalette.raised,
-            onPrimaryContainer = MihonPalette.sage,
-            secondary = MihonPalette.muted,
-            onSecondary = MihonPalette.graphite,
-            secondaryContainer = MihonPalette.raised,
-            onSecondaryContainer = MihonPalette.ivory,
-            tertiary = MihonPalette.sage,
-            onTertiary = MihonPalette.graphite,
-            tertiaryContainer = MihonPalette.raised,
-            onTertiaryContainer = MihonPalette.sage,
-            background = MihonPalette.graphite,
-            onBackground = MihonPalette.ivory,
-            surface = MihonPalette.panel,
-            onSurface = MihonPalette.ivory,
-            surfaceVariant = MihonPalette.raised,
-            onSurfaceVariant = MihonPalette.muted,
-            surfaceDim = MihonPalette.graphite,
-            surfaceBright = MihonPalette.raised,
-            surfaceContainerLowest = MihonPalette.graphite,
-            surfaceContainer = MihonPalette.panel,
-            surfaceContainerLow = MihonPalette.panel,
-            surfaceContainerHigh = MihonPalette.raised,
-            surfaceContainerHighest = MihonPalette.raised,
-            surfaceTint = MihonPalette.sage,
-            outline = MihonPalette.outline,
-            outlineVariant = MihonPalette.outlineSoft,
-            error = MihonPalette.error,
-            onError = MihonPalette.graphite,
-            errorContainer = MihonPalette.errorContainer,
-            onErrorContainer = MihonPalette.error,
-            inverseSurface = MihonPalette.ivory,
-            inverseOnSurface = MihonPalette.graphite,
-            inversePrimary = MihonPalette.graphite,
-        ),
-        typography = base.copy(
-            displayLarge = base.displayLarge.copy(fontFamily = FontFamily.Serif),
-            displayMedium = base.displayMedium.copy(fontFamily = FontFamily.Serif),
-            displaySmall = base.displaySmall.copy(fontFamily = FontFamily.Serif),
-            headlineLarge = base.headlineLarge.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Medium),
-            headlineMedium = base.headlineMedium.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Medium),
-            headlineSmall = base.headlineSmall.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Medium),
-            titleLarge = base.titleLarge.copy(fontFamily = FontFamily.Serif, fontWeight = FontWeight.Medium),
-        ),
-        content = content,
-    )
+    RoninDesktopTheme(content)
 }
 
 @Composable
