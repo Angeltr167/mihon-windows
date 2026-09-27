@@ -125,7 +125,8 @@ class DesktopMangaRepository private constructor(
     fun chapter(mangaId: Long, chapterUrl: String): Chapters? =
         database.chaptersQueries.getChapterByUrlAndMangaId(chapterUrl, mangaId).executeAsOneOrNull()
 
-    fun chapters(mangaId: Long): List<Chapters> = database.chaptersQueries.getChaptersByMangaId(mangaId, 0).executeAsList()
+    fun chapters(mangaId: Long): List<Chapters> =
+        database.chaptersQueries.getChaptersByMangaId(mangaId, 0).executeAsList()
 
     fun chapter(chapterId: Long): Chapters? = database.chaptersQueries.getChapterById(chapterId).executeAsOneOrNull()
 

@@ -47,6 +47,7 @@ fun main(args: Array<String>) {
             val state = rememberWindowState(
                 width = graph.keyValueStore.getLong("desktop.window.width", 1100).coerceIn(800, 3840).toInt().dp,
                 height = graph.keyValueStore.getLong("desktop.window.height", 750).coerceIn(560, 2160).toInt().dp,
+                placement = WindowPlacement.Maximized,
             )
             Window(
                 onCloseRequest = {
@@ -64,7 +65,7 @@ fun main(args: Array<String>) {
                     incomingLinks = instance.incomingLink,
                     onToggleFullscreen = {
                         state.placement = if (state.placement == WindowPlacement.Fullscreen) {
-                            WindowPlacement.Floating
+                            WindowPlacement.Maximized
                         } else {
                             WindowPlacement.Fullscreen
                         }

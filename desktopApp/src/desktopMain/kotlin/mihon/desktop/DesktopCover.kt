@@ -37,6 +37,7 @@ fun DesktopCover(
     url: String?,
     source: Source?,
     modifier: Modifier = Modifier.width(90.dp).height(130.dp),
+    contentScale: ContentScale = ContentScale.Fit,
 ) {
     if (url.isNullOrBlank()) {
         Box(
@@ -58,7 +59,7 @@ fun DesktopCover(
         Image(
             bitmap = image,
             contentDescription = "Manga cover",
-            contentScale = ContentScale.Fit,
+            contentScale = contentScale,
             modifier = modifier.background(Color(0xFF080D10)),
         )
     } ?: run {

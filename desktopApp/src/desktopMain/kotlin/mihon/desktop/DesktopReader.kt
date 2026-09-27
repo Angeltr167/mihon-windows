@@ -1,5 +1,9 @@
 package mihon.desktop
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,8 +18,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -52,6 +54,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ColorFilter
@@ -67,7 +70,6 @@ import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.onPointerEvent
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -131,6 +133,23 @@ internal fun previousReaderPageIndex(mode: ReadingMode, pageIndex: Int, pageCoun
 }
 
 internal data class ReaderSpreadGeometry(val height: Float, val widths: List<Float>)
+
+internal data class ReaderWheelResult(val remainder: Float, val direction: Int?)
+
+/** Accumulate touchpad-sized deltas and emit at most one page direction per threshold crossing. */
+internal fun accumulateReaderWheelDelta(
+    accumulated: Float,
+    delta: Float,
+    threshold: Float = 1f,
+): ReaderWheelResult {
+    require(threshold > 0f)
+    val total = accumulated + delta
+    return when {
+        total >= threshold -> ReaderWheelResult(0f, 1)
+        total <= -threshold -> ReaderWheelResult(0f, -1)
+        else -> ReaderWheelResult(total, null)
+    }
+}
 
 /** A previous spread may remain decoded briefly while Compose switches page sets. */
 internal fun safeReaderRatios(decodedRatios: List<Float>?, pageCount: Int): List<Float> =
@@ -223,9 +242,12 @@ internal fun DesktopReader(
     var controlsVisible by remember(target) { mutableStateOf(true) }
     var showMore by remember(target) { mutableStateOf(false) }
     var sliderDragging by remember(target) { mutableStateOf(false) }
+    var controlsFocused by remember(target) { mutableStateOf(false) }
+    var sliderTargetPage by remember(target) { mutableStateOf<Int?>(null) }
     var interactionVersion by remember(target) { mutableLongStateOf(0L) }
-    var headerHeight by remember(target) { mutableIntStateOf(0) }
-    var footerHeight by remember(target) { mutableIntStateOf(0) }
+    var wheelAccumulator by remember(target) { mutableStateOf(0f) }
+    var wheelInteractionVersion by remember(target) { mutableLongStateOf(0L) }
+    var wheelGestureActive by remember(target) { mutableStateOf(false) }
     var shortcuts by remember(target) {
         val next = ReaderShortcutKey.restore(
             graph.keyValueStore.getString("desktop.reader.shortcut.next", null),
@@ -410,6 +432,18 @@ internal fun DesktopReader(
         }
     }
 
+    fun navigateByWheel(delta: Float) {
+        if (delta == 0f) return
+        val result = accumulateReaderWheelDelta(wheelAccumulator, delta)
+        wheelAccumulator = result.remainder
+        wheelInteractionVersion++
+        if (wheelGestureActive) return
+        result.direction?.let { direction ->
+            wheelGestureActive = true
+            if (direction > 0) next() else previous()
+        }
+    }
+
     fun saveCurrentPage() {
         if (pages.isEmpty()) return
         val currentIndex = viewedReaderPageIndex(mode, pageIndex, pages.size)
@@ -454,13 +488,27 @@ internal fun DesktopReader(
     val bookmarkLabel = stringResource(
         if (chapterBookmarked) MR.strings.action_remove_bookmark else MR.strings.action_bookmark,
     )
-    LaunchedEffect(controlsVisible, interactionVersion, showAppearance, showShortcuts, showMore, sliderDragging) {
-        if (controlsVisible && !showAppearance && !showShortcuts && !showMore && !sliderDragging) {
+    LaunchedEffect(
+        controlsVisible,
+        interactionVersion,
+        showAppearance,
+        showShortcuts,
+        showMore,
+        sliderDragging,
+        controlsFocused,
+    ) {
+        if (controlsVisible && !showAppearance && !showShortcuts && !showMore && !sliderDragging && !controlsFocused) {
             delay(2800)
             controlsVisible = false
         }
     }
-    Column(
+    LaunchedEffect(wheelInteractionVersion) {
+        if (wheelInteractionVersion == 0L) return@LaunchedEffect
+        delay(260)
+        wheelAccumulator = 0f
+        wheelGestureActive = false
+    }
+    Box(
         Modifier.fillMaxSize()
             .onPointerEvent(PointerEventType.Move) {
                 controlsVisible = true
@@ -495,45 +543,11 @@ internal fun DesktopReader(
                     else -> return@onPreviewKeyEvent false
                 }
                 true
-            }.focusRequester(focusRequester).focusable(),
+            }.onFocusChanged { controlsFocused = it.hasFocus }.focusRequester(focusRequester).focusable(),
     ) {
-        if (controlsVisible) {
-            MihonPanel(Modifier.fillMaxWidth().onSizeChanged { headerHeight = it.height }) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = onClose) { Text("Back") }
-                    Column(Modifier.weight(1f)) {
-                        Text(target.manga.title, style = MaterialTheme.typography.titleMedium, maxLines = 1)
-                        Text(
-                            chapters[chapterIndex].name,
-                            color = MihonPalette.muted,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                        )
-                    }
-                    Text(
-                        if (pages.isEmpty()) {
-                            "— / —"
-                        } else {
-                            "${viewedReaderPageIndex(mode, pageIndex, pages.size) + 1} / ${pages.size}"
-                        },
-                        color = MihonPalette.muted,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
-            }
-        } else {
-            Spacer(Modifier.height(with(LocalDensity.current) { headerHeight.toDp() }))
-        }
-        (trackerError ?: pendingTrackerSync.firstOrNull { it.mangaId == mangaId }?.error)
-            ?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-        pageActionMessage?.let { Text(it, color = MihonPalette.muted) }
         when {
             loadState is ReaderPageLoadState.Failed -> Box(
-                Modifier.weight(1f).fillMaxWidth(),
+                Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
@@ -548,7 +562,7 @@ internal fun DesktopReader(
                 }
             }
             loadState is ReaderPageLoadState.Loading -> Box(
-                Modifier.weight(1f).fillMaxWidth(),
+                Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
                 Text("Loading pages…", color = MihonPalette.muted)
@@ -568,12 +582,14 @@ internal fun DesktopReader(
                         listState.animateScrollToItem(destination.coerceIn(pages.indices))
                         requestedScroll = null
                         pageIndex = listState.firstVisibleItemIndex.coerceIn(pages.indices)
+                        sliderTargetPage = null
                     }
                 }
-                BoxWithConstraints(Modifier.weight(1f)) {
+                BoxWithConstraints(Modifier.fillMaxSize()) {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
+                        horizontalAlignment = Alignment.CenterHorizontally,
                         contentPadding = PaddingValues(bottom = maxHeight),
                         verticalArrangement = Arrangement.spacedBy(if (mode == ReadingMode.VERTICAL) 16.dp else 0.dp),
                     ) {
@@ -600,7 +616,7 @@ internal fun DesktopReader(
                     }
                 }
                 BoxWithConstraints(
-                    Modifier.weight(1f).fillMaxWidth()
+                    Modifier.fillMaxSize()
                         .background(MihonPalette.graphite)
                         .pointerInput(pageIndex, mode) {
                             detectTapGestures { offset ->
@@ -616,11 +632,7 @@ internal fun DesktopReader(
                             interactionVersion++
                             val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
                             if (!(pair.size == 1 && fit == FitMode.WIDTH)) {
-                                if (delta > 0) {
-                                    next()
-                                } else if (delta < 0) {
-                                    previous()
-                                }
+                                navigateByWheel(delta)
                             }
                         },
                 ) {
@@ -705,23 +717,45 @@ internal fun DesktopReader(
                 }
             }
         }
-        if (controlsVisible) {
-            Column(Modifier.onSizeChanged { footerHeight = it.height }) {
+        val readerNotice = trackerError ?: pendingTrackerSync.firstOrNull { it.mangaId == mangaId }?.error
+        if (readerNotice != null || pageActionMessage != null) {
+            MihonPanel(Modifier.align(Alignment.TopCenter).fillMaxWidth(0.82f).padding(top = 8.dp)) {
+                Column(
+                    Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+                ) {
+                    readerNotice?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    pageActionMessage?.let { Text(it, color = MihonPalette.muted) }
+                }
+            }
+        }
+        AnimatedVisibility(
+            visible = controlsVisible,
+            modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth().padding(8.dp),
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150)),
+        ) {
+            Column {
                 Slider(
-                    value = pageIndex.toFloat(),
+                    value = (sliderTargetPage ?: pageIndex).toFloat(),
                     onValueChange = { value ->
                         if (pages.isNotEmpty()) {
                             sliderDragging = true
-                            navigateTo(
-                                normalizeReaderPageIndex(
-                                    mode,
-                                    value.roundToInt().coerceIn(pages.indices),
-                                    pages.size,
-                                ),
+                            val destination = normalizeReaderPageIndex(
+                                mode,
+                                value.roundToInt().coerceIn(pages.indices),
+                                pages.size,
                             )
+                            sliderTargetPage = destination
+                            navigateTo(destination)
                         }
                     },
-                    onValueChangeFinished = { sliderDragging = false },
+                    onValueChangeFinished = {
+                        if (mode != ReadingMode.VERTICAL && mode != ReadingMode.WEBTOON) {
+                            sliderTargetPage = null
+                        }
+                        sliderDragging = false
+                    },
                     enabled = pages.isNotEmpty(),
                     valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
                     modifier = Modifier.fillMaxWidth().padding(horizontal = 10.dp),
@@ -760,6 +794,7 @@ internal fun DesktopReader(
                             TextButton(onClick = { showMore = true }) { Text("More…") }
                             DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
                                 ReaderMoreActions(
+                                    onClose = onClose,
                                     onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
                                     onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
                                     onAppearance = { showAppearance = true },
@@ -770,7 +805,6 @@ internal fun DesktopReader(
                                     onOpenSaved = savedPage?.let { path ->
                                         {
                                             graph.externalOpenService.openPath(path.toString())
-                                            Unit
                                         }
                                     },
                                     onBookmark = ::toggleChapterBookmark,
@@ -784,14 +818,13 @@ internal fun DesktopReader(
                     }
                 }
             }
-        } else {
-            Spacer(Modifier.height(with(LocalDensity.current) { footerHeight.toDp() }))
         }
     }
 }
 
 @Composable
 private fun ReaderMoreActions(
+    onClose: () -> Unit,
     onZoomOut: () -> Unit,
     onZoomIn: () -> Unit,
     onAppearance: () -> Unit,
@@ -807,6 +840,7 @@ private fun ReaderMoreActions(
     canNextChapter: Boolean,
 ) {
     Column {
+        TextButton(onClick = onClose) { Text("Back to manga") }
         TextButton(onClick = onZoomOut) { Text("Zoom −") }
         TextButton(onClick = onZoomIn) { Text("Zoom +") }
         TextButton(onClick = onAppearance) { Text("Appearance") }

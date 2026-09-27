@@ -8,6 +8,34 @@ import org.junit.jupiter.api.Test
 
 class DesktopDoublePageTest {
     @Test
+    fun `touchpad deltas must accumulate and a high resolution event turns one page`() {
+        var accumulated = 0f
+        var result = accumulateReaderWheelDelta(accumulated, 0.3f)
+        accumulated = result.remainder
+        assertNull(result.direction)
+
+        result = accumulateReaderWheelDelta(accumulated, 0.3f)
+        accumulated = result.remainder
+        assertNull(result.direction)
+
+        result = accumulateReaderWheelDelta(accumulated, 0.4f)
+        assertEquals(1, result.direction)
+        assertEquals(0f, result.remainder)
+
+        result = accumulateReaderWheelDelta(0f, -4f)
+        assertEquals(-1, result.direction)
+        assertEquals(0f, result.remainder)
+    }
+
+    @Test
+    fun `continuous reader progress remains on the requested page`() {
+        for (mode in listOf(ReadingMode.SINGLE_LTR, ReadingMode.VERTICAL, ReadingMode.WEBTOON)) {
+            assertEquals(3, normalizeReaderPageIndex(mode, 3, 7))
+            assertEquals(3, viewedReaderPageIndex(mode, 3, 7))
+        }
+    }
+
+    @Test
     fun `cover is alone and every page appears once for even and odd chapter lengths`() {
         for (pageCount in 1..9) {
             val visited = mutableListOf<Int>()

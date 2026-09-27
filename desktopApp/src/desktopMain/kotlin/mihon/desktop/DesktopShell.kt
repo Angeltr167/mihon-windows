@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,8 +18,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.grid.GridCells
-import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -51,7 +48,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
@@ -60,15 +56,9 @@ import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.semantics.contentDescription
-import androidx.compose.ui.semantics.selected
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import dev.icerock.moko.resources.StringResource
-import dev.icerock.moko.resources.compose.stringResource
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.FilterList
 import eu.kanade.tachiyomi.source.model.SChapter
@@ -88,7 +78,6 @@ import tachiyomi.data.Chapters
 import tachiyomi.data.GetCategories
 import tachiyomi.data.Manga_sync
 import tachiyomi.data.Mangas
-import tachiyomi.i18n.MR
 import tachiyomi.source.local.desktop.DesktopLocalSource
 import tachiyomi.view.History
 import tachiyomi.view.UpdatesView
@@ -96,19 +85,6 @@ import java.net.URI
 import java.nio.file.Path
 import kotlin.properties.ReadWriteProperty
 import kotlin.reflect.KProperty
-import androidx.compose.foundation.lazy.grid.items as gridItems
-
-private enum class Screen(val title: StringResource) {
-    LIBRARY(MR.strings.label_library),
-    UPDATES(MR.strings.label_recent_updates),
-    HISTORY(MR.strings.label_recent_manga),
-    SOURCES(MR.strings.label_sources),
-    SEARCH(MR.strings.action_search),
-    EXTENSIONS(MR.strings.label_extensions),
-    CATEGORIES(MR.strings.categories),
-    SETTINGS(MR.strings.label_settings),
-    DOWNLOADS(MR.strings.label_download_queue),
-}
 
 private fun Source.displayName(): String =
     if (this is DesktopLocalSource || lang == "localsourcelang") name else "$name (${lang.uppercase()})"
@@ -162,6 +138,7 @@ fun DesktopShell(
     val protocolRegistrar = remember { WindowsProtocolRegistrar() }
     LaunchedEffect(focusRequester) { focusRequester.requestFocus() }
     var screen by remember { mutableStateOf(Screen.LIBRARY) }
+    var settingsSection by remember { mutableStateOf(DesktopSettingsSection.GENERAL) }
     var sources by remember { mutableStateOf(session.sources()) }
     var library by remember { mutableStateOf(emptyList<Mangas>()) }
     var libraryMembership by remember { mutableStateOf<Map<Long, Set<Long>>>(emptyMap()) }
@@ -197,6 +174,7 @@ fun DesktopShell(
     var readerTarget by remember { mutableStateOf<ReaderTarget?>(null) }
     var query by remember { mutableStateOf("") }
     var link by remember { mutableStateOf("") }
+    var showLinkTools by remember { mutableStateOf(false) }
     var packagePath by remember { mutableStateOf("") }
     var indexUrl by remember { mutableStateOf("") }
     var availableExtensions by remember { mutableStateOf(emptyList<DesktopRepositoryEntry>()) }
@@ -613,77 +591,7 @@ fun DesktopShell(
                 }.focusRequester(focusRequester).focusable(),
             ) {
                 if (readerTarget == null) {
-                    Column(
-                        Modifier.width(if (compactNavigation) 64.dp else 202.dp).fillMaxSize()
-                            .background(MihonPalette.panel)
-                            .verticalScroll(rememberScrollState())
-                            .padding(if (compactNavigation) 5.dp else 12.dp),
-                        verticalArrangement = Arrangement.spacedBy(5.dp),
-                    ) {
-                        Text(
-                            if (compactNavigation) "M" else "Mihon",
-                            style = MaterialTheme.typography.titleLarge,
-                            modifier = Modifier.padding(8.dp),
-                        )
-                        if (!compactNavigation) {
-                            Text(
-                                "WINDOWS",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MihonPalette.muted,
-                                modifier = Modifier.padding(start = 8.dp, bottom = 12.dp),
-                            )
-                        }
-                        Screen.entries.forEachIndexed { index, item ->
-                            val selected = screen == item
-                            val itemTitle = stringResource(item.title)
-                            Surface(
-                                modifier = Modifier.fillMaxWidth()
-                                    .semantics {
-                                        this.selected = selected
-                                        contentDescription = itemTitle
-                                    }
-                                    .clickable(role = Role.Tab) {
-                                        navigateToScreen(item)
-                                    },
-                                shape = RoundedCornerShape(9.dp),
-                                color = if (selected) MihonPalette.sage.copy(alpha = 0.13f) else Color.Transparent,
-                                border = if (selected) {
-                                    BorderStroke(1.dp, MihonPalette.sage.copy(alpha = 0.45f))
-                                } else {
-                                    null
-                                },
-                            ) {
-                                Row(
-                                    Modifier.fillMaxWidth().padding(
-                                        horizontal = if (compactNavigation) 4.dp else 8.dp,
-                                        vertical = 10.dp,
-                                    ),
-                                    horizontalArrangement = Arrangement.spacedBy(
-                                        if (compactNavigation) 4.dp else 12.dp,
-                                    ),
-                                    verticalAlignment = Alignment.CenterVertically,
-                                ) {
-                                    Box(
-                                        Modifier.width(3.dp).height(26.dp).background(
-                                            if (selected) MihonPalette.sage else Color.Transparent,
-                                            RoundedCornerShape(4.dp),
-                                        ),
-                                    )
-                                    DesktopNavigationIcon(
-                                        index,
-                                        if (selected) MihonPalette.sage else MihonPalette.muted,
-                                    )
-                                    if (!compactNavigation) {
-                                        Text(
-                                            itemTitle,
-                                            color = if (selected) MihonPalette.sage else MihonPalette.ivory,
-                                            style = MaterialTheme.typography.labelLarge,
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    DesktopNavigation(screen, compactNavigation, ::navigateToScreen)
                 }
                 Column(
                     Modifier.weight(1f).fillMaxHeight()
@@ -716,15 +624,6 @@ fun DesktopShell(
                             } else {
                                 24.dp
                             },
-                        )
-                        .then(
-                            if (screen ==
-                                Screen.SETTINGS
-                            ) {
-                                Modifier.verticalScroll(rememberScrollState())
-                            } else {
-                                Modifier
-                            },
                         ),
                 ) {
                     if (message.isNotBlank()) {
@@ -750,15 +649,16 @@ fun DesktopShell(
                         selectedManga != null -> {
                             val item = requireNotNull(selectedManga)
                             val selectedSource = source
+                            val snapshot = detailSnapshot?.takeIf {
+                                it.sourceId == selectedSource?.id && it.mangaUrl == item.url
+                            }
+                            val storedManga = snapshot?.stored
                             LazyColumn(
                                 modifier = Modifier.weight(1f),
                                 verticalArrangement = Arrangement.spacedBy(10.dp),
                             ) {
                                 item {
                                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                        val snapshot = detailSnapshot?.takeIf {
-                                            it.sourceId == selectedSource?.id && it.mangaUrl == item.url
-                                        }
                                         val stored = snapshot?.stored
                                         val tracks = snapshot?.tracks.orEmpty()
                                         val komgaTrack = tracks[DesktopKomgaTracker.TRACKER_ID]
@@ -772,6 +672,20 @@ fun DesktopShell(
                                         val bangumiTrack = tracks[DesktopBangumiTracker.TRACKER_ID]
                                         val mangaBakaTrack = tracks[DesktopMangaBakaTracker.TRACKER_ID]
                                         val suwayomiTrack = tracks[DesktopSuwayomiTracker.TRACKER_ID]
+                                        var trackingExpanded by remember(item.url) { mutableStateOf(false) }
+                                        val linkedTrackers = buildList {
+                                            if (komgaTrack != null) add("Komga")
+                                            if (kavitaTrack != null) add("Kavita")
+                                            if (aniListTrack != null) add("AniList")
+                                            if (mangaUpdatesTrack != null) add("MangaUpdates")
+                                            if (kitsuTrack != null) add("Kitsu")
+                                            if (malTrack != null) add("MyAnimeList")
+                                            if (shikimoriTrack != null) add("Shikimori")
+                                            if (hikkaTrack != null) add("Hikka")
+                                            if (bangumiTrack != null) add("Bangumi")
+                                            if (mangaBakaTrack != null) add("MangaBaka")
+                                            if (suwayomiTrack != null) add("Suwayomi")
+                                        }
                                         MihonPanel(Modifier.fillMaxWidth()) {
                                             Row(
                                                 Modifier.fillMaxWidth().padding(14.dp),
@@ -788,6 +702,16 @@ fun DesktopShell(
                                                     selectedSource?.let {
                                                         Text(it.displayName(), color = MihonPalette.muted)
                                                     }
+                                                    listOfNotNull(item.author, item.artist)
+                                                        .filter(String::isNotBlank)
+                                                        .distinct()
+                                                        .takeIf { it.isNotEmpty() }
+                                                        ?.let {
+                                                            Text(
+                                                                it.joinToString(" · "),
+                                                                color = MihonPalette.muted,
+                                                            )
+                                                        }
                                                     Text(
                                                         item.description.orEmpty().ifBlank {
                                                             "No description available."
@@ -795,10 +719,71 @@ fun DesktopShell(
                                                         color = MihonPalette.muted,
                                                         maxLines = 8,
                                                     )
+                                                    val recentChapter = stored?.let { manga ->
+                                                        historyEntries.firstOrNull { it.mangaId == manga._id }
+                                                            ?.let { historyChapters[it.chapterId] }
+                                                    }
+                                                    val continueChapter = recentChapter?.let { recent ->
+                                                        chapters.firstOrNull { it.url == recent.url }
+                                                    } ?: chapters.firstOrNull()
+                                                    Button(
+                                                        onClick = {
+                                                            if (selectedSource != null && continueChapter != null) {
+                                                                readerTarget = ReaderTarget(
+                                                                    selectedSource,
+                                                                    item,
+                                                                    chapters,
+                                                                    continueChapter.url,
+                                                                )
+                                                            }
+                                                        },
+                                                        enabled = selectedSource != null && continueChapter != null,
+                                                    ) {
+                                                        Text(
+                                                            if (recentChapter != null) {
+                                                                "Continue reading"
+                                                            } else {
+                                                                "Start reading"
+                                                            },
+                                                        )
+                                                    }
                                                 }
                                             }
                                         }
-                                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                        MihonPanel(Modifier.fillMaxWidth()) {
+                                            Row(
+                                                Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 8.dp),
+                                                horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                                                verticalAlignment = Alignment.CenterVertically,
+                                            ) {
+                                                Column(
+                                                    Modifier.weight(1f),
+                                                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.xxs),
+                                                ) {
+                                                    Text("Tracking", style = MaterialTheme.typography.titleMedium)
+                                                    Text(
+                                                        when {
+                                                            linkedTrackers.isNotEmpty() ->
+                                                                linkedTrackers.joinToString(" · ")
+                                                            stored == null ->
+                                                                "Add this manga to your library to link trackers."
+                                                            else -> "No trackers linked"
+                                                        },
+                                                        color = MihonPalette.muted,
+                                                        style = MaterialTheme.typography.bodySmall,
+                                                    )
+                                                }
+                                                TextButton(
+                                                    onClick = { trackingExpanded = !trackingExpanded },
+                                                    enabled = stored != null,
+                                                ) { Text(if (trackingExpanded) "Done" else "Manage") }
+                                            }
+                                        }
+                                        FlowRow(
+                                            Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalArrangement = Arrangement.spacedBy(4.dp),
+                                        ) {
                                             Button(onClick = {
                                                 if (stored == null && selectedSource != null) {
                                                     session.library.addToLibrary(selectedSource.id, item)
@@ -848,7 +833,10 @@ fun DesktopShell(
                                                         .onFailure { notice.error(it.message ?: "Could not copy link") }
                                                 }) { Text("Copy link") }
                                             }
-                                            if (stored != null && item.url.contains("/api/v1/series/")) {
+                                            if (
+                                                trackingExpanded && stored != null &&
+                                                item.url.contains("/api/v1/series/")
+                                            ) {
                                                 TextButton(onClick = {
                                                     scope.launch {
                                                         runCatching {
@@ -895,7 +883,7 @@ fun DesktopShell(
                                                 }
                                             }
                                         }
-                                        if (stored != null && item.url.contains("/api/Series/")) {
+                                        if (trackingExpanded && stored != null && item.url.contains("/api/Series/")) {
                                             if (kavitaTrack == null) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
@@ -936,7 +924,7 @@ fun DesktopShell(
                                                 }) { Text("Sync Kavita") }
                                             }
                                         }
-                                        if (stored != null && aniListLoggedIn) {
+                                        if (trackingExpanded && stored != null && aniListLoggedIn) {
                                             if (aniListTrack == null) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
@@ -974,7 +962,7 @@ fun DesktopShell(
                                                 }) { Text("Sync AniList") }
                                             }
                                         }
-                                        if (stored != null && mangaUpdatesLoggedIn) {
+                                        if (trackingExpanded && stored != null && mangaUpdatesLoggedIn) {
                                             if (mangaUpdatesTrack == null) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
@@ -1016,7 +1004,7 @@ fun DesktopShell(
                                                 }) { Text("Sync MangaUpdates") }
                                             }
                                         }
-                                        if (stored != null && kitsuLoggedIn) {
+                                        if (trackingExpanded && stored != null && kitsuLoggedIn) {
                                             if (kitsuTrack == null) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
@@ -1058,7 +1046,7 @@ fun DesktopShell(
                                                 }) { Text("Sync Kitsu") }
                                             }
                                         }
-                                        if (stored != null && malLoggedIn) {
+                                        if (trackingExpanded && stored != null && malLoggedIn) {
                                             if (malTrack == null) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
@@ -1100,7 +1088,7 @@ fun DesktopShell(
                                                 }) { Text("Sync MyAnimeList") }
                                             }
                                         }
-                                        if (stored != null && shikimoriLoggedIn) {
+                                        if (trackingExpanded && stored != null && shikimoriLoggedIn) {
                                             if (shikimoriTrack == null) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
@@ -1142,7 +1130,7 @@ fun DesktopShell(
                                                 }) { Text("Sync Shikimori") }
                                             }
                                         }
-                                        if (stored != null && hikkaLoggedIn) {
+                                        if (trackingExpanded && stored != null && hikkaLoggedIn) {
                                             if (hikkaTrack == null) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
@@ -1183,7 +1171,7 @@ fun DesktopShell(
                                                 }) { Text("Sync Hikka") }
                                             }
                                         }
-                                        if (stored != null && bangumiLoggedIn) {
+                                        if (trackingExpanded && stored != null && bangumiLoggedIn) {
                                             if (bangumiTrack == null) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
@@ -1225,7 +1213,7 @@ fun DesktopShell(
                                                 }) { Text("Sync Bangumi") }
                                             }
                                         }
-                                        if (stored != null && mangaBakaLoggedIn) {
+                                        if (trackingExpanded && stored != null && mangaBakaLoggedIn) {
                                             if (mangaBakaTrack == null) {
                                                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                     OutlinedTextField(
@@ -1267,7 +1255,7 @@ fun DesktopShell(
                                                 }) { Text("Sync MangaBaka") }
                                             }
                                         }
-                                        if (stored != null && selectedSource != null &&
+                                        if (trackingExpanded && stored != null && selectedSource != null &&
                                             selectedSource.javaClass.name == DesktopSuwayomiTracker.SOURCE_CLASS
                                         ) {
                                             TextButton(onClick = {
@@ -1305,32 +1293,6 @@ fun DesktopShell(
                                                     }
                                                 }
                                             }) { Text(if (suwayomiTrack == null) "Link Suwayomi" else "Sync Suwayomi") }
-                                        }
-                                        if (stored?.favorite == true) {
-                                            categories.forEach { category ->
-                                                Row {
-                                                    Checkbox(
-                                                        checked = category.id in selectedMangaCategories,
-                                                        onCheckedChange = { checked ->
-                                                            val updated = if (checked) {
-                                                                selectedMangaCategories + category.id
-                                                            } else {
-                                                                selectedMangaCategories - category.id
-                                                            }
-                                                            session.library.setMangaCategories(
-                                                                stored._id,
-                                                                updated,
-                                                            )
-                                                            selectedMangaCategories = updated
-                                                            message = "Categories updated"
-                                                        },
-                                                    )
-                                                    Text(
-                                                        category.name.ifBlank { "Uncategorized" },
-                                                        modifier = Modifier.padding(top = 12.dp),
-                                                    )
-                                                }
-                                            }
                                         }
                                     }
                                 }
@@ -1399,121 +1361,85 @@ fun DesktopShell(
                                         }
                                     }
                                 }
+                                if (storedManga?.favorite == true) {
+                                    item {
+                                        MihonPanel(Modifier.fillMaxWidth()) {
+                                            Column(
+                                                Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+                                            ) {
+                                                Text("Categories", style = MaterialTheme.typography.titleMedium)
+                                                categories.forEach { category ->
+                                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                                        Checkbox(
+                                                            checked = category.id in selectedMangaCategories,
+                                                            onCheckedChange = { checked ->
+                                                                val updated = if (checked) {
+                                                                    selectedMangaCategories + category.id
+                                                                } else {
+                                                                    selectedMangaCategories - category.id
+                                                                }
+                                                                session.library.setMangaCategories(
+                                                                    storedManga._id,
+                                                                    updated,
+                                                                )
+                                                                selectedMangaCategories = updated
+                                                                message = "Categories updated"
+                                                            },
+                                                        )
+                                                        Text(category.name.ifBlank { "Uncategorized" })
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
                             }
                         }
                         screen == Screen.LIBRARY -> {
-                            val visibleLibrary = library.asSequence()
-                                .filter { it.title.contains(librarySearch, ignoreCase = true) }
-                                .filter {
-                                    selectedCategory == null || run {
-                                        val membership = libraryMembership[it._id].orEmpty()
-                                        if (selectedCategory ==
-                                            0L
-                                        ) {
-                                            membership.isEmpty()
-                                        } else {
-                                            selectedCategory in membership
-                                        }
-                                    }
-                                }
-                                .toList()
-                            MihonSectionHeader(
-                                "Your library",
-                                if (selectedCategory == null) {
-                                    "${library.size} manga saved on this device"
-                                } else {
-                                    "${visibleLibrary.size} manga in this category"
-                                },
-                                trailing = {
-                                    OutlinedTextField(
-                                        librarySearch,
-                                        { librarySearch = it },
-                                        label = { Text("Search library") },
-                                        singleLine = true,
-                                        modifier = Modifier.width(250.dp),
-                                    )
-                                },
+                            LibraryScreen(
+                                library = library,
+                                membership = libraryMembership,
+                                historyEntries = historyEntries,
+                                historyChapters = historyChapters,
+                                sources = sources,
+                                selectedCategory = selectedCategory,
+                                onClearCategory = { selectedCategory = null },
+                                search = librarySearch,
+                                onSearchChange = { librarySearch = it },
+                                loading = libraryLoading,
+                                onOpenManga = ::openStoredManga,
                             )
-                            if (selectedCategory != null) {
-                                TextButton(onClick = { selectedCategory = null }) { Text("All library") }
-                            }
-                            if (libraryLoading) {
-                                MihonEmptyState("Loading library…")
-                            } else if (library.isEmpty()) {
-                                MihonEmptyState(
-                                    "Your library is empty",
-                                    "Browse an installed source and add a manga to start reading.",
-                                )
-                            } else if (visibleLibrary.isEmpty()) {
-                                MihonEmptyState("No manga found", "Try a different search or category.")
-                            } else {
-                                LazyVerticalGrid(
-                                    columns = GridCells.Adaptive(220.dp),
-                                    modifier = Modifier.weight(1f),
-                                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                ) {
-                                    gridItems(visibleLibrary, key = Mangas::_id) { item ->
-                                        val itemSource = sources.firstOrNull { it.id == item.source }
-                                        val lastRead = historyEntries.firstOrNull { it.mangaId == item._id }
-                                        val chapter = lastRead?.let { historyChapters[it.chapterId] }
-                                        MihonPanel {
-                                            Column(Modifier.fillMaxWidth().padding(10.dp)) {
-                                                DesktopCover(
-                                                    item.thumbnail_url,
-                                                    itemSource,
-                                                    Modifier.fillMaxWidth().aspectRatio(0.75f)
-                                                        .clickable { openStoredManga(item._id) },
-                                                )
-                                                Text(
-                                                    item.title,
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    maxLines = 2,
-                                                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
-                                                )
-                                                Text(
-                                                    chapter?.name ?: "Not read yet",
-                                                    color = MihonPalette.muted,
-                                                    style = MaterialTheme.typography.bodySmall,
-                                                    maxLines = 1,
-                                                )
-                                                TextButton(
-                                                    onClick = {
-                                                        if (chapter != null) {
-                                                            openStoredManga(item._id, chapter.url)
-                                                        } else {
-                                                            openStoredManga(item._id)
-                                                        }
-                                                    },
-                                                ) { Text(if (chapter != null) "Continue reading" else "Details") }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
                         }
                         screen == Screen.SOURCES || screen == Screen.SEARCH -> {
                             if (screen == Screen.SEARCH) {
-                                MihonPanel(Modifier.fillMaxWidth()) {
-                                    Row(
-                                        Modifier.fillMaxWidth().padding(12.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        OutlinedTextField(
-                                            link,
-                                            { link = it },
-                                            label = { Text("Manga or Mihon link") },
-                                            singleLine = true,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        Button(onClick = { openLink(link) }) { Text("Open link") }
-                                        TextButton(onClick = {
-                                            graph.clipboardService.readText()?.let { pasted ->
-                                                link = pasted
-                                                openLink(pasted)
-                                            }
-                                        }) { Text("Paste link") }
+                                if (showLinkTools) {
+                                    MihonPanel(Modifier.fillMaxWidth()) {
+                                        Row(
+                                            Modifier.fillMaxWidth().padding(12.dp),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                            verticalAlignment = Alignment.CenterVertically,
+                                        ) {
+                                            OutlinedTextField(
+                                                link,
+                                                { link = it },
+                                                label = { Text("Manga or Mihon link") },
+                                                singleLine = true,
+                                                modifier = Modifier.weight(1f),
+                                            )
+                                            Button(onClick = { openLink(link) }) { Text("Open link") }
+                                            TextButton(onClick = {
+                                                graph.clipboardService.readText()?.let { pasted ->
+                                                    link = pasted
+                                                    openLink(pasted)
+                                                }
+                                            }) { Text("Paste link") }
+                                            TextButton(onClick = { showLinkTools = false }) { Text("Close") }
+                                        }
+                                    }
+                                } else {
+                                    TextButton(onClick = { showLinkTools = true }) {
+                                        Text("Open a manga or Mihon link…")
                                     }
                                 }
                             }
@@ -2171,420 +2097,562 @@ fun DesktopShell(
                             }
                         }
                         screen == Screen.SETTINGS -> {
-                            MihonSectionHeader(
-                                "Settings",
-                                "Storage, migration, links, reading integrations and update scheduling",
-                            )
-                            MihonPanel(Modifier.fillMaxWidth()) {
+                            Row(
+                                Modifier.fillMaxSize(),
+                                horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                            ) {
+                                DesktopSettingsNavigation(
+                                    selected = settingsSection,
+                                    onSelect = { settingsSection = it },
+                                    modifier = Modifier.width(196.dp).fillMaxHeight()
+                                        .background(MihonPalette.panel, RoundedCornerShape(MihonRadius.panel)),
+                                )
                                 Column(
-                                    Modifier.fillMaxWidth().padding(14.dp),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                    Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
+                                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
                                 ) {
-                                    Text("Migration", style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        "Import a Mihon Android .tachibk backup. Matching manga records are updated.",
-                                        color = MihonPalette.muted,
-                                    )
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        OutlinedTextField(
-                                            backupPath,
-                                            { backupPath = it },
-                                            label = { Text("Android backup (.tachibk)") },
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        TextButton(onClick = {
-                                            graph.fileDialogService.chooseOpenFile(
-                                                OpenFileRequest(
-                                                    "Import Mihon Android backup",
-                                                    extensions = setOf("tachibk"),
-                                                ),
-                                            )?.let { backupPath = it }
-                                        }) { Text("Choose…") }
-                                        Button(onClick = {
-                                            val path = backupPath.trim()
-                                            scope.launch {
-                                                runCatching {
-                                                    withContext(Dispatchers.IO) {
-                                                        DesktopBackupImporter.import(Path.of(path), session.library)
-                                                    }
-                                                }.onSuccess { result ->
-                                                    refreshLibrary()
-                                                    message = buildString {
-                                                        append("Imported ${result.manga} manga")
-                                                        append(", ${result.chapters} chapters")
-                                                        append(", ${result.categories} categories")
-                                                        append(", ${result.trackerEntries} tracker entries")
-                                                    }
-                                                }.onFailure { notice.error(it.message ?: "Backup import failed") }
+                                    MihonSectionHeader(settingsSection.title, settingsSection.description)
+                                    when (settingsSection) {
+                                        DesktopSettingsSection.GENERAL -> MihonPanel(Modifier.fillMaxWidth()) {
+                                            Column(
+                                                Modifier.fillMaxWidth().padding(MihonSpacing.lg),
+                                                verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                            ) {
+                                                Text("Mihon for Windows", style = MaterialTheme.typography.titleMedium)
+                                                Text(
+                                                    "Language follows Windows. " +
+                                                        "Library and reader preferences are saved on this device.",
+                                                    color = MihonPalette.muted,
+                                                )
+                                                Text(
+                                                    "Language: ${graph.localeService.currentLanguageTag()}",
+                                                    color = MihonPalette.muted,
+                                                )
                                             }
-                                        }, enabled = backupPath.isNotBlank()) { Text("Import backup") }
-                                    }
-                                }
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                            MihonPanel(Modifier.fillMaxWidth()) {
-                                Column(
-                                    Modifier.fillMaxWidth().padding(14.dp),
-                                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                                ) {
-                                    Text("Application and storage", style = MaterialTheme.typography.titleMedium)
-                                    Text(
-                                        "Language: ${graph.localeService.currentLanguageTag()}",
-                                        color = MihonPalette.muted,
-                                    )
-                                    Text(
-                                        "Local library: ${graph.appDirectories.localLibrary}",
-                                        color = MihonPalette.muted,
-                                    )
-                                    Text("Database: ${graph.appDirectories.database}", color = MihonPalette.muted)
-                                    if (System.getProperty("os.name").startsWith("Windows", ignoreCase = true)) {
-                                        Text(
-                                            "Browser links: " +
-                                                if (mihonProtocolRegistered) "registered" else "not registered",
-                                            color = MihonPalette.muted,
-                                        )
-                                        if (mihonProtocolRegistered) {
-                                            TextButton(onClick = {
-                                                runCatching { protocolRegistrar.unregisterMihonProtocol() }
-                                                    .onSuccess {
-                                                        mihonProtocolRegistered = false
-                                                        message = "Mihon browser links unregistered"
-                                                    }.onFailure {
-                                                        notice.error(it.message ?: "Could not unregister Mihon links")
+                                        }
+                                        DesktopSettingsSection.STORAGE -> {
+                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                                Column(
+                                                    Modifier.fillMaxWidth().padding(14.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                ) {
+                                                    Text("Migration", style = MaterialTheme.typography.titleMedium)
+                                                    Text(
+                                                        "Import a Mihon Android .tachibk backup. " +
+                                                            "Matching manga records are updated.",
+                                                        color = MihonPalette.muted,
+                                                    )
+                                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                        OutlinedTextField(
+                                                            backupPath,
+                                                            { backupPath = it },
+                                                            label = { Text("Android backup (.tachibk)") },
+                                                            modifier = Modifier.weight(1f),
+                                                        )
+                                                        TextButton(onClick = {
+                                                            graph.fileDialogService.chooseOpenFile(
+                                                                OpenFileRequest(
+                                                                    "Import Mihon Android backup",
+                                                                    extensions = setOf("tachibk"),
+                                                                ),
+                                                            )?.let { backupPath = it }
+                                                        }) { Text("Choose…") }
+                                                        Button(onClick = {
+                                                            val path = backupPath.trim()
+                                                            scope.launch {
+                                                                runCatching {
+                                                                    withContext(Dispatchers.IO) {
+                                                                        DesktopBackupImporter.import(
+                                                                            Path.of(path),
+                                                                            session.library,
+                                                                        )
+                                                                    }
+                                                                }.onSuccess { result ->
+                                                                    refreshLibrary()
+                                                                    message = buildString {
+                                                                        append("Imported ${result.manga} manga")
+                                                                        append(", ${result.chapters} chapters")
+                                                                        append(
+                                                                            ", ${result.categories} categories",
+                                                                        )
+                                                                        append(", ")
+                                                                        append(result.trackerEntries)
+                                                                        append(" tracker entries")
+                                                                    }
+                                                                }.onFailure {
+                                                                    notice.error(it.message ?: "Backup import failed")
+                                                                }
+                                                            }
+                                                        }, enabled = backupPath.isNotBlank()) { Text("Import backup") }
                                                     }
-                                            }) { Text("Unregister Mihon browser links") }
-                                        } else {
-                                            TextButton(onClick = {
-                                                runCatching { protocolRegistrar.registerMihonProtocol() }
-                                                    .onSuccess {
-                                                        mihonProtocolRegistered = true
-                                                        message = "Mihon browser links registered for this Windows user"
-                                                    }.onFailure {
-                                                        notice.error(it.message ?: "Could not register Mihon links")
+                                                }
+                                            }
+                                            HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                                Column(
+                                                    Modifier.fillMaxWidth().padding(14.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                                ) {
+                                                    Text(
+                                                        "Application and storage",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    Text(
+                                                        "Local library: ${graph.appDirectories.localLibrary}",
+                                                        color = MihonPalette.muted,
+                                                    )
+                                                    Text(
+                                                        "Database: ${graph.appDirectories.database}",
+                                                        color = MihonPalette.muted,
+                                                    )
+                                                }
+                                            }
+                                        }
+                                        DesktopSettingsSection.TRACKING -> {
+                                            Text(
+                                                "Tracker integrations",
+                                                style = MaterialTheme.typography.titleLarge,
+                                                modifier = Modifier.padding(top = 8.dp),
+                                            )
+                                            Text(
+                                                "AniList: ${if (aniListLoggedIn) "signed in" else "not signed in"}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                            )
+                                            if (aniListLoggedIn) {
+                                                TextButton(onClick = {
+                                                    session.aniListTracker.logout()
+                                                    aniListLoggedIn = false
+                                                    message = "AniList signed out"
+                                                }) { Text("Sign out of AniList") }
+                                            } else {
+                                                TextButton(onClick = {
+                                                    if (!graph.browserService.open(DesktopAniListTracker.AUTH_URL)) {
+                                                        notice.error("Could not open AniList in the browser")
                                                     }
-                                            }) { Text("Register Mihon browser links") }
+                                                }) { Text("Sign in to AniList in browser") }
+                                                Text("If the redirect fails, paste its URL below.")
+                                                OutlinedTextField(
+                                                    aniListCallback,
+                                                    { aniListCallback = it },
+                                                    label = { Text("Paste AniList redirect URL") },
+                                                    visualTransformation = PasswordVisualTransformation(),
+                                                )
+                                                TextButton(onClick = {
+                                                    val callback = aniListCallback
+                                                    aniListCallback = ""
+                                                    scope.launch {
+                                                        runCatching {
+                                                            session.aniListTracker.loginFromCallback(callback)
+                                                        }
+                                                            .onSuccess { name ->
+                                                                aniListLoggedIn = true
+                                                                message = "Signed in to AniList as $name"
+                                                            }
+                                                            .onFailure {
+                                                                notice.error(it.message ?: "AniList sign-in failed")
+                                                            }
+                                                    }
+                                                }) { Text("Complete AniList sign-in") }
+                                            }
+                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                            Text(
+                                                "MangaUpdates: " +
+                                                    if (mangaUpdatesLoggedIn) "signed in" else "not signed in",
+                                                style = MaterialTheme.typography.titleMedium,
+                                            )
+                                            if (mangaUpdatesLoggedIn) {
+                                                TextButton(onClick = {
+                                                    session.mangaUpdatesTracker.logout()
+                                                    mangaUpdatesLoggedIn = false
+                                                    message = "MangaUpdates signed out"
+                                                }) { Text("Sign out of MangaUpdates") }
+                                            } else {
+                                                OutlinedTextField(
+                                                    mangaUpdatesUsername,
+                                                    { mangaUpdatesUsername = it },
+                                                    label = { Text("MangaUpdates username") },
+                                                )
+                                                OutlinedTextField(
+                                                    mangaUpdatesPassword,
+                                                    { mangaUpdatesPassword = it },
+                                                    label = { Text("MangaUpdates password") },
+                                                    visualTransformation = PasswordVisualTransformation(),
+                                                )
+                                                TextButton(onClick = {
+                                                    val username = mangaUpdatesUsername
+                                                    val password = mangaUpdatesPassword
+                                                    mangaUpdatesPassword = ""
+                                                    scope.launch {
+                                                        runCatching {
+                                                            session.mangaUpdatesTracker.login(username, password)
+                                                        }
+                                                            .onSuccess { name ->
+                                                                mangaUpdatesLoggedIn = true
+                                                                message = "Signed in to MangaUpdates as $name"
+                                                            }.onFailure {
+                                                                notice.error(
+                                                                    it.message ?: "MangaUpdates sign-in failed",
+                                                                )
+                                                            }
+                                                    }
+                                                }) { Text("Sign in to MangaUpdates") }
+                                            }
+                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                            Text(
+                                                "Kitsu: ${if (kitsuLoggedIn) "signed in" else "not signed in"}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                            )
+                                            if (kitsuLoggedIn) {
+                                                TextButton(onClick = {
+                                                    session.kitsuTracker.logout()
+                                                    kitsuLoggedIn = false
+                                                    message = "Kitsu signed out"
+                                                }) { Text("Sign out of Kitsu") }
+                                            } else {
+                                                OutlinedTextField(
+                                                    kitsuUsername,
+                                                    { kitsuUsername = it },
+                                                    label = { Text("Kitsu username") },
+                                                )
+                                                OutlinedTextField(
+                                                    kitsuPassword,
+                                                    { kitsuPassword = it },
+                                                    label = { Text("Kitsu password") },
+                                                    visualTransformation = PasswordVisualTransformation(),
+                                                )
+                                                TextButton(onClick = {
+                                                    val username = kitsuUsername
+                                                    val password = kitsuPassword
+                                                    kitsuPassword = ""
+                                                    scope.launch {
+                                                        runCatching { session.kitsuTracker.login(username, password) }
+                                                            .onSuccess { name ->
+                                                                kitsuLoggedIn = true
+                                                                message = "Signed in to Kitsu as $name"
+                                                            }.onFailure {
+                                                                notice.error(it.message ?: "Kitsu sign-in failed")
+                                                            }
+                                                    }
+                                                }) { Text("Sign in to Kitsu") }
+                                            }
+                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                            Text(
+                                                "MyAnimeList: ${if (malLoggedIn) "signed in" else "not signed in"}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                            )
+                                            if (malLoggedIn) {
+                                                TextButton(onClick = {
+                                                    session.myAnimeListTracker.logout()
+                                                    malLoggedIn = false
+                                                    message = "MyAnimeList signed out"
+                                                }) { Text("Sign out of MyAnimeList") }
+                                            } else {
+                                                TextButton(onClick = {
+                                                    runCatching {
+                                                        val url = session.myAnimeListTracker.beginLogin()
+                                                        check(graph.browserService.open(url))
+                                                    }.onFailure {
+                                                        notice.error(it.message ?: "Could not open MyAnimeList")
+                                                    }
+                                                }) { Text("Sign in to MyAnimeList in browser") }
+                                                Text("If the redirect fails, paste its URL below.")
+                                                OutlinedTextField(
+                                                    malCallback,
+                                                    { malCallback = it },
+                                                    label = { Text("Paste MyAnimeList redirect URL") },
+                                                    visualTransformation = PasswordVisualTransformation(),
+                                                )
+                                                TextButton(onClick = {
+                                                    val callback = malCallback
+                                                    malCallback = ""
+                                                    scope.launch {
+                                                        runCatching {
+                                                            session.myAnimeListTracker.loginFromCallback(callback)
+                                                        }
+                                                            .onSuccess { name ->
+                                                                malLoggedIn = true
+                                                                message = "Signed in to MyAnimeList as $name"
+                                                            }.onFailure {
+                                                                notice.error(it.message ?: "MyAnimeList sign-in failed")
+                                                            }
+                                                    }
+                                                }) { Text("Complete MyAnimeList sign-in") }
+                                            }
+                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                            Text(
+                                                "Shikimori: ${if (shikimoriLoggedIn) "signed in" else "not signed in"}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                            )
+                                            if (shikimoriLoggedIn) {
+                                                TextButton(onClick = {
+                                                    session.shikimoriTracker.logout()
+                                                    shikimoriLoggedIn = false
+                                                    message = "Shikimori signed out"
+                                                }) { Text("Sign out of Shikimori") }
+                                            } else {
+                                                TextButton(onClick = {
+                                                    runCatching {
+                                                        val authorizationUrl = session.shikimoriTracker.beginLogin()
+                                                        check(graph.browserService.open(authorizationUrl))
+                                                    }.onFailure {
+                                                        notice.error(it.message ?: "Could not open Shikimori")
+                                                    }
+                                                }) { Text("Sign in to Shikimori in browser") }
+                                                Text("If the redirect fails, paste its URL below.")
+                                                OutlinedTextField(
+                                                    shikimoriCallback,
+                                                    { shikimoriCallback = it },
+                                                    label = { Text("Paste Shikimori redirect URL") },
+                                                    visualTransformation = PasswordVisualTransformation(),
+                                                )
+                                                TextButton(onClick = {
+                                                    val callback = shikimoriCallback
+                                                    shikimoriCallback = ""
+                                                    scope.launch {
+                                                        runCatching {
+                                                            session.shikimoriTracker.loginFromCallback(callback)
+                                                        }
+                                                            .onSuccess { name ->
+                                                                shikimoriLoggedIn = true
+                                                                message = "Signed in to Shikimori as $name"
+                                                            }.onFailure {
+                                                                notice.error(it.message ?: "Shikimori sign-in failed")
+                                                            }
+                                                    }
+                                                }) { Text("Complete Shikimori sign-in") }
+                                            }
+                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                            Text(
+                                                "Hikka: ${if (hikkaLoggedIn) "signed in" else "not signed in"}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                            )
+                                            if (hikkaLoggedIn) {
+                                                TextButton(onClick = {
+                                                    session.hikkaTracker.logout()
+                                                    hikkaLoggedIn = false
+                                                    message = "Hikka signed out"
+                                                }) { Text("Sign out of Hikka") }
+                                            } else {
+                                                TextButton(onClick = {
+                                                    runCatching {
+                                                        val authorizationUrl = session.hikkaTracker.beginLogin()
+                                                        check(graph.browserService.open(authorizationUrl))
+                                                    }.onFailure { notice.error(it.message ?: "Could not open Hikka") }
+                                                }) { Text("Sign in to Hikka in browser") }
+                                                Text("If the redirect fails, paste its URL below.")
+                                                OutlinedTextField(
+                                                    hikkaCallback,
+                                                    { hikkaCallback = it },
+                                                    label = { Text("Paste Hikka redirect URL") },
+                                                    visualTransformation = PasswordVisualTransformation(),
+                                                )
+                                                TextButton(onClick = {
+                                                    val callback = hikkaCallback
+                                                    hikkaCallback = ""
+                                                    scope.launch {
+                                                        runCatching { session.hikkaTracker.loginFromCallback(callback) }
+                                                            .onSuccess { name ->
+                                                                hikkaLoggedIn = true
+                                                                message = "Signed in to Hikka as $name"
+                                                            }.onFailure {
+                                                                notice.error(it.message ?: "Hikka sign-in failed")
+                                                            }
+                                                    }
+                                                }) { Text("Complete Hikka sign-in") }
+                                            }
+                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                            Text(
+                                                "Bangumi: ${if (bangumiLoggedIn) "signed in" else "not signed in"}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                            )
+                                            if (bangumiLoggedIn) {
+                                                TextButton(onClick = {
+                                                    session.bangumiTracker.logout()
+                                                    bangumiLoggedIn = false
+                                                    message = "Bangumi signed out"
+                                                }) { Text("Sign out of Bangumi") }
+                                            } else {
+                                                TextButton(onClick = {
+                                                    runCatching {
+                                                        val authorizationUrl = session.bangumiTracker.beginLogin()
+                                                        check(graph.browserService.open(authorizationUrl))
+                                                    }.onFailure { notice.error(it.message ?: "Could not open Bangumi") }
+                                                }) { Text("Sign in to Bangumi in browser") }
+                                                Text("If the redirect fails, paste its URL below.")
+                                                OutlinedTextField(
+                                                    bangumiCallback,
+                                                    { bangumiCallback = it },
+                                                    label = { Text("Paste Bangumi redirect URL") },
+                                                    visualTransformation = PasswordVisualTransformation(),
+                                                )
+                                                TextButton(onClick = {
+                                                    val callback = bangumiCallback
+                                                    bangumiCallback = ""
+                                                    scope.launch {
+                                                        runCatching {
+                                                            session.bangumiTracker.loginFromCallback(callback)
+                                                        }
+                                                            .onSuccess { name ->
+                                                                bangumiLoggedIn = true
+                                                                message = "Signed in to Bangumi as $name"
+                                                            }.onFailure {
+                                                                notice.error(it.message ?: "Bangumi sign-in failed")
+                                                            }
+                                                    }
+                                                }) { Text("Complete Bangumi sign-in") }
+                                            }
+                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                            Text(
+                                                "MangaBaka: ${if (mangaBakaLoggedIn) "signed in" else "not signed in"}",
+                                                style = MaterialTheme.typography.titleMedium,
+                                            )
+                                            if (mangaBakaLoggedIn) {
+                                                TextButton(onClick = {
+                                                    session.mangaBakaTracker.logout()
+                                                    mangaBakaLoggedIn = false
+                                                    message = "MangaBaka signed out"
+                                                }) { Text("Sign out of MangaBaka") }
+                                            } else {
+                                                TextButton(onClick = {
+                                                    runCatching {
+                                                        val authorizationUrl = session.mangaBakaTracker.beginLogin()
+                                                        check(graph.browserService.open(authorizationUrl))
+                                                    }.onFailure {
+                                                        notice.error(it.message ?: "Could not open MangaBaka")
+                                                    }
+                                                }) { Text("Sign in to MangaBaka in browser") }
+                                                Text("If the redirect fails, paste its URL below.")
+                                                OutlinedTextField(
+                                                    mangaBakaCallback,
+                                                    { mangaBakaCallback = it },
+                                                    label = { Text("Paste MangaBaka redirect URL") },
+                                                    visualTransformation = PasswordVisualTransformation(),
+                                                )
+                                                TextButton(onClick = {
+                                                    val callback = mangaBakaCallback
+                                                    mangaBakaCallback = ""
+                                                    scope.launch {
+                                                        runCatching {
+                                                            session.mangaBakaTracker.loginFromCallback(callback)
+                                                        }
+                                                            .onSuccess { name ->
+                                                                mangaBakaLoggedIn = true
+                                                                message = "Signed in to MangaBaka as $name"
+                                                            }.onFailure {
+                                                                notice.error(it.message ?: "MangaBaka sign-in failed")
+                                                            }
+                                                    }
+                                                }) { Text("Complete MangaBaka sign-in") }
+                                            }
+                                        }
+                                        DesktopSettingsSection.LIBRARY -> MihonPanel(Modifier.fillMaxWidth()) {
+                                            Column(
+                                                Modifier.fillMaxWidth().padding(12.dp),
+                                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                            ) {
+                                                Text(
+                                                    "Library and downloads",
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                )
+                                                TextButton(onClick = {
+                                                    val intervals = DesktopLibraryUpdateScheduler.INTERVALS
+                                                    val nextIndex =
+                                                        (intervals.indexOf(updateInterval) + 1) % intervals.size
+                                                    updateInterval = intervals[nextIndex]
+                                                    session.libraryUpdates.setIntervalHours(updateInterval)
+                                                }) {
+                                                    Text(
+                                                        if (updateInterval == 0L) {
+                                                            "Scheduled library updates: off"
+                                                        } else {
+                                                            "Scheduled updates: every $updateInterval hours " +
+                                                                "while Mihon is open"
+                                                        },
+                                                    )
+                                                }
+                                                Text(
+                                                    "Downloads wait for an active network connection.",
+                                                    color = MihonPalette.muted,
+                                                )
+                                            }
+                                        }
+                                        DesktopSettingsSection.READER -> DesktopReaderDefaultsSettings(graph)
+                                        DesktopSettingsSection.DOWNLOADS -> MihonPanel(Modifier.fillMaxWidth()) {
+                                            Column(
+                                                Modifier.fillMaxWidth().padding(MihonSpacing.lg),
+                                                verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                            ) {
+                                                Text("Download queue", style = MaterialTheme.typography.titleMedium)
+                                                Text(
+                                                    "Downloads pause when the network is unavailable " +
+                                                        "and resume from the queue.",
+                                                    color = MihonPalette.muted,
+                                                )
+                                                TextButton(onClick = { navigateToScreen(Screen.DOWNLOADS) }) {
+                                                    Text("Open downloads")
+                                                }
+                                            }
+                                        }
+                                        DesktopSettingsSection.ADVANCED -> MihonPanel(Modifier.fillMaxWidth()) {
+                                            Column(
+                                                Modifier.fillMaxWidth().padding(MihonSpacing.lg),
+                                                verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                            ) {
+                                                Text("Windows links", style = MaterialTheme.typography.titleMedium)
+                                                Text(
+                                                    "Mihon can handle manga and tracker callback links " +
+                                                        "for this Windows account.",
+                                                    color = MihonPalette.muted,
+                                                )
+                                                Text(
+                                                    "Status: " +
+                                                        if (mihonProtocolRegistered) "registered" else "not registered",
+                                                    color = MihonPalette.muted,
+                                                )
+                                                if (
+                                                    System.getProperty("os.name")
+                                                        .startsWith("Windows", ignoreCase = true)
+                                                ) {
+                                                    TextButton(onClick = {
+                                                        runCatching {
+                                                            if (mihonProtocolRegistered) {
+                                                                protocolRegistrar.unregisterMihonProtocol()
+                                                            } else {
+                                                                protocolRegistrar.registerMihonProtocol()
+                                                            }
+                                                        }.onSuccess {
+                                                            mihonProtocolRegistered = !mihonProtocolRegistered
+                                                            message = if (mihonProtocolRegistered) {
+                                                                "Mihon browser links registered for this Windows user"
+                                                            } else {
+                                                                "Mihon browser links unregistered"
+                                                            }
+                                                        }.onFailure {
+                                                            notice.error(it.message ?: "Could not update Mihon links")
+                                                        }
+                                                    }) {
+                                                        Text(
+                                                            if (mihonProtocolRegistered) {
+                                                                "Unregister Mihon links"
+                                                            } else {
+                                                                "Register Mihon links"
+                                                            },
+                                                        )
+                                                    }
+                                                }
+                                                HorizontalDivider()
+                                                Text("Desktop extensions", style = MaterialTheme.typography.titleMedium)
+                                                Text(
+                                                    "A locally trusted signing fingerprint records a local trust " +
+                                                        "decision; it does not verify a publisher identity.",
+                                                    color = MihonPalette.muted,
+                                                )
+                                                TextButton(onClick = { navigateToScreen(Screen.EXTENSIONS) }) {
+                                                    Text("Manage extensions")
+                                                }
+                                            }
                                         }
                                     }
-                                }
-                            }
-                            Text(
-                                "Tracker integrations",
-                                style = MaterialTheme.typography.titleLarge,
-                                modifier = Modifier.padding(top = 8.dp),
-                            )
-                            Text(
-                                "AniList: ${if (aniListLoggedIn) "signed in" else "not signed in"}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            if (aniListLoggedIn) {
-                                TextButton(onClick = {
-                                    session.aniListTracker.logout()
-                                    aniListLoggedIn = false
-                                    message = "AniList signed out"
-                                }) { Text("Sign out of AniList") }
-                            } else {
-                                TextButton(onClick = {
-                                    if (!graph.browserService.open(DesktopAniListTracker.AUTH_URL)) {
-                                        notice.error("Could not open AniList in the browser")
-                                    }
-                                }) { Text("Sign in to AniList in browser") }
-                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
-                                OutlinedTextField(
-                                    aniListCallback,
-                                    { aniListCallback = it },
-                                    label = { Text("Paste AniList redirect URL") },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                )
-                                TextButton(onClick = {
-                                    val callback = aniListCallback
-                                    aniListCallback = ""
-                                    scope.launch {
-                                        runCatching { session.aniListTracker.loginFromCallback(callback) }
-                                            .onSuccess { name ->
-                                                aniListLoggedIn = true
-                                                message = "Signed in to AniList as $name"
-                                            }
-                                            .onFailure { notice.error(it.message ?: "AniList sign-in failed") }
-                                    }
-                                }) { Text("Complete AniList sign-in") }
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                            Text(
-                                "MangaUpdates: ${if (mangaUpdatesLoggedIn) "signed in" else "not signed in"}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            if (mangaUpdatesLoggedIn) {
-                                TextButton(onClick = {
-                                    session.mangaUpdatesTracker.logout()
-                                    mangaUpdatesLoggedIn = false
-                                    message = "MangaUpdates signed out"
-                                }) { Text("Sign out of MangaUpdates") }
-                            } else {
-                                OutlinedTextField(
-                                    mangaUpdatesUsername,
-                                    { mangaUpdatesUsername = it },
-                                    label = { Text("MangaUpdates username") },
-                                )
-                                OutlinedTextField(
-                                    mangaUpdatesPassword,
-                                    { mangaUpdatesPassword = it },
-                                    label = { Text("MangaUpdates password") },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                )
-                                TextButton(onClick = {
-                                    val username = mangaUpdatesUsername
-                                    val password = mangaUpdatesPassword
-                                    mangaUpdatesPassword = ""
-                                    scope.launch {
-                                        runCatching { session.mangaUpdatesTracker.login(username, password) }
-                                            .onSuccess { name ->
-                                                mangaUpdatesLoggedIn = true
-                                                message = "Signed in to MangaUpdates as $name"
-                                            }.onFailure { notice.error(it.message ?: "MangaUpdates sign-in failed") }
-                                    }
-                                }) { Text("Sign in to MangaUpdates") }
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                            Text(
-                                "Kitsu: ${if (kitsuLoggedIn) "signed in" else "not signed in"}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            if (kitsuLoggedIn) {
-                                TextButton(onClick = {
-                                    session.kitsuTracker.logout()
-                                    kitsuLoggedIn = false
-                                    message = "Kitsu signed out"
-                                }) { Text("Sign out of Kitsu") }
-                            } else {
-                                OutlinedTextField(
-                                    kitsuUsername,
-                                    { kitsuUsername = it },
-                                    label = { Text("Kitsu username") },
-                                )
-                                OutlinedTextField(
-                                    kitsuPassword,
-                                    { kitsuPassword = it },
-                                    label = { Text("Kitsu password") },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                )
-                                TextButton(onClick = {
-                                    val username = kitsuUsername
-                                    val password = kitsuPassword
-                                    kitsuPassword = ""
-                                    scope.launch {
-                                        runCatching { session.kitsuTracker.login(username, password) }
-                                            .onSuccess { name ->
-                                                kitsuLoggedIn = true
-                                                message = "Signed in to Kitsu as $name"
-                                            }.onFailure { notice.error(it.message ?: "Kitsu sign-in failed") }
-                                    }
-                                }) { Text("Sign in to Kitsu") }
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                            Text(
-                                "MyAnimeList: ${if (malLoggedIn) "signed in" else "not signed in"}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            if (malLoggedIn) {
-                                TextButton(onClick = {
-                                    session.myAnimeListTracker.logout()
-                                    malLoggedIn = false
-                                    message = "MyAnimeList signed out"
-                                }) { Text("Sign out of MyAnimeList") }
-                            } else {
-                                TextButton(onClick = {
-                                    runCatching {
-                                        val url = session.myAnimeListTracker.beginLogin()
-                                        check(graph.browserService.open(url))
-                                    }.onFailure { notice.error(it.message ?: "Could not open MyAnimeList") }
-                                }) { Text("Sign in to MyAnimeList in browser") }
-                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
-                                OutlinedTextField(
-                                    malCallback,
-                                    { malCallback = it },
-                                    label = { Text("Paste MyAnimeList redirect URL") },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                )
-                                TextButton(onClick = {
-                                    val callback = malCallback
-                                    malCallback = ""
-                                    scope.launch {
-                                        runCatching { session.myAnimeListTracker.loginFromCallback(callback) }
-                                            .onSuccess { name ->
-                                                malLoggedIn = true
-                                                message = "Signed in to MyAnimeList as $name"
-                                            }.onFailure { notice.error(it.message ?: "MyAnimeList sign-in failed") }
-                                    }
-                                }) { Text("Complete MyAnimeList sign-in") }
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                            Text(
-                                "Shikimori: ${if (shikimoriLoggedIn) "signed in" else "not signed in"}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            if (shikimoriLoggedIn) {
-                                TextButton(onClick = {
-                                    session.shikimoriTracker.logout()
-                                    shikimoriLoggedIn = false
-                                    message = "Shikimori signed out"
-                                }) { Text("Sign out of Shikimori") }
-                            } else {
-                                TextButton(onClick = {
-                                    runCatching {
-                                        check(graph.browserService.open(session.shikimoriTracker.beginLogin()))
-                                    }.onFailure { notice.error(it.message ?: "Could not open Shikimori") }
-                                }) { Text("Sign in to Shikimori in browser") }
-                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
-                                OutlinedTextField(
-                                    shikimoriCallback,
-                                    { shikimoriCallback = it },
-                                    label = { Text("Paste Shikimori redirect URL") },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                )
-                                TextButton(onClick = {
-                                    val callback = shikimoriCallback
-                                    shikimoriCallback = ""
-                                    scope.launch {
-                                        runCatching { session.shikimoriTracker.loginFromCallback(callback) }
-                                            .onSuccess { name ->
-                                                shikimoriLoggedIn = true
-                                                message = "Signed in to Shikimori as $name"
-                                            }.onFailure { notice.error(it.message ?: "Shikimori sign-in failed") }
-                                    }
-                                }) { Text("Complete Shikimori sign-in") }
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                            Text(
-                                "Hikka: ${if (hikkaLoggedIn) "signed in" else "not signed in"}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            if (hikkaLoggedIn) {
-                                TextButton(onClick = {
-                                    session.hikkaTracker.logout()
-                                    hikkaLoggedIn = false
-                                    message = "Hikka signed out"
-                                }) { Text("Sign out of Hikka") }
-                            } else {
-                                TextButton(onClick = {
-                                    runCatching {
-                                        check(graph.browserService.open(session.hikkaTracker.beginLogin()))
-                                    }.onFailure { notice.error(it.message ?: "Could not open Hikka") }
-                                }) { Text("Sign in to Hikka in browser") }
-                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
-                                OutlinedTextField(
-                                    hikkaCallback,
-                                    { hikkaCallback = it },
-                                    label = { Text("Paste Hikka redirect URL") },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                )
-                                TextButton(onClick = {
-                                    val callback = hikkaCallback
-                                    hikkaCallback = ""
-                                    scope.launch {
-                                        runCatching { session.hikkaTracker.loginFromCallback(callback) }
-                                            .onSuccess { name ->
-                                                hikkaLoggedIn = true
-                                                message = "Signed in to Hikka as $name"
-                                            }.onFailure { notice.error(it.message ?: "Hikka sign-in failed") }
-                                    }
-                                }) { Text("Complete Hikka sign-in") }
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                            Text(
-                                "Bangumi: ${if (bangumiLoggedIn) "signed in" else "not signed in"}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            if (bangumiLoggedIn) {
-                                TextButton(onClick = {
-                                    session.bangumiTracker.logout()
-                                    bangumiLoggedIn = false
-                                    message = "Bangumi signed out"
-                                }) { Text("Sign out of Bangumi") }
-                            } else {
-                                TextButton(onClick = {
-                                    runCatching {
-                                        check(graph.browserService.open(session.bangumiTracker.beginLogin()))
-                                    }.onFailure { notice.error(it.message ?: "Could not open Bangumi") }
-                                }) { Text("Sign in to Bangumi in browser") }
-                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
-                                OutlinedTextField(
-                                    bangumiCallback,
-                                    { bangumiCallback = it },
-                                    label = { Text("Paste Bangumi redirect URL") },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                )
-                                TextButton(onClick = {
-                                    val callback = bangumiCallback
-                                    bangumiCallback = ""
-                                    scope.launch {
-                                        runCatching { session.bangumiTracker.loginFromCallback(callback) }
-                                            .onSuccess { name ->
-                                                bangumiLoggedIn = true
-                                                message = "Signed in to Bangumi as $name"
-                                            }.onFailure { notice.error(it.message ?: "Bangumi sign-in failed") }
-                                    }
-                                }) { Text("Complete Bangumi sign-in") }
-                            }
-                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                            Text(
-                                "MangaBaka: ${if (mangaBakaLoggedIn) "signed in" else "not signed in"}",
-                                style = MaterialTheme.typography.titleMedium,
-                            )
-                            if (mangaBakaLoggedIn) {
-                                TextButton(onClick = {
-                                    session.mangaBakaTracker.logout()
-                                    mangaBakaLoggedIn = false
-                                    message = "MangaBaka signed out"
-                                }) { Text("Sign out of MangaBaka") }
-                            } else {
-                                TextButton(onClick = {
-                                    runCatching {
-                                        check(graph.browserService.open(session.mangaBakaTracker.beginLogin()))
-                                    }.onFailure { notice.error(it.message ?: "Could not open MangaBaka") }
-                                }) { Text("Sign in to MangaBaka in browser") }
-                                Text("If Windows cannot open the Mihon redirect, copy its URL and paste it below.")
-                                OutlinedTextField(
-                                    mangaBakaCallback,
-                                    { mangaBakaCallback = it },
-                                    label = { Text("Paste MangaBaka redirect URL") },
-                                    visualTransformation = PasswordVisualTransformation(),
-                                )
-                                TextButton(onClick = {
-                                    val callback = mangaBakaCallback
-                                    mangaBakaCallback = ""
-                                    scope.launch {
-                                        runCatching { session.mangaBakaTracker.loginFromCallback(callback) }
-                                            .onSuccess { name ->
-                                                mangaBakaLoggedIn = true
-                                                message = "Signed in to MangaBaka as $name"
-                                            }.onFailure { notice.error(it.message ?: "MangaBaka sign-in failed") }
-                                    }
-                                }) { Text("Complete MangaBaka sign-in") }
-                            }
-                            MihonPanel(Modifier.fillMaxWidth()) {
-                                Column(
-                                    Modifier.fillMaxWidth().padding(12.dp),
-                                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                                ) {
-                                    Text("Library and downloads", style = MaterialTheme.typography.titleMedium)
-                                    TextButton(onClick = {
-                                        val intervals = DesktopLibraryUpdateScheduler.INTERVALS
-                                        updateInterval =
-                                            intervals[(intervals.indexOf(updateInterval) + 1) % intervals.size]
-                                        session.libraryUpdates.setIntervalHours(updateInterval)
-                                    }) {
-                                        Text(
-                                            if (updateInterval == 0L) {
-                                                "Scheduled library updates: off"
-                                            } else {
-                                                "Scheduled updates: every $updateInterval hours (while app is open)"
-                                            },
-                                        )
-                                    }
-                                    Text(
-                                        "Downloads wait for an active network connection.",
-                                        color = MihonPalette.muted,
-                                    )
                                 }
                             }
                         }

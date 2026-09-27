@@ -155,7 +155,14 @@ internal class DesktopDownloadScheduler(
                     break
                 }
                 val transfer = scope.async {
-                    engine.download(item, source, manga, chapter) { done, total ->
+                    val resolvedChapter = if (source is SuwayomiSource) {
+                        source.getMangaUpdate(manga, emptyList(), false, true).chapters
+                            .firstOrNull { it.url == chapter.url }
+                            ?: error("Chapter is no longer available from this source")
+                    } else {
+                        chapter
+                    }
+                    engine.download(item, source, manga, resolvedChapter) { done, total ->
                         update { items ->
                             items.map {
                                 if (it.key == item.key && it.status == DesktopDownloadStatus.RUNNING) {

@@ -31,6 +31,34 @@ internal object MihonPalette {
     val sage = Color(0xFFC6DEA1)
     val error = Color(0xFFFFB4AB)
     val outline = Color(0xFF344044)
+    val outlineSoft = Color(0xFF273237)
+    val errorContainer = Color(0xFF3A2525)
+}
+
+internal object MihonSpacing {
+    val xxs = 2.dp
+    val xs = 4.dp
+    val sm = 8.dp
+    val md = 12.dp
+    val lg = 16.dp
+    val xl = 24.dp
+    val section = 32.dp
+}
+
+internal object MihonRadius {
+    val control = 6.dp
+    val card = 10.dp
+    val panel = 12.dp
+}
+
+internal object MihonSizes {
+    val navigationExpanded = 202.dp
+    val navigationCompact = 64.dp
+    val coverSmallWidth = 70.dp
+    val coverSmallHeight = 100.dp
+    val coverDetailWidth = 170.dp
+    val coverDetailHeight = 245.dp
+    val controlHeight = 40.dp
 }
 
 @Composable
@@ -44,19 +72,35 @@ internal fun MihonDesktopTheme(content: @Composable () -> Unit) {
             onPrimaryContainer = MihonPalette.sage,
             secondary = MihonPalette.muted,
             onSecondary = MihonPalette.graphite,
+            secondaryContainer = MihonPalette.raised,
+            onSecondaryContainer = MihonPalette.ivory,
+            tertiary = MihonPalette.sage,
+            onTertiary = MihonPalette.graphite,
+            tertiaryContainer = MihonPalette.raised,
+            onTertiaryContainer = MihonPalette.sage,
             background = MihonPalette.graphite,
             onBackground = MihonPalette.ivory,
             surface = MihonPalette.panel,
             onSurface = MihonPalette.ivory,
             surfaceVariant = MihonPalette.raised,
+            onSurfaceVariant = MihonPalette.muted,
+            surfaceDim = MihonPalette.graphite,
+            surfaceBright = MihonPalette.raised,
+            surfaceContainerLowest = MihonPalette.graphite,
             surfaceContainer = MihonPalette.panel,
+            surfaceContainerLow = MihonPalette.panel,
             surfaceContainerHigh = MihonPalette.raised,
             surfaceContainerHighest = MihonPalette.raised,
             surfaceTint = MihonPalette.sage,
-            onSurfaceVariant = MihonPalette.muted,
             outline = MihonPalette.outline,
+            outlineVariant = MihonPalette.outlineSoft,
             error = MihonPalette.error,
             onError = MihonPalette.graphite,
+            errorContainer = MihonPalette.errorContainer,
+            onErrorContainer = MihonPalette.error,
+            inverseSurface = MihonPalette.ivory,
+            inverseOnSurface = MihonPalette.graphite,
+            inversePrimary = MihonPalette.graphite,
         ),
         typography = base.copy(
             displayLarge = base.displayLarge.copy(fontFamily = FontFamily.Serif),
@@ -78,7 +122,7 @@ internal fun MihonPanel(
 ) {
     Surface(
         modifier = modifier,
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(MihonRadius.panel),
         color = MihonPalette.panel,
         border = BorderStroke(1.dp, MihonPalette.outline),
         content = content,
@@ -91,10 +135,10 @@ internal fun MihonSectionHeader(
     subtitle: String? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
-    BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = 12.dp)) {
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = MihonSpacing.md)) {
         val narrow = maxWidth < 720.dp
         val label: @Composable () -> Unit = {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(MihonSpacing.xxs)) {
                 androidx.compose.material3.Text(title, style = MaterialTheme.typography.headlineSmall)
                 subtitle?.let {
                     androidx.compose.material3.Text(
@@ -106,7 +150,7 @@ internal fun MihonSectionHeader(
             }
         }
         if (narrow) {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(MihonSpacing.md)) {
                 label()
                 trailing?.invoke()
             }
