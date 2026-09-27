@@ -1411,85 +1411,108 @@ fun DesktopShell(
                                 onOpenManga = ::openStoredManga,
                             )
                         }
-                        screen == Screen.SOURCES || screen == Screen.SEARCH -> {
-                            if (screen == Screen.SEARCH) {
-                                if (showLinkTools) {
-                                    MihonPanel(Modifier.fillMaxWidth()) {
-                                        Row(
-                                            Modifier.fillMaxWidth().padding(12.dp),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            OutlinedTextField(
-                                                link,
-                                                { link = it },
-                                                label = { Text("Manga or Mihon link") },
-                                                singleLine = true,
-                                                modifier = Modifier.weight(1f),
-                                            )
-                                            Button(onClick = { openLink(link) }) { Text("Open link") }
-                                            TextButton(onClick = {
-                                                graph.clipboardService.readText()?.let { pasted ->
-                                                    link = pasted
-                                                    openLink(pasted)
-                                                }
-                                            }) { Text("Paste link") }
-                                            TextButton(onClick = { showLinkTools = false }) { Text("Close") }
-                                        }
+                        screen == Screen.SEARCH -> {
+                            SearchScreen(
+                                sources = sources,
+                                selectedSource = source,
+                                query = query,
+                                onQueryChange = { query = it },
+                                results = browseItems,
+                                loading = browseLoading,
+                                error = browseError,
+                                hasNext = browseHasNext,
+                                link = link,
+                                showLinkTools = showLinkTools,
+                                onLinkChange = { link = it },
+                                onToggleLinkTools = { showLinkTools = !showLinkTools },
+                                onOpenLink = { openLink(link) },
+                                onPasteLink = {
+                                    graph.clipboardService.readText()?.let { pasted ->
+                                        link = pasted
+                                        openLink(pasted)
                                     }
-                                } else {
-                                    TextButton(onClick = { showLinkTools = true }) {
-                                        Text("Open a manga or Mihon link…")
+                                },
+                                onSelectSource = { selected -> browse(selected) },
+                                onSearch = { source?.let { browse(it, query) } },
+                                onOpenManga = { manga ->
+                                    source?.let { selected -> loadMangaDetails(selected, manga) }
+                                },
+                                onLoadMore = {
+                                    source?.let { selected ->
+                                        fetchBrowsePage(
+                                            selected,
+                                            browseQuery,
+                                            browsePage + 1,
+                                            browseRequestId,
+                                        )
                                     }
-                                }
-                            }
+                                },
+                            )
+                        }
+                        screen == Screen.SOURCES -> {
                             if (source == null) {
                                 MihonSectionHeader(
-                                    if (screen == Screen.SEARCH) "Search manga" else "Sources",
-                                    "Local source and ${sources.count { it !is DesktopLocalSource }} installed sources",
+                                    "Sources",
+                                    "Local files and installed manga sources",
                                     trailing = {
                                         OutlinedTextField(
                                             sourceSearch,
                                             { sourceSearch = it },
-                                            label = { Text("Find source or language") },
+                                            label = { Text("Search sources…") },
                                             singleLine = true,
                                             modifier = Modifier.width(250.dp),
                                         )
                                     },
                                 )
                                 val visibleSources = sources.filter {
-                                    it.displayName().contains(sourceSearch, ignoreCase = true) ||
+                                    it.name.contains(sourceSearch, ignoreCase = true) ||
                                         it.lang.contains(sourceSearch, ignoreCase = true)
                                 }
                                 if (sources.isEmpty()) {
                                     MihonEmptyState(
                                         "No sources available",
-                                        "Check the Extensions screen or browse your local library.",
+                                        "Install an extension or use the local source.",
                                     )
                                 } else if (visibleSources.isEmpty()) {
                                     MihonEmptyState("No sources found", "Try another name or language.")
                                 } else {
                                     LazyColumn(
                                         modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                        verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
                                     ) {
                                         items(visibleSources, key = Source::id) { available ->
                                             MihonPanel(Modifier.fillMaxWidth().clickable { browse(available) }) {
                                                 Row(
-                                                    Modifier.fillMaxWidth().padding(16.dp),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    Modifier.fillMaxWidth().padding(MihonSpacing.md),
+                                                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
                                                     verticalAlignment = Alignment.CenterVertically,
                                                 ) {
-                                                    Column {
+                                                    Surface(
+                                                        shape = RoundedCornerShape(999.dp),
+                                                        color = MihonPalette.raised,
+                                                        border = BorderStroke(1.dp, MihonPalette.outlineSoft),
+                                                    ) {
+                                                        Box(
+                                                            Modifier.width(42.dp).height(42.dp),
+                                                            contentAlignment = Alignment.Center,
+                                                        ) {
+                                                            Text(
+                                                                available.name.firstOrNull()?.uppercase() ?: "?",
+                                                                color = MihonPalette.sage,
+                                                                style = MaterialTheme.typography.titleMedium,
+                                                            )
+                                                        }
+                                                    }
+                                                    Column(Modifier.weight(1f)) {
                                                         Text(
-                                                            available.displayName(),
+                                                            available.name,
                                                             style = MaterialTheme.typography.titleMedium,
                                                         )
                                                         Text(
                                                             if (available is DesktopLocalSource) {
-                                                                "On this device"
+                                                                "Local · On this device"
                                                             } else {
-                                                                "Installed source · ${available.lang.uppercase()}"
+                                                                "${available.lang.uppercase()} · Installed"
                                                             },
                                                             color = MihonPalette.muted,
                                                             style = MaterialTheme.typography.bodySmall,
@@ -1504,11 +1527,11 @@ fun DesktopShell(
                             } else {
                                 val activeSource = requireNotNull(source)
                                 MihonSectionHeader(
-                                    activeSource.displayName(),
+                                    activeSource.name,
                                     if (activeSource is DesktopLocalSource) {
-                                        "Manga stored on this device"
+                                        "Local · Manga stored on this device"
                                     } else {
-                                        "Installed source · ${activeSource.lang.uppercase()}"
+                                        "${activeSource.lang.uppercase()} · Installed source"
                                     },
                                     trailing = {
                                         TextButton(onClick = {
@@ -1518,63 +1541,67 @@ fun DesktopShell(
                                     },
                                 )
                                 Row(
-                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
                                     verticalAlignment = Alignment.CenterVertically,
                                 ) {
                                     OutlinedTextField(
                                         query,
                                         { query = it },
-                                        label = { Text("Search ${activeSource.displayName()}") },
+                                        label = { Text("Search ${activeSource.name}") },
                                         singleLine = true,
                                         modifier = Modifier.weight(1f),
                                     )
-                                    Button(onClick = { source?.let { browse(it, query) } }) { Text("Search") }
+                                    Button(onClick = { browse(activeSource, query) }) { Text("Search") }
                                 }
-                                if (browseLoading && browseItems.isEmpty()) {
-                                    MihonEmptyState("Loading manga…", activeSource.displayName())
-                                } else if (browseItems.isEmpty() && browseError == null) {
-                                    MihonEmptyState(
-                                        "No manga to show",
-                                        "Search this source or select another installed source.",
-                                    )
-                                } else {
-                                    LazyColumn(
-                                        modifier = Modifier.weight(1f),
-                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                when {
+                                    browseLoading && browseItems.isEmpty() ->
+                                        MihonEmptyState("Loading manga…", activeSource.name)
+                                    browseItems.isEmpty() && browseError == null ->
+                                        MihonEmptyState(
+                                            "No manga to show",
+                                            "Search this source or return to the source list.",
+                                        )
+                                    else -> LazyColumn(
+                                        modifier = Modifier.weight(1f).padding(top = MihonSpacing.md),
+                                        verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
                                     ) {
                                         items(browseItems, key = SManga::url) { item ->
                                             MihonPanel(
                                                 Modifier.fillMaxWidth().clickable {
-                                                    val selectedSource = source
-                                                    if (selectedSource != null) loadMangaDetails(selectedSource, item)
+                                                    loadMangaDetails(activeSource, item)
                                                 },
                                             ) {
                                                 Row(
-                                                    Modifier.fillMaxWidth().padding(10.dp),
-                                                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                                                    Modifier.fillMaxWidth().padding(MihonSpacing.sm),
+                                                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
                                                     verticalAlignment = Alignment.CenterVertically,
                                                 ) {
                                                     DesktopCover(item.thumbnail_url, activeSource)
-                                                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                                                    Column(Modifier.weight(1f)) {
                                                         Text(item.title, style = MaterialTheme.typography.titleMedium)
-                                                        Text(activeSource.displayName(), color = MihonPalette.muted)
                                                         Text(
-                                                            "Open manga details",
-                                                            color = MihonPalette.sage,
-                                                            style = MaterialTheme.typography.labelMedium,
+                                                            "${activeSource.lang.uppercase()} · ${activeSource.name}",
+                                                            color = MihonPalette.muted,
+                                                            style = MaterialTheme.typography.bodySmall,
                                                         )
                                                     }
+                                                    Text("Open", color = MihonPalette.sage)
                                                 }
                                             }
                                         }
                                         if (browseLoading || browseError != null || browseHasNext) {
                                             item {
-                                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Row(
+                                                    Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.Center,
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                ) {
                                                     browseError?.let {
                                                         Text(it, color = MaterialTheme.colorScheme.error)
                                                     }
-                                                    if (browseLoading) Text("Loading…", color = MihonPalette.muted)
-                                                    if (!browseLoading) {
+                                                    if (browseLoading) {
+                                                        Text("Loading…", color = MihonPalette.muted)
+                                                    } else {
                                                         TextButton(onClick = {
                                                             fetchBrowsePage(
                                                                 activeSource,
@@ -1582,7 +1609,9 @@ fun DesktopShell(
                                                                 browsePage + 1,
                                                                 browseRequestId,
                                                             )
-                                                        }) { Text(if (browseError == null) "Load more" else "Retry") }
+                                                        }) {
+                                                            Text(if (browseError == null) "Load more" else "Retry")
+                                                        }
                                                     }
                                                 }
                                             }
