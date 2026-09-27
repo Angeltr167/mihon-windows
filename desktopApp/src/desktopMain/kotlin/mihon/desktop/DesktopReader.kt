@@ -199,7 +199,7 @@ internal fun DesktopReader(
     var showAppearance by remember(target) { mutableStateOf(false) }
     var showShortcuts by remember(target) { mutableStateOf(false) }
     var controlsVisible by remember(target) { mutableStateOf(true) }
-    var lastInteraction by remember(target) { mutableLongStateOf(0L) }
+    var interactionVersion by remember(target) { mutableLongStateOf(0L) }
     var shortcuts by remember(target) {
         val next = ReaderShortcutKey.restore(
             graph.keyValueStore.getString("desktop.reader.shortcut.next", null),
@@ -383,26 +383,26 @@ internal fun DesktopReader(
     }
 
     val rightToLeft = mode == ReadingMode.SINGLE_RTL || mode == ReadingMode.DOUBLE_RTL
-    LaunchedEffect(controlsVisible, lastInteraction, loadState, showAppearance, showShortcuts) {
-        if (controlsVisible && !showAppearance && !showShortcuts && loadState is ReaderPageLoadState.Ready) {
+    LaunchedEffect(controlsVisible, interactionVersion, showAppearance, showShortcuts) {
+        if (controlsVisible && !showAppearance && !showShortcuts) {
             delay(2800)
-            if (System.currentTimeMillis() - lastInteraction >= 2600L) controlsVisible = false
+            controlsVisible = false
         }
     }
     Column(
         Modifier.fillMaxSize()
             .onPointerEvent(PointerEventType.Move) {
                 controlsVisible = true
-                lastInteraction = System.currentTimeMillis()
+                interactionVersion++
             }
             .onPointerEvent(PointerEventType.Press) {
                 controlsVisible = true
-                lastInteraction = System.currentTimeMillis()
+                interactionVersion++
             }
             .onPreviewKeyEvent { event ->
                 if (event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
                 controlsVisible = true
-                lastInteraction = System.currentTimeMillis()
+                interactionVersion++
                 when (shortcuts.action(event.key)) {
                     ReaderShortcuts.Action.NEXT -> {
                         next()
@@ -528,7 +528,7 @@ internal fun DesktopReader(
                         }
                         .onPointerEvent(PointerEventType.Scroll) { event ->
                             controlsVisible = true
-                            lastInteraction = System.currentTimeMillis()
+                            interactionVersion++
                             val delta = event.changes.firstOrNull()?.scrollDelta?.y ?: 0f
                             if (delta > 0) {
                                 next()

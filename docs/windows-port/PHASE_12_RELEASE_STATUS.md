@@ -15,8 +15,8 @@ Local packaging fixtures (2026-09-26; unsigned, not published releases). The lat
 | Version | Artifact | SHA-256 |
 | --- | --- | --- |
 | `1.0.4` | `Mihon.exe` (application executable) | `9b23510b8b26c60f2ee96c96730cb6eb26c9973f5e93f6c4ad47b79fd0dbdd1b` |
-| `1.0.4` | `Mihon-1.0.4.msi` | `e65fc61a810bf9eba25fc00ac6d983439a3d553c9680eb60fd9a8777c5a86a49` |
-| `1.0.4` | `Mihon-1.0.4.exe` (installer) | `74cdc377626b9bba8ce9ddd100c377c40204997b581b6f22d966caf224912405` |
+| `1.0.4` | `Mihon-1.0.4.msi` | `e301df25b6bae6ff89ae16e5364a3f5d3e3d5fd9e733b3f6356739e8555914b9` |
+| `1.0.4` | `Mihon-1.0.4.exe` (installer) | `5e2486da9b52c83561cf388976d4683f0590f5d8eb05654161f56c0a438bf2c9` |
 | `1.0.3` | `Mihon-1.0.3.msi` | `5b364758fb03a84ebd4c6655c2ba629b899016ccc166082dbfbdccf0ed768a51` |
 | `1.0.3` | `Mihon-1.0.3.exe` | `6746c5f2397d3eb56569c8284827109d35ab66faf219061c2247a823b88e3e9b` |
 
