@@ -10,7 +10,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
+  contents: read
 
 jobs:
   validate:
@@ -19,8 +19,6 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
-        with:
-          ref: chatgpt/ui-fidelity-pass
       - name: Set up JDK
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6
         with:
@@ -28,20 +26,6 @@ jobs:
           distribution: temurin
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb
-      - name: Apply formatting
-        run: .\gradlew.bat spotlessApply
-      - name: Commit formatting if needed
-        shell: pwsh
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add desktopApp/src/desktopMain/kotlin/mihon/desktop/DesktopShell.kt
-          if (-not (git diff --cached --quiet)) {
-            git commit -m "style: format manga details redesign [skip ci]"
-            git push origin HEAD:chatgpt/ui-fidelity-pass
-          }
-      - name: Check formatting
-        run: .\gradlew.bat spotlessCheck
       - name: Compile Desktop
         run: .\gradlew.bat :desktopApp:compileKotlinDesktop
       - name: Test Desktop
