@@ -89,6 +89,7 @@ import mihon.core.reader.FitMode
 import mihon.core.reader.ReaderPageLoadState
 import mihon.core.reader.ReadingMode
 import mihon.core.reader.nextPageToPreload
+import mihon.desktop.design.RoninReaderMetrics
 import mihon.platform.desktop.DesktopPlatformGraph
 import tachiyomi.i18n.MR
 import java.nio.file.Files
@@ -575,13 +576,13 @@ internal fun DesktopReader(
                 controlsHovered = controlsHovered,
             )
         ) {
-            delay(2800)
+            delay(RoninReaderMetrics.AUTO_HIDE_DELAY_MILLIS)
             controlsVisible = false
         }
     }
     LaunchedEffect(wheelInteractionVersion) {
         if (wheelInteractionVersion == 0L) return@LaunchedEffect
-        delay(260)
+        delay(RoninReaderMetrics.WHEEL_GESTURE_RESET_MILLIS)
         wheelAccumulator = 0f
         wheelGestureActive = false
     }
