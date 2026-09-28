@@ -125,9 +125,12 @@ internal class LocalSuwayomiEngine(private val directories: AppDirectories) : Au
             return listOf(executable.toString()) + settings.map { "-D$it" } +
                 listOf("-jar", jar.toAbsolutePath().toString())
         }
-        val launcher = Path.of(System.getProperty("java.home")).parent.resolve("Mihon.exe")
-        require(windows && Files.isRegularFile(launcher)) {
-            "Neither Java nor the bundled Mihon launcher is available for the extension engine"
+        val applicationHome = Path.of(System.getProperty("java.home")).parent
+        val launcher = listOf("Ronin.exe", "Mihon.exe")
+            .map(applicationHome::resolve)
+            .firstOrNull(Files::isRegularFile)
+        require(windows && launcher != null) {
+            "Neither Java nor the bundled Ronin launcher is available for the extension engine"
         }
         return listOf(launcher.toString(), SUWAYOMI_CHILD_ARGUMENT, jar.toAbsolutePath().toString()) + settings
     }
