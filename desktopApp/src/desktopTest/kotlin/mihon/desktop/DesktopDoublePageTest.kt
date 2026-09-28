@@ -17,6 +17,54 @@ class DesktopDoublePageTest {
     }
 
     @Test
+    fun `reader controls stay visible while any chrome interaction is active`() {
+        assertTrue(
+            shouldAutoHideReaderControls(
+                showAppearance = false,
+                showShortcuts = false,
+                showMore = false,
+                showModeMenu = false,
+                showFitMenu = false,
+                sliderDragging = false,
+                controlsHovered = false,
+            ),
+        )
+        assertTrue(
+            !shouldAutoHideReaderControls(
+                showAppearance = false,
+                showShortcuts = false,
+                showMore = false,
+                showModeMenu = true,
+                showFitMenu = false,
+                sliderDragging = false,
+                controlsHovered = false,
+            ),
+        )
+        assertTrue(
+            !shouldAutoHideReaderControls(
+                showAppearance = false,
+                showShortcuts = false,
+                showMore = false,
+                showModeMenu = false,
+                showFitMenu = false,
+                sliderDragging = true,
+                controlsHovered = false,
+            ),
+        )
+        assertTrue(
+            !shouldAutoHideReaderControls(
+                showAppearance = false,
+                showShortcuts = false,
+                showMore = false,
+                showModeMenu = false,
+                showFitMenu = false,
+                sliderDragging = false,
+                controlsHovered = true,
+            ),
+        )
+    }
+
+    @Test
     fun `touchpad deltas must accumulate and a high resolution event turns one page`() {
         var accumulated = 0f
         var result = accumulateReaderWheelDelta(accumulated, 0.3f)
