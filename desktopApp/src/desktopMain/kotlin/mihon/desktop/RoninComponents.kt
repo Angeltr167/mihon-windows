@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -398,49 +399,68 @@ internal fun RoninChapterRow(
         shape = RoundedCornerShape(RoninRadius.control),
         color = if (hovered) RoninColors.hoverSurface else Color.Transparent,
     ) {
-        Row(
-            Modifier.fillMaxWidth()
-                .height(RoninLayout.chapterRowMinHeight)
-                .padding(horizontal = RoninSpacing.medium, vertical = RoninSpacing.small),
-            horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Column(
-                Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-            ) {
-                Text(
-                    title,
-                    color = if (read == true) RoninColors.textMuted else RoninColors.textPrimary,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+        BoxWithConstraints(Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 760.dp && trailing != null
+            val copy: @Composable (Modifier) -> Unit = { copyModifier ->
+                Column(
+                    copyModifier,
                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                 ) {
-                    subtitle?.let {
-                        Text(
-                            it,
-                            color = RoninColors.textMuted,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                        )
-                    }
-                    read?.let {
-                        RoninBadge(
-                            label = if (it) "Read" else "Unread",
-                            accent = !it,
-                        )
-                    }
-                    if (bookmarked) {
-                        RoninBadge(label = "Bookmarked", accent = true)
+                    Text(
+                        title,
+                        color = if (read == true) RoninColors.textMuted else RoninColors.textPrimary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+                    ) {
+                        subtitle?.let {
+                            Text(
+                                it,
+                                color = RoninColors.textMuted,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        read?.let {
+                            RoninBadge(
+                                label = if (it) "Read" else "Unread",
+                                accent = !it,
+                            )
+                        }
+                        if (bookmarked) {
+                            RoninBadge(label = "Bookmarked", accent = true)
+                        }
                     }
                 }
             }
-            trailing?.invoke()
+
+            if (compact) {
+                Column(
+                    Modifier.fillMaxWidth()
+                        .heightIn(min = RoninLayout.chapterRowMinHeight)
+                        .padding(horizontal = RoninSpacing.medium, vertical = RoninSpacing.small),
+                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                ) {
+                    copy(Modifier.fillMaxWidth())
+                    trailing?.invoke()
+                }
+            } else {
+                Row(
+                    Modifier.fillMaxWidth()
+                        .heightIn(min = RoninLayout.chapterRowMinHeight)
+                        .padding(horizontal = RoninSpacing.medium, vertical = RoninSpacing.small),
+                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    copy(Modifier.weight(1f))
+                    trailing?.invoke()
+                }
+            }
         }
     }
 }
