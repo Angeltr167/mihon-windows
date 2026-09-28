@@ -42,7 +42,9 @@ internal fun RoninMangaDetailsHero(
     detailsLoading: Boolean,
     detailsError: String?,
     canRead: Boolean,
+    canToggleLibrary: Boolean,
     canManageTracking: Boolean,
+    trackingExpanded: Boolean,
     onBack: () -> Unit,
     onRead: () -> Unit,
     onToggleLibrary: () -> Unit,
@@ -159,6 +161,7 @@ internal fun RoninMangaDetailsHero(
                                     RoninSecondaryButton(
                                         label = if (inLibrary) "Remove from Library" else "Add to Library",
                                         onClick = onToggleLibrary,
+                                        enabled = canToggleLibrary,
                                     )
                                     if (onOpenBrowser != null) {
                                         RoninTextButton(label = "Open in browser", onClick = onOpenBrowser)
@@ -263,7 +266,7 @@ internal fun RoninMangaDetailsHero(
                                 },
                             )
                             RoninSecondaryButton(
-                                label = "Manage tracking",
+                                label = if (trackingExpanded) "Close tracking" else "Manage tracking",
                                 onClick = onToggleTracking,
                                 enabled = canManageTracking,
                                 modifier = Modifier.fillMaxWidth(),
