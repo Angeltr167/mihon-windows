@@ -93,18 +93,18 @@ internal fun CategoriesScreen(
         RoninPanel(Modifier.fillMaxWidth().padding(bottom = RoninSpacing.medium)) {
             BoxWithConstraints(Modifier.fillMaxWidth().padding(RoninSpacing.medium)) {
                 val narrow = maxWidth < 760.dp
-                val searchField: @Composable () -> Unit = {
+                val searchField: @Composable (Modifier) -> Unit = { modifier ->
                     RoninSearchField(
                         value = search,
                         onValueChange = onSearchChange,
                         placeholder = "Find category",
-                        modifier = if (narrow) Modifier.fillMaxWidth() else Modifier.weight(1f),
+                        modifier = modifier,
                         enabled = !loading,
                     )
                 }
-                val createField: @Composable () -> Unit = {
+                val createField: @Composable (Modifier) -> Unit = { modifier ->
                     Row(
-                        modifier = if (narrow) Modifier.fillMaxWidth() else Modifier.weight(1f),
+                        modifier = modifier,
                         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
@@ -125,16 +125,16 @@ internal fun CategoriesScreen(
 
                 if (narrow) {
                     Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
-                        searchField()
-                        createField()
+                        searchField(Modifier.fillMaxWidth())
+                        createField(Modifier.fillMaxWidth())
                     }
                 } else {
                     Row(
                         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        searchField()
-                        createField()
+                        searchField(Modifier.weight(1f))
+                        createField(Modifier.weight(1f))
                     }
                 }
             }
