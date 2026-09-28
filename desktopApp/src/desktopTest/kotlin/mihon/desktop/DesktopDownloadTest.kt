@@ -130,6 +130,28 @@ class DesktopDownloadTest {
     }
 
     @Test
+    fun `clear finished removes queue entries but keeps downloaded chapter`() = runBlocking {
+        val store = DesktopDownloadStore(Files.createTempDirectory("mihon-download-clear-finished"))
+        val source = source("http://127.0.0.1")
+        val manga = manga()
+        val chapter = chapter()
+        val item = DesktopDownload(source.id, manga.url, manga.title, chapter.url, chapter.name)
+        val stage = store.stageDirectory(item.key)
+        Files.createDirectories(stage)
+        Files.write(stage.resolve("page-00000.png"), PNG)
+        store.commit(item.key, 1)
+        store.saveQueue(listOf(item.copy(status = DesktopDownloadStatus.COMPLETED, pagesDone = 1, pageCount = 1)))
+
+        DesktopDownloadScheduler(store, DesktopChapterTransfer { _, _, _, _, _ -> }, { source }).use { scheduler ->
+            assertEquals(DesktopDownloadStatus.COMPLETED, scheduler.queue.value.single().status)
+            scheduler.clearFinished()
+            assertTrue(scheduler.queue.value.isEmpty())
+            assertTrue(store.loadQueue().isEmpty())
+            assertNotNull(store.completedPages(source.id, manga.url, chapter.url))
+        }
+    }
+
+    @Test
     fun `cancel interrupts active transfer without committing a chapter`() = runBlocking {
         val store = DesktopDownloadStore(Files.createTempDirectory("mihon-download-cancel"))
         val source = source("http://127.0.0.1")
