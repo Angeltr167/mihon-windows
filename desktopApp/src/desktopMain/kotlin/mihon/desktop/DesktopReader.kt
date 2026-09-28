@@ -133,6 +133,28 @@ internal fun previousReaderPageIndex(mode: ReadingMode, pageIndex: Int, pageCoun
     return normalizeReaderPageIndex(mode, (pageIndex - step).coerceAtLeast(0), pageCount)
 }
 
+internal data class ReaderBoundaryState(
+    val canPrevious: Boolean,
+    val canNext: Boolean,
+)
+
+internal fun readerBoundaryState(
+    mode: ReadingMode,
+    pageIndex: Int,
+    pageCount: Int,
+    chapterIndex: Int,
+    chapterCount: Int,
+): ReaderBoundaryState {
+    require(chapterCount > 0)
+    require(chapterIndex in 0 until chapterCount)
+    if (pageCount == 0) return ReaderBoundaryState(canPrevious = false, canNext = false)
+    require(pageIndex in 0 until pageCount)
+    return ReaderBoundaryState(
+        canPrevious = previousReaderPageIndex(mode, pageIndex, pageCount) != null || chapterIndex > 0,
+        canNext = nextReaderPageIndex(mode, pageIndex, pageCount) != null || chapterIndex < chapterCount - 1,
+    )
+}
+
 internal data class ReaderSpreadGeometry(val height: Float, val widths: List<Float>)
 
 internal data class ReaderWheelResult(val remainder: Float, val direction: Int?)
@@ -548,6 +570,13 @@ internal fun DesktopReader(
     }
 
     val rightToLeft = mode == ReadingMode.SINGLE_RTL || mode == ReadingMode.DOUBLE_RTL
+    val boundaryState = readerBoundaryState(
+        mode = mode,
+        pageIndex = pageIndex.coerceAtLeast(0),
+        pageCount = pages.size,
+        chapterIndex = chapterIndex,
+        chapterCount = chapters.size,
+    )
     val bookmarkLabel = stringResource(
         if (chapterBookmarked) MR.strings.action_remove_bookmark else MR.strings.action_bookmark,
     )
@@ -1006,12 +1035,12 @@ internal fun DesktopReader(
                             RoninSecondaryButton(
                                 label = if (compactControls) "‹" else "‹ Page",
                                 onClick = ::previous,
-                                enabled = pages.isNotEmpty(),
+                                enabled = boundaryState.canPrevious,
                             )
                             RoninSecondaryButton(
                                 label = if (compactControls) "›" else "Page ›",
                                 onClick = ::next,
-                                enabled = pages.isNotEmpty(),
+                                enabled = boundaryState.canNext,
                             )
                             RoninTextButton(
                                 label = if (compactControls) "Ch. ›" else "Chapter ›",
