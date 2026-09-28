@@ -1542,6 +1542,7 @@ fun DesktopShell(
                                 sources = sources,
                                 selectedSource = source,
                                 query = query,
+                                activeQuery = browseQuery,
                                 onQueryChange = { query = it },
                                 results = browseItems,
                                 loading = browseLoading,
@@ -1576,250 +1577,61 @@ fun DesktopShell(
                             )
                         }
                         screen == Screen.SOURCES -> {
-                            if (source == null) {
-                                MihonSectionHeader(
-                                    "Sources",
-                                    "Choose an installed source and language to browse",
-                                    trailing = {
-                                        OutlinedTextField(
-                                            sourceSearch,
-                                            { sourceSearch = it },
-                                            label = { Text("Search sources…") },
-                                            singleLine = true,
-                                            modifier = Modifier.width(280.dp),
+                            SourcesScreen(
+                                sources = sources,
+                                sourceSearch = sourceSearch,
+                                onSourceSearchChange = { sourceSearch = it },
+                                selectedSource = source,
+                                query = query,
+                                activeQuery = browseQuery,
+                                onQueryChange = { query = it },
+                                results = browseItems,
+                                loading = browseLoading,
+                                error = browseError,
+                                hasNext = browseHasNext,
+                                onSelectSource = { selected ->
+                                    query = ""
+                                    browse(selected)
+                                },
+                                onClearSource = {
+                                    browseJob?.cancel()
+                                    browseRequestId++
+                                    source = null
+                                    query = ""
+                                    browseQuery = ""
+                                    browseItems = emptyList()
+                                    browsePage = 0
+                                    browseHasNext = false
+                                    browseLoading = false
+                                    browseError = null
+                                },
+                                onBrowsePopular = {
+                                    source?.let { selected ->
+                                        query = ""
+                                        browse(selected)
+                                    }
+                                },
+                                onSearch = {
+                                    source?.let { selected ->
+                                        browse(selected, query)
+                                    }
+                                },
+                                onOpenManga = { manga ->
+                                    source?.let { selected ->
+                                        loadMangaDetails(selected, manga)
+                                    }
+                                },
+                                onLoadMore = {
+                                    source?.let { selected ->
+                                        fetchBrowsePage(
+                                            selected,
+                                            browseQuery,
+                                            browsePage + 1,
+                                            browseRequestId,
                                         )
-                                    },
-                                )
-                                val visibleSources = sources.filter {
-                                    it.name.contains(sourceSearch, ignoreCase = true) ||
-                                        it.lang.contains(sourceSearch, ignoreCase = true)
-                                }
-                                val groupedSources = visibleSources
-                                    .groupBy { available ->
-                                        if (available is DesktopLocalSource) {
-                                            "local:${available.id}"
-                                        } else {
-                                            available.name.lowercase()
-                                        }
                                     }
-                                    .values
-                                    .toList()
-                                when {
-                                    sources.isEmpty() -> MihonEmptyState(
-                                        "No sources available",
-                                        "Install an extension or use the local source.",
-                                    )
-                                    visibleSources.isEmpty() -> MihonEmptyState(
-                                        "No sources found",
-                                        "Try another source name or language.",
-                                    )
-                                    else -> Box(
-                                        modifier = Modifier.weight(1f).fillMaxWidth(),
-                                        contentAlignment = Alignment.TopCenter,
-                                    ) {
-                                        LazyColumn(
-                                            modifier = Modifier.fillMaxHeight().widthIn(max = 1180.dp),
-                                            verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
-                                        ) {
-                                            items(
-                                                groupedSources,
-                                                key = { variants ->
-                                                    variants.joinToString("|") { it.id.toString() }
-                                                },
-                                            ) { variants ->
-                                                val primary = variants.first()
-                                                Surface(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    shape = RoundedCornerShape(MihonRadius.card),
-                                                    color = MihonPalette.panel,
-                                                    border = BorderStroke(1.dp, MihonPalette.outlineSoft),
-                                                ) {
-                                                    Row(
-                                                        Modifier.fillMaxWidth().padding(
-                                                            horizontal = MihonSpacing.md,
-                                                            vertical = MihonSpacing.sm,
-                                                        ),
-                                                        horizontalArrangement =
-                                                        Arrangement.spacedBy(MihonSpacing.md),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                    ) {
-                                                        Surface(
-                                                            shape = RoundedCornerShape(999.dp),
-                                                            color = MihonPalette.raised,
-                                                            border = BorderStroke(
-                                                                1.dp,
-                                                                MihonPalette.outlineSoft,
-                                                            ),
-                                                        ) {
-                                                            Box(
-                                                                Modifier.width(38.dp).height(38.dp),
-                                                                contentAlignment = Alignment.Center,
-                                                            ) {
-                                                                Text(
-                                                                    primary.name.firstOrNull()?.uppercase() ?: "?",
-                                                                    color = MihonPalette.sage,
-                                                                    style = MaterialTheme.typography.titleMedium,
-                                                                )
-                                                            }
-                                                        }
-                                                        Column(
-                                                            Modifier.weight(1f),
-                                                            verticalArrangement =
-                                                            Arrangement.spacedBy(MihonSpacing.xs),
-                                                        ) {
-                                                            Text(
-                                                                primary.name,
-                                                                style = MaterialTheme.typography.titleMedium,
-                                                            )
-                                                            Text(
-                                                                when {
-                                                                    primary is DesktopLocalSource ->
-                                                                        "Local files · On this device"
-                                                                    variants.size == 1 ->
-                                                                        "${primary.lang.uppercase()} · Installed"
-                                                                    else ->
-                                                                        "${variants.size} language variants installed"
-                                                                },
-                                                                color = MihonPalette.muted,
-                                                                style = MaterialTheme.typography.bodySmall,
-                                                            )
-                                                            if (
-                                                                variants.size > 1 &&
-                                                                primary !is DesktopLocalSource
-                                                            ) {
-                                                                FlowRow(
-                                                                    horizontalArrangement =
-                                                                    Arrangement.spacedBy(MihonSpacing.xs),
-                                                                    verticalArrangement =
-                                                                    Arrangement.spacedBy(MihonSpacing.xs),
-                                                                ) {
-                                                                    variants
-                                                                        .sortedBy { it.lang }
-                                                                        .forEach { variant ->
-                                                                            MihonCompactChip(
-                                                                                label =
-                                                                                variant.lang.uppercase(),
-                                                                                onClick = {
-                                                                                    browse(variant)
-                                                                                },
-                                                                            )
-                                                                        }
-                                                                }
-                                                            }
-                                                        }
-                                                        if (
-                                                            variants.size == 1 ||
-                                                            primary is DesktopLocalSource
-                                                        ) {
-                                                            TextButton(onClick = { browse(primary) }) {
-                                                                Text("Browse →")
-                                                            }
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            } else {
-                                val activeSource = requireNotNull(source)
-                                MihonSectionHeader(
-                                    activeSource.name,
-                                    if (activeSource is DesktopLocalSource) {
-                                        "Local · Manga stored on this device"
-                                    } else {
-                                        "${activeSource.lang.uppercase()} · Installed source"
-                                    },
-                                    trailing = {
-                                        TextButton(onClick = {
-                                            source = null
-                                            browseItems = emptyList()
-                                        }) { Text("← All sources") }
-                                    },
-                                )
-                                Box(
-                                    modifier = Modifier.fillMaxWidth(),
-                                    contentAlignment = Alignment.Center,
-                                ) {
-                                    Row(
-                                        modifier = Modifier.fillMaxWidth().widthIn(max = 1180.dp),
-                                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
-                                        verticalAlignment = Alignment.CenterVertically,
-                                    ) {
-                                        OutlinedTextField(
-                                            query,
-                                            { query = it },
-                                            label = { Text("Search ${activeSource.name}") },
-                                            singleLine = true,
-                                            modifier = Modifier.weight(1f),
-                                        )
-                                        Button(onClick = { browse(activeSource, query) }) {
-                                            Text("Search")
-                                        }
-                                    }
-                                }
-                                when {
-                                    browseLoading && browseItems.isEmpty() ->
-                                        MihonEmptyState("Loading manga…", activeSource.name)
-                                    browseItems.isEmpty() && browseError == null ->
-                                        MihonEmptyState(
-                                            "No manga to show",
-                                            "Search this source or return to the source list.",
-                                        )
-                                    else -> LazyVerticalGrid(
-                                        columns = GridCells.Adaptive(390.dp),
-                                        modifier = Modifier.weight(1f).padding(top = MihonSpacing.md),
-                                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
-                                        verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
-                                    ) {
-                                        gridItems(browseItems, key = SManga::url) { item ->
-                                            MihonMangaResultCard(
-                                                manga = item,
-                                                source = activeSource,
-                                                onClick = {
-                                                    loadMangaDetails(activeSource, item)
-                                                },
-                                            )
-                                        }
-                                        if (browseLoading || browseError != null || browseHasNext) {
-                                            item(span = { GridItemSpan(maxLineSpan) }) {
-                                                Row(
-                                                    Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.Center,
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                ) {
-                                                    browseError?.let {
-                                                        Text(
-                                                            it,
-                                                            color = MaterialTheme.colorScheme.error,
-                                                        )
-                                                    }
-                                                    if (browseLoading) {
-                                                        Text("Loading…", color = MihonPalette.muted)
-                                                    } else {
-                                                        TextButton(onClick = {
-                                                            fetchBrowsePage(
-                                                                activeSource,
-                                                                browseQuery,
-                                                                browsePage + 1,
-                                                                browseRequestId,
-                                                            )
-                                                        }) {
-                                                            Text(
-                                                                if (browseError == null) {
-                                                                    "Load more"
-                                                                } else {
-                                                                    "Retry"
-                                                                },
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
+                                },
+                            )
                         }
                         screen == Screen.EXTENSIONS -> {
                             Column(Modifier.fillMaxSize()) {
