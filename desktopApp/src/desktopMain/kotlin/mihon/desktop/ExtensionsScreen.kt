@@ -9,9 +9,11 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -112,53 +114,131 @@ internal fun ExtensionsScreen(
             )
         }
 
-        when (selectedSection.coerceIn(0, 3)) {
-            0 -> InstalledExtensions(
-                suwayomi = installedSuwayomi,
-                desktop = installedDesktopExtensions,
-                busyPackage = busyPackage,
-                busyLabel = busyLabel,
-                onAction = onSuwayomiAction,
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val section = selectedSection.coerceIn(0, 3)
+            val showOperationsPanel = maxWidth >= 1180.dp
+            val sectionContent: @Composable (Modifier) -> Unit = { modifier ->
+                Box(modifier) {
+                    when (section) {
+                        0 -> InstalledExtensions(
+                            suwayomi = installedSuwayomi,
+                            desktop = installedDesktopExtensions,
+                            busyPackage = busyPackage,
+                            busyLabel = busyLabel,
+                            onAction = onSuwayomiAction,
+                        )
+                        1 -> DiscoverExtensions(
+                            extensions = suwayomiExtensions,
+                            search = search,
+                            onSearchChange = onSearchChange,
+                            status = status,
+                            engineRunning = engineRunning,
+                            loading = loading,
+                            busyPackage = busyPackage,
+                            busyLabel = busyLabel,
+                            onRefresh = onRefreshCatalog,
+                            onAction = onSuwayomiAction,
+                        )
+                        2 -> ExtensionUpdates(
+                            suwayomi = suwayomiUpdates,
+                            desktop = desktopUpdates,
+                            installedDesktopById = installedDesktopById,
+                            busyPackage = busyPackage,
+                            busyLabel = busyLabel,
+                            repositoryLoaded = availableDesktopExtensions.isNotEmpty(),
+                            onSuwayomiAction = onSuwayomiAction,
+                            onInstallDesktop = onInstallRepositoryEntry,
+                        )
+                        else -> RepositoryManagement(
+                            repositoryUrl = repositoryUrl,
+                            onRepositoryUrlChange = onRepositoryUrlChange,
+                            available = availableDesktopExtensions,
+                            installedDesktopById = installedDesktopById,
+                            loading = loading,
+                            busyPackage = busyPackage,
+                            busyLabel = busyLabel,
+                            packagePath = packagePath,
+                            onPackagePathChange = onPackagePathChange,
+                            fingerprint = fingerprint,
+                            onFingerprintChange = onFingerprintChange,
+                            onDiscover = onDiscoverRepository,
+                            onInstallEntry = onInstallRepositoryEntry,
+                            onTrustFingerprint = onTrustFingerprint,
+                            onChoosePackage = onChoosePackage,
+                            onInstallPackage = onInstallPackage,
+                        )
+                    }
+                }
+            }
+
+            if (showOperationsPanel && section != 3) {
+                Row(
+                    Modifier.fillMaxSize(),
+                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.large),
+                ) {
+                    sectionContent(Modifier.weight(1f).fillMaxHeight())
+                    ExtensionOperationsPanel(
+                        status = status,
+                        engineRunning = engineRunning,
+                        installedCount = installedSuwayomi.size + installedDesktopExtensions.size,
+                        updateCount = suwayomiUpdates.size + desktopUpdates.size,
+                        repositoryCount = availableDesktopExtensions.size,
+                        busyLabel = busyLabel,
+                        onOpenRepository = { onSelectSection(3) },
+                        modifier = Modifier.width(292.dp).fillMaxHeight(),
+                    )
+                }
+            } else {
+                sectionContent(Modifier.fillMaxSize())
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExtensionOperationsPanel(
+    status: String,
+    engineRunning: Boolean,
+    installedCount: Int,
+    updateCount: Int,
+    repositoryCount: Int,
+    busyLabel: String?,
+    onOpenRepository: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    RoninPanel(modifier) {
+        Column(
+            Modifier.fillMaxSize().padding(RoninSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
+                Text("Extension operations", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "Live state from Ronin's configured extension engines.",
+                    color = RoninColors.textMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
+            RoninBadge(
+                label = if (engineRunning) "Engine ready" else "Engine offline",
+                accent = engineRunning,
             )
-            1 -> DiscoverExtensions(
-                extensions = suwayomiExtensions,
-                search = search,
-                onSearchChange = onSearchChange,
-                status = status,
-                engineRunning = engineRunning,
-                loading = loading,
-                busyPackage = busyPackage,
-                busyLabel = busyLabel,
-                onRefresh = onRefreshCatalog,
-                onAction = onSuwayomiAction,
+            Text(
+                status,
+                color = if (engineRunning) RoninColors.accentSage else RoninColors.error,
+                style = MaterialTheme.typography.bodySmall,
             )
-            2 -> ExtensionUpdates(
-                suwayomi = suwayomiUpdates,
-                desktop = desktopUpdates,
-                installedDesktopById = installedDesktopById,
-                busyPackage = busyPackage,
-                busyLabel = busyLabel,
-                repositoryLoaded = availableDesktopExtensions.isNotEmpty(),
-                onSuwayomiAction = onSuwayomiAction,
-                onInstallDesktop = onInstallRepositoryEntry,
-            )
-            else -> RepositoryManagement(
-                repositoryUrl = repositoryUrl,
-                onRepositoryUrlChange = onRepositoryUrlChange,
-                available = availableDesktopExtensions,
-                installedDesktopById = installedDesktopById,
-                loading = loading,
-                busyPackage = busyPackage,
-                busyLabel = busyLabel,
-                packagePath = packagePath,
-                onPackagePathChange = onPackagePathChange,
-                fingerprint = fingerprint,
-                onFingerprintChange = onFingerprintChange,
-                onDiscover = onDiscoverRepository,
-                onInstallEntry = onInstallRepositoryEntry,
-                onTrustFingerprint = onTrustFingerprint,
-                onChoosePackage = onChoosePackage,
-                onInstallPackage = onInstallPackage,
+            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
+                DirectoryLabel("Installed", installedCount.toString())
+                DirectoryLabel("Updates", updateCount.toString())
+                DirectoryLabel("Repository entries", repositoryCount.toString())
+            }
+            if (busyLabel != null) {
+                RoninBadge(busyLabel, accent = true)
+            }
+            RoninSecondaryButton(
+                label = "Repository & local trust",
+                onClick = onOpenRepository,
             )
         }
     }
