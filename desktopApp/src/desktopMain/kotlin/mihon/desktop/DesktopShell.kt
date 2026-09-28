@@ -647,6 +647,7 @@ fun DesktopShell(
                                 it.sourceId == selectedSource?.id && it.mangaUrl == item.url
                             }
                             val storedManga = snapshot?.stored
+                            val persistedChapterStates = snapshot?.chapterStates.orEmpty()
                             LazyColumn(
                                 modifier = Modifier.weight(1f).fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -1268,12 +1269,29 @@ fun DesktopShell(
                                     }
                                 }
                                 item {
+                                    val persisted = persistedChapterStates.values
+                                    val unreadCount = persisted.count { !it.read }
+                                    val bookmarkedCount = persisted.count { it.bookmark }
                                     Box(
                                         modifier = Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                     ) {
-                                        MihonSectionHeader(
-                                            "Chapters",
-                                            "${chapters.size} chapters available",
+                                        RoninSectionHeader(
+                                            title = "Chapters",
+                                            subtitle = if (storedManga != null && persisted.isNotEmpty()) {
+                                                buildString {
+                                                    append(chapters.size)
+                                                    append(" chapters · ")
+                                                    append(unreadCount)
+                                                    append(" unread")
+                                                    if (bookmarkedCount > 0) {
+                                                        append(" · ")
+                                                        append(bookmarkedCount)
+                                                        append(" bookmarked")
+                                                    }
+                                                }
+                                            } else {
+                                                "${chapters.size} chapters available"
+                                            },
                                         )
                                     }
                                 }
@@ -1282,28 +1300,31 @@ fun DesktopShell(
                                         Box(
                                             modifier = Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                         ) {
-                                            Column {
-                                                MihonEmptyState(
-                                                    when {
-                                                        detailsLoading -> "Loading chapters…"
-                                                        detailsError != null -> "Could not load chapters"
-                                                        else -> "No chapters available"
-                                                    },
-                                                    detailsError ?: if (detailsLoading) {
-                                                        null
-                                                    } else {
-                                                        "Try refreshing details from the source."
-                                                    },
+                                            when {
+                                                detailsLoading -> RoninLoadingState(
+                                                    title = "Loading chapters",
+                                                    detail = "Fetching the latest chapter list from the source.",
                                                 )
-                                                if (detailsError != null && selectedSource != null) {
-                                                    Button(
-                                                        onClick = {
-                                                            loadMangaDetails(selectedSource, item)
-                                                        },
-                                                    ) {
-                                                        Text("Retry")
+                                                detailsError != null -> Column(
+                                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                ) {
+                                                    RoninErrorState(
+                                                        title = "Could not load chapters",
+                                                        detail = detailsError,
+                                                    )
+                                                    if (selectedSource != null) {
+                                                        RoninSecondaryButton(
+                                                            label = "Retry",
+                                                            onClick = {
+                                                                loadMangaDetails(selectedSource, item)
+                                                            },
+                                                        )
                                                     }
                                                 }
+                                                else -> RoninEmptyState(
+                                                    title = "No chapters available",
+                                                    detail = "This source did not return any chapters for this manga.",
+                                                )
                                             }
                                         }
                                     }
@@ -1314,131 +1335,162 @@ fun DesktopShell(
                                             it.mangaUrl == item.url &&
                                             it.chapterUrl == chapter.url
                                     }
+                                    val storedChapter = persistedChapterStates[chapter.url]
+                                    val subtitle = buildList {
+                                        chapter.scanlator
+                                            ?.takeIf(String::isNotBlank)
+                                            ?.let(::add)
+                                        if (
+                                            storedChapter != null &&
+                                            !storedChapter.read &&
+                                            storedChapter.last_page_read > 0
+                                        ) {
+                                            add("Page ${storedChapter.last_page_read + 1}")
+                                        }
+                                    }.joinToString(" · ").ifBlank { null }
                                     Column(
                                         modifier = Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                     ) {
-                                        Row(
-                                            Modifier.fillMaxWidth()
-                                                .padding(horizontal = MihonSpacing.xs),
-                                            horizontalArrangement =
-                                            Arrangement.spacedBy(MihonSpacing.md),
-                                            verticalAlignment = Alignment.CenterVertically,
-                                        ) {
-                                            Column(
-                                                modifier = Modifier.weight(1f)
-                                                    .clickable {
-                                                        if (selectedSource != null) {
-                                                            readerTarget = ReaderTarget(
-                                                                selectedSource,
-                                                                item,
-                                                                chapters,
-                                                                chapter.url,
-                                                            )
-                                                        }
-                                                    }
-                                                    .padding(
-                                                        horizontal = MihonSpacing.sm,
-                                                        vertical = MihonSpacing.md,
-                                                    ),
-                                                verticalArrangement =
-                                                Arrangement.spacedBy(MihonSpacing.xs),
-                                            ) {
-                                                Text(
-                                                    chapter.name,
-                                                    style = MaterialTheme.typography.bodyLarge,
-                                                )
-                                                chapter.scanlator
-                                                    ?.takeIf(String::isNotBlank)
-                                                    ?.let { scanlator ->
-                                                        Text(
-                                                            scanlator,
-                                                            color = MihonPalette.muted,
-                                                            style =
-                                                            MaterialTheme.typography.bodySmall,
-                                                        )
-                                                    }
-                                            }
-                                            if (
-                                                selectedSource != null &&
-                                                selectedSource !is DesktopLocalSource
-                                            ) {
-                                                when (queued?.status) {
-                                                    DesktopDownloadStatus.COMPLETED ->
-                                                        MihonCompactChip(
-                                                            "Downloaded",
-                                                            accent = true,
-                                                        )
-                                                    DesktopDownloadStatus.RUNNING ->
-                                                        MihonCompactChip(
-                                                            "${queued.pagesDone}/${queued.pageCount}",
-                                                            accent = true,
-                                                        )
-                                                    DesktopDownloadStatus.PENDING ->
-                                                        MihonCompactChip("Queued")
-                                                    DesktopDownloadStatus.PAUSED,
-                                                    DesktopDownloadStatus.FAILED,
-                                                    null,
-                                                    -> TextButton(
-                                                        onClick = {
-                                                            when (queued?.status) {
-                                                                DesktopDownloadStatus.PAUSED,
-                                                                DesktopDownloadStatus.FAILED,
-                                                                ->
-                                                                    session.downloads.resume(queued.key)
-                                                                null -> session.downloads.enqueue(
-                                                                    selectedSource,
-                                                                    item,
-                                                                    chapter,
+                                        RoninChapterRow(
+                                            title = chapter.name,
+                                            subtitle = subtitle,
+                                            read = if (storedManga != null) {
+                                                storedChapter?.read ?: false
+                                            } else {
+                                                null
+                                            },
+                                            bookmarked = storedChapter?.bookmark == true,
+                                            onClick = {
+                                                if (selectedSource != null) {
+                                                    readerTarget = ReaderTarget(
+                                                        selectedSource,
+                                                        item,
+                                                        chapters,
+                                                        chapter.url,
+                                                    )
+                                                }
+                                            },
+                                            trailing = {
+                                                FlowRow(
+                                                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                                ) {
+                                                    if (storedChapter != null) {
+                                                        RoninTextButton(
+                                                            label = if (storedChapter.bookmark) {
+                                                                "Unbookmark"
+                                                            } else {
+                                                                "Bookmark"
+                                                            },
+                                                            onClick = {
+                                                                session.library.setChapterBookmark(
+                                                                    storedChapter._id,
+                                                                    !storedChapter.bookmark,
                                                                 )
-                                                                else -> Unit
-                                                            }
-                                                        },
-                                                    ) {
-                                                        Text(
-                                                            when (queued?.status) {
-                                                                DesktopDownloadStatus.PAUSED ->
-                                                                    "Resume"
-                                                                DesktopDownloadStatus.FAILED ->
-                                                                    "Retry"
-                                                                else -> "Download"
+                                                                detailRevision++
+                                                                message = if (storedChapter.bookmark) {
+                                                                    "Bookmark removed"
+                                                                } else {
+                                                                    "Chapter bookmarked"
+                                                                }
                                                             },
                                                         )
                                                     }
+                                                    if (
+                                                        selectedSource != null &&
+                                                        selectedSource !is DesktopLocalSource
+                                                    ) {
+                                                        when (queued?.status) {
+                                                            DesktopDownloadStatus.COMPLETED -> RoninBadge(
+                                                                label = "Downloaded",
+                                                                accent = true,
+                                                            )
+                                                            DesktopDownloadStatus.RUNNING -> RoninBadge(
+                                                                label = "${queued.pagesDone}/${queued.pageCount}",
+                                                                accent = true,
+                                                            )
+                                                            DesktopDownloadStatus.PENDING -> RoninBadge(
+                                                                label = "Queued",
+                                                            )
+                                                            DesktopDownloadStatus.PAUSED,
+                                                            DesktopDownloadStatus.FAILED,
+                                                            null,
+                                                            -> RoninTextButton(
+                                                                label = when (queued?.status) {
+                                                                    DesktopDownloadStatus.PAUSED -> "Resume"
+                                                                    DesktopDownloadStatus.FAILED -> "Retry"
+                                                                    else -> "Download"
+                                                                },
+                                                                onClick = {
+                                                                    when (queued?.status) {
+                                                                        DesktopDownloadStatus.PAUSED,
+                                                                        DesktopDownloadStatus.FAILED,
+                                                                        -> session.downloads.resume(queued.key)
+                                                                        null -> session.downloads.enqueue(
+                                                                            selectedSource,
+                                                                            item,
+                                                                            chapter,
+                                                                        )
+                                                                        else -> Unit
+                                                                    }
+                                                                },
+                                                            )
+                                                        }
+                                                    }
                                                 }
-                                            }
-                                        }
-                                        HorizontalDivider(color = MihonPalette.outlineSoft)
+                                            },
+                                        )
+                                        HorizontalDivider(color = mihon.desktop.design.RoninColors.borderSubtle)
                                     }
                                 }
                                 if (storedManga?.favorite == true) {
                                     item {
-                                        MihonPanel(
+                                        RoninPanel(
                                             Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                         ) {
                                             Column(
-                                                Modifier.fillMaxWidth().padding(MihonSpacing.md),
-                                                verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+                                                Modifier.fillMaxWidth().padding(24.dp),
+                                                verticalArrangement = Arrangement.spacedBy(16.dp),
                                             ) {
-                                                Text("Categories", style = MaterialTheme.typography.titleMedium)
-                                                categories.forEach { category ->
-                                                    Row(verticalAlignment = Alignment.CenterVertically) {
-                                                        Checkbox(
-                                                            checked = category.id in selectedMangaCategories,
-                                                            onCheckedChange = { checked ->
-                                                                val updated = if (checked) {
-                                                                    selectedMangaCategories + category.id
-                                                                } else {
-                                                                    selectedMangaCategories - category.id
-                                                                }
-                                                                session.library.setMangaCategories(
-                                                                    storedManga._id,
-                                                                    updated,
-                                                                )
-                                                                selectedMangaCategories = updated
-                                                                message = "Categories updated"
-                                                            },
-                                                        )
-                                                        Text(category.name.ifBlank { "Uncategorized" })
+                                                RoninSectionHeader(
+                                                    title = "Categories",
+                                                    subtitle = "Organize this manga without leaving its details.",
+                                                )
+                                                if (categories.isEmpty()) {
+                                                    Text(
+                                                        "No categories created yet.",
+                                                        color = mihon.desktop.design.RoninColors.textMuted,
+                                                        style = MaterialTheme.typography.bodyMedium,
+                                                    )
+                                                } else {
+                                                    FlowRow(
+                                                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                    ) {
+                                                        categories.forEach { category ->
+                                                            val selected =
+                                                                category.id in selectedMangaCategories
+                                                            RoninChip(
+                                                                label = category.name.ifBlank {
+                                                                    "Uncategorized"
+                                                                },
+                                                                selected = selected,
+                                                                onClick = {
+                                                                    val updated = if (selected) {
+                                                                        selectedMangaCategories - category.id
+                                                                    } else {
+                                                                        selectedMangaCategories + category.id
+                                                                    }
+                                                                    session.library.setMangaCategories(
+                                                                        storedManga._id,
+                                                                        updated,
+                                                                    )
+                                                                    selectedMangaCategories = updated
+                                                                    detailRevision++
+                                                                    message = "Categories updated"
+                                                                },
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
