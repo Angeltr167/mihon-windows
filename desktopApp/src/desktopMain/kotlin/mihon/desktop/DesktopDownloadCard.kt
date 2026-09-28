@@ -29,17 +29,17 @@ internal fun DesktopDownloadCard(
     onCancel: () -> Unit,
     onRead: () -> Unit,
 ) {
-    MihonPanel {
+    RoninPanel {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val narrow = maxWidth < 520.dp
-            Column(Modifier.fillMaxWidth().padding(12.dp)) {
+            Column(Modifier.fillMaxWidth().padding(mihon.desktop.design.RoninSpacing.medium)) {
                 Row(
                     Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    horizontalArrangement = Arrangement.spacedBy(mihon.desktop.design.RoninSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    DesktopCover(coverUrl, source, Modifier.width(68.dp).height(96.dp))
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    DesktopCover(coverUrl, source, Modifier.width(MihonSizes.coverSmallWidth).height(MihonSizes.coverSmallHeight))
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs)) {
                         Text(download.mangaTitle, style = MaterialTheme.typography.titleMedium)
                         Text(download.chapterName, color = MihonPalette.muted)
                         Text(
