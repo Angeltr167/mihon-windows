@@ -93,6 +93,7 @@ internal fun LibraryScreen(
     var shelfFilter by remember { mutableStateOf(LibraryShelfFilter.ALL) }
     var sortMode by remember { mutableStateOf(LibrarySortMode.RECENTLY_ADDED) }
     var viewMode by remember { mutableStateOf(LibraryViewMode.GRID) }
+    var inspectedMangaId by remember { mutableStateOf<Long?>(null) }
 
     val sourceById = remember(sources) { sources.associateBy(Source::id) }
     val libraryById = remember(library) { library.associateBy(Mangas::_id) }
@@ -150,6 +151,9 @@ internal fun LibraryScreen(
         } else {
             continueReading.filter { it.manga._id in visibleIds }.take(8)
         }
+    }
+    val inspectedManga = remember(visibleLibrary, inspectedMangaId) {
+        visibleLibrary.firstOrNull { it._id == inspectedMangaId } ?: visibleLibrary.firstOrNull()
     }
     val selectedCategoryName = remember(categories, selectedCategory) {
         categories.firstOrNull { it.id == selectedCategory }?.name?.ifBlank { "Uncategorized" }
@@ -219,6 +223,13 @@ internal fun LibraryScreen(
             )
 
             else -> {
+                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
+                    val showInspector = maxWidth >= RoninLayout.rightPanelBreakpoint
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.large),
+                    ) {
+                    Column(Modifier.weight(1f).fillMaxHeight()) {
                 if (visibleContinueReading.isNotEmpty()) {
                     LibrarySectionLabel(
                         title = "Continue reading",
@@ -232,7 +243,7 @@ internal fun LibraryScreen(
                             ContinueReadingCard(
                                 item = item,
                                 source = sourceById[item.manga.source],
-                                onOpenManga = onOpenManga,
+                                onOpenManga = { id, url -> inspectedMangaId = id; onOpenManga(id, url) },
                             )
                         }
                     }
@@ -255,7 +266,7 @@ internal fun LibraryScreen(
                                 manga = manga,
                                 source = sourceById[manga.source],
                                 chapter = recentChapters[manga._id],
-                                onOpenManga = onOpenManga,
+                                onOpenManga = { id, url -> inspectedMangaId = id; onOpenManga(id, url) },
                             )
                         }
                     }
@@ -269,12 +280,58 @@ internal fun LibraryScreen(
                                 manga = manga,
                                 source = sourceById[manga.source],
                                 chapter = recentChapters[manga._id],
-                                onOpenManga = onOpenManga,
+                                onOpenManga = { id, url -> inspectedMangaId = id; onOpenManga(id, url) },
                             )
                         }
                     }
                 }
+                    }
+                    if (showInspector && inspectedManga != null) {
+                        LibraryInspector(
+                            manga = inspectedManga,
+                            source = sourceById[inspectedManga.source],
+                            chapter = recentChapters[inspectedManga._id],
+                            onOpenManga = onOpenManga,
+                            modifier = Modifier.width(RoninLayout.rightPanelWidth),
+                        )
+                    }
+                    }
+                }
             }
+        }
+    }
+}
+
+@Composable
+private fun LibraryInspector(
+    manga: Mangas,
+    source: Source?,
+    chapter: Chapters?,
+    onOpenManga: (Long, String?) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    RoninPanel(modifier) {
+        Column(
+            Modifier.fillMaxWidth().padding(RoninSpacing.medium),
+            verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
+        ) {
+            Text("Inspector", style = MaterialTheme.typography.titleLarge)
+            RoninCover(Modifier.fillMaxWidth()) {
+                DesktopCover(
+                    manga.thumbnail_url,
+                    source,
+                    Modifier.fillMaxWidth().aspectRatio(RoninMangaMetrics.COVER_ASPECT_RATIO),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+            Text(manga.title, style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            source?.let { RoninBadge(it.roninSourceDisplayName()) }
+            Text(chapterProgressLabel(chapter), color = RoninColors.textSecondary, style = MaterialTheme.typography.bodyMedium)
+            RoninButton(
+                label = if (chapter?.read == false) "Continue reading" else "Open manga",
+                onClick = { onOpenManga(manga._id, manga.url) },
+                modifier = Modifier.fillMaxWidth(),
+            )
         }
     }
 }
