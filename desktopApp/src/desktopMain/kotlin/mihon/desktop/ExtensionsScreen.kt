@@ -67,6 +67,7 @@ internal fun ExtensionsScreen(
     onDiscoverRepository: () -> Unit,
     onInstallRepositoryEntry: (DesktopRepositoryEntry) -> Unit,
     onTrustFingerprint: () -> Unit,
+    onChoosePackage: () -> Unit,
     onInstallPackage: () -> Unit,
 ) {
     val installedSuwayomi = remember(suwayomiExtensions) {
@@ -156,6 +157,7 @@ internal fun ExtensionsScreen(
                 onDiscover = onDiscoverRepository,
                 onInstallEntry = onInstallRepositoryEntry,
                 onTrustFingerprint = onTrustFingerprint,
+                onChoosePackage = onChoosePackage,
                 onInstallPackage = onInstallPackage,
             )
         }
@@ -465,6 +467,7 @@ private fun RepositoryManagement(
     onDiscover: () -> Unit,
     onInstallEntry: (DesktopRepositoryEntry) -> Unit,
     onTrustFingerprint: () -> Unit,
+    onChoosePackage: () -> Unit,
     onInstallPackage: () -> Unit,
 ) {
     LazyColumn(
@@ -580,11 +583,21 @@ private fun RepositoryManagement(
                         modifier = Modifier.fillMaxWidth(),
                         enabled = busyPackage == null,
                     )
-                    RoninButton(
-                        label = "Install local package",
-                        onClick = onInstallPackage,
-                        enabled = packagePath.isNotBlank() && busyPackage == null,
-                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+                    ) {
+                        RoninSecondaryButton(
+                            label = "Choose package…",
+                            onClick = onChoosePackage,
+                            enabled = busyPackage == null,
+                        )
+                        RoninButton(
+                            label = "Install local package",
+                            onClick = onInstallPackage,
+                            enabled = packagePath.isNotBlank() && busyPackage == null,
+                        )
+                    }
                 }
             }
         }
