@@ -18,6 +18,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import mihon.desktop.design.RoninBorders
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninLayout
@@ -37,7 +38,17 @@ internal fun RowScope.RoninMainContent(
     rightPanel: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    BoxWithConstraints(modifier = modifier.background(RoninColors.appBackground)) {
+    BoxWithConstraints(
+        modifier = modifier.background(
+            Brush.verticalGradient(
+                colors = listOf(
+                    RoninColors.appBackground,
+                    RoninColors.elevatedSurface.copy(alpha = 0.72f),
+                    RoninColors.appBackground,
+                ),
+            ),
+        ),
+    ) {
         val showRightPanel =
             !readerMode && rightPanel != null && maxWidth >= RoninLayout.rightPanelBreakpoint
         val horizontalGutter = when {
