@@ -87,6 +87,7 @@ internal fun LibraryScreen(
     search: String,
     onSearchChange: (String) -> Unit,
     loading: Boolean,
+    error: String?,
     onOpenManga: (Long, String?) -> Unit,
 ) {
     var shelfFilter by remember { mutableStateOf(LibraryShelfFilter.ALL) }
@@ -184,10 +185,24 @@ internal fun LibraryScreen(
             onViewModeChange = { viewMode = it },
         )
 
+        if (error != null && !loading && library.isNotEmpty()) {
+            RoninErrorState(
+                title = "Library refresh failed",
+                detail = error,
+                modifier = Modifier.padding(bottom = RoninSpacing.large),
+            )
+        }
+
         when {
             loading -> RoninLoadingState(
                 title = "Loading library…",
                 detail = "Reading your saved manga and progress.",
+                modifier = Modifier.padding(top = RoninSpacing.large),
+            )
+
+            error != null && library.isEmpty() -> RoninErrorState(
+                title = "Could not load library",
+                detail = error,
                 modifier = Modifier.padding(top = RoninSpacing.large),
             )
 
