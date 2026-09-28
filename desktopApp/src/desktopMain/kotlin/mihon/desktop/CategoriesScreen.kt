@@ -251,7 +251,7 @@ private fun CategoryRow(
         color = if (hovered) RoninColors.hoverSurface else RoninColors.elevatedSurface,
         border = BorderStroke(
             RoninBorders.hairline,
-            if (hovered) RoninColors.accentSage else RoninColors.border,
+            if (hovered) RoninColors.accentCoral else RoninColors.border,
         ),
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().padding(RoninSpacing.medium)) {
