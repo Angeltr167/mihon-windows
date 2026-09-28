@@ -50,6 +50,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.ExperimentalComposeUiApi
 import androidx.compose.ui.Modifier
@@ -277,7 +278,6 @@ internal fun DesktopReader(
     val loader = remember(session) { DesktopPageLoader(session.localPages, session.downloads.store) }
     val focusRequester = remember(target) { FocusRequester() }
     val scope = rememberCoroutineScope()
-    LaunchedEffect(focusRequester) { focusRequester.requestFocus() }
     var chapterIndex by remember(target) {
         mutableIntStateOf(chapters.indexOfFirst { it.url == target.selectedChapterUrl }.coerceAtLeast(0))
     }
@@ -443,6 +443,13 @@ internal fun DesktopReader(
         }.onFailure {
             if (it is CancellationException) throw it
             loadState = ReaderPageLoadState.Failed(it.message ?: "Chapter could not be loaded", retry)
+        }
+    }
+
+    LaunchedEffect(target, loadedChapterIndex, loadState) {
+        if (loadState is ReaderPageLoadState.Ready && loadedChapterIndex == chapterIndex) {
+            withFrameNanos { }
+            focusRequester.requestFocus()
         }
     }
 
