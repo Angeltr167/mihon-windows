@@ -176,6 +176,7 @@ fun DesktopShell(
     var selectedMangaCategories by remember { mutableStateOf<Set<Long>>(emptySet()) }
     var chapters by remember { mutableStateOf(emptyList<SChapter>()) }
     var readerTarget by remember { mutableStateOf<ReaderTarget?>(null) }
+    var readerReturnScreen by remember { mutableStateOf<Screen?>(null) }
     var query by remember { mutableStateOf("") }
     var link by remember { mutableStateOf("") }
     var showLinkTools by remember { mutableStateOf(false) }
@@ -320,7 +321,12 @@ fun DesktopShell(
         screen = if (screen == Screen.SEARCH) Screen.SEARCH else Screen.SOURCES
         fetchBrowsePage(selectedSource, search, 1, browseRequestId)
     }
-    fun loadMangaDetails(selectedSource: Source, manga: SManga, chapterUrl: String? = null) {
+    fun loadMangaDetails(
+        selectedSource: Source,
+        manga: SManga,
+        chapterUrl: String? = null,
+        readerReturnTo: Screen? = null,
+    ) {
         detailJob?.cancel()
         detailRequestId++
         val requestId = detailRequestId
@@ -349,6 +355,7 @@ fun DesktopShell(
                     if (update.chapters.none { it.url == chapterUrl }) {
                         notice.error("The saved chapter is no longer available from this source")
                     } else {
+                        readerReturnScreen = readerReturnTo
                         readerTarget = ReaderTarget(selectedSource, update.manga, update.chapters, chapterUrl)
                     }
                 }
@@ -363,7 +370,11 @@ fun DesktopShell(
             }
         }
     }
-    fun openStoredManga(mangaId: Long, chapterUrl: String? = null) {
+    fun openStoredManga(
+        mangaId: Long,
+        chapterUrl: String? = null,
+        readerReturnTo: Screen? = null,
+    ) {
         val stored = session.library.manga(mangaId) ?: run {
             notice.error("This manga is no longer in the library")
             return
@@ -395,6 +406,7 @@ fun DesktopShell(
             if (savedChapters.any { it.url == chapterUrl }) {
                 val readingSource = installedSource ?: DownloadedSource(stored.source)
                 source = readingSource
+                readerReturnScreen = readerReturnTo
                 readerTarget = ReaderTarget(readingSource, manga, savedChapters, chapterUrl)
                 return
             }
@@ -403,7 +415,12 @@ fun DesktopShell(
             notice.error("Install this manga’s source to browse its details or read undownloaded chapters")
             return
         }
-        loadMangaDetails(installedSource, manga, chapterUrl)
+        loadMangaDetails(
+            selectedSource = installedSource,
+            manga = manga,
+            chapterUrl = chapterUrl,
+            readerReturnTo = readerReturnTo,
+        )
     }
     fun queueStoredChapter(mangaId: Long, chapterUrl: String) {
         val stored = session.library.manga(mangaId) ?: run {
@@ -630,7 +647,14 @@ fun DesktopShell(
                             graph = graph,
                             target = requireNotNull(readerTarget),
                             onClose = {
+                                val returnScreen = readerReturnScreen
                                 readerTarget = null
+                                readerReturnScreen = null
+                                if (returnScreen != null) {
+                                    screen = returnScreen
+                                    selectedManga = null
+                                    chapters = emptyList()
+                                }
                                 detailRevision++
                                 refreshLibrary()
                             },
@@ -755,6 +779,7 @@ fun DesktopShell(
                                             onBack = { selectedManga = null },
                                             onRead = {
                                                 if (selectedSource != null && continueChapter != null) {
+                                                    readerReturnScreen = null
                                                     readerTarget = ReaderTarget(
                                                         selectedSource,
                                                         item,
@@ -2445,7 +2470,11 @@ fun DesktopShell(
                                 onRetry = ::refreshLibrary,
                                 onResume = { entry, chapter ->
                                     if (chapter != null) {
-                                        openStoredManga(entry.mangaId, chapter.url)
+                                        openStoredManga(
+                                            mangaId = entry.mangaId,
+                                            chapterUrl = chapter.url,
+                                            readerReturnTo = Screen.HISTORY,
+                                        )
                                     } else {
                                         notice.error("The saved chapter is no longer available")
                                     }
@@ -2466,7 +2495,11 @@ fun DesktopShell(
                                 onCheckUpdates = session.libraryUpdates::updateNow,
                                 onRetry = ::refreshLibrary,
                                 onRead = { entry ->
-                                    openStoredManga(entry.mangaId, entry.chapterUrl)
+                                    openStoredManga(
+                                        mangaId = entry.mangaId,
+                                        chapterUrl = entry.chapterUrl,
+                                        readerReturnTo = Screen.UPDATES,
+                                    )
                                 },
                                 onDownload = { entry ->
                                     queueStoredChapter(entry.mangaId, entry.chapterUrl)
