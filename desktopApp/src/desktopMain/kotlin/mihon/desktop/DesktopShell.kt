@@ -2432,129 +2432,49 @@ fun DesktopShell(
                             }
                         }
                         screen == Screen.HISTORY -> {
-                            MihonSectionHeader(
-                                "Reading history",
-                                "Recent chapters and saved reading positions",
-                                trailing = {
-                                    OutlinedTextField(
-                                        historySearch,
-                                        { historySearch = it },
-                                        label = { Text("Search history") },
-                                        singleLine = true,
-                                        modifier = Modifier.width(250.dp),
-                                    )
+                            RoninHistoryScreen(
+                                entries = historyEntries,
+                                chapters = historyChapters,
+                                library = library,
+                                sources = sources,
+                                downloads = downloads,
+                                search = historySearch,
+                                onSearchChange = { historySearch = it },
+                                loading = libraryLoading,
+                                error = libraryError,
+                                onRetry = ::refreshLibrary,
+                                onResume = { entry, chapter ->
+                                    if (chapter != null) {
+                                        openStoredManga(entry.mangaId, chapter.url)
+                                    } else {
+                                        notice.error("The saved chapter is no longer available")
+                                    }
                                 },
                             )
-                            val visibleHistory = historyEntries.filter {
-                                it.title.contains(
-                                    historySearch,
-                                    ignoreCase = true,
-                                )
-                            }
-                            if (libraryLoading) {
-                                MihonEmptyState("Loading history…")
-                            } else if (visibleHistory.isEmpty()) {
-                                MihonEmptyState(
-                                    if (historySearch.isBlank()) "Nothing read yet" else "No history found",
-                                    if (historySearch.isBlank()) {
-                                        "Your reading progress will appear here."
-                                    } else {
-                                        "Try a different title."
-                                    },
-                                )
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    visibleHistory.groupBy { desktopDateGroup(it.readAt?.time ?: 0L) }
-                                        .forEach { (day, entries) ->
-                                            item {
-                                                Text(
-                                                    day,
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    color = MihonPalette.sage,
-                                                )
-                                            }
-                                            items(entries, key = { it.id }) { entry ->
-                                                val storedChapter = historyChapters[entry.chapterId]
-                                                DesktopHistoryCard(
-                                                    entry,
-                                                    storedChapter,
-                                                    sources.firstOrNull { it.id == entry.source },
-                                                ) {
-                                                    if (storedChapter != null) {
-                                                        openStoredManga(entry.mangaId, storedChapter.url)
-                                                    } else {
-                                                        notice.error("The saved chapter is no longer available")
-                                                    }
-                                                }
-                                            }
-                                        }
-                                }
-                            }
                         }
                         screen == Screen.UPDATES -> {
-                            MihonSectionHeader(
-                                "Updates",
-                                "New chapters from manga in your library",
-                                trailing = {
-                                    Button(
-                                        onClick = {
-                                            message = "Checking library for updates…"
-                                            session.libraryUpdates.updateNow()
-                                        },
-                                        enabled = !libraryUpdate.running,
-                                    ) { Text(if (libraryUpdate.running) "Checking…" else "Check library now") }
+                            RoninUpdatesScreen(
+                                entries = updateEntries,
+                                library = library,
+                                sources = sources,
+                                downloads = downloads,
+                                loading = libraryLoading,
+                                error = libraryError,
+                                updateRunning = libraryUpdate.running,
+                                updateMessage = libraryUpdate.message,
+                                updateFailures = libraryUpdate.failures,
+                                onCheckUpdates = session.libraryUpdates::updateNow,
+                                onRetry = ::refreshLibrary,
+                                onRead = { entry ->
+                                    openStoredManga(entry.mangaId, entry.chapterUrl)
+                                },
+                                onDownload = { entry ->
+                                    queueStoredChapter(entry.mangaId, entry.chapterUrl)
+                                },
+                                onResumeDownload = { item ->
+                                    session.downloads.resume(item.key)
                                 },
                             )
-                            if (libraryUpdate.message.isNotBlank()) {
-                                MihonPanel(Modifier.fillMaxWidth()) {
-                                    Text(
-                                        libraryUpdate.message,
-                                        Modifier.padding(12.dp),
-                                        color = if (libraryUpdate.failures > 0) {
-                                            MaterialTheme.colorScheme.error
-                                        } else {
-                                            MihonPalette.muted
-                                        },
-                                    )
-                                }
-                            }
-                            if (libraryLoading) {
-                                MihonEmptyState("Loading updates…")
-                            } else if (updateEntries.isEmpty()) {
-                                MihonEmptyState(
-                                    "No updates yet",
-                                    "Check your library when sources are available to look for new chapters.",
-                                )
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(8.dp),
-                                ) {
-                                    updateEntries.groupBy { desktopDateGroup(it.dateUpload) }
-                                        .forEach { (day, entries) ->
-                                            item {
-                                                Text(
-                                                    day,
-                                                    style = MaterialTheme.typography.titleMedium,
-                                                    color = MihonPalette.sage,
-                                                )
-                                            }
-                                            items(entries, key = { it.chapterId }) { entry ->
-                                                DesktopUpdateCard(
-                                                    entry,
-                                                    sources.firstOrNull { it.id == entry.source },
-                                                    onRead = { openStoredManga(entry.mangaId, entry.chapterUrl) },
-                                                    onDownload = {
-                                                        queueStoredChapter(entry.mangaId, entry.chapterUrl)
-                                                    },
-                                                )
-                                            }
-                                        }
-                                }
-                            }
                         }
                         screen == Screen.SETTINGS -> {
                             Row(
