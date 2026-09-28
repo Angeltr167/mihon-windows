@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -102,7 +101,7 @@ private fun SourceDirectory(
     onSelectSource: (Source) -> Unit,
 ) {
     val languages = remember(sources) {
-        sources.map(Source::roninSourceLanguage).distinct().sorted()
+        sources.map { it.roninSourceLanguage() }.distinct().sorted()
     }
     var selectedLanguage by remember { mutableStateOf<String?>(null) }
 
@@ -500,7 +499,10 @@ private fun SourceBrowser(
                         verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                     ) {
                         RoninBadge(source.roninSourceLanguage())
-                        RoninBadge("Installed", accent = source !is DesktopLocalSource)
+                        RoninBadge(
+                            label = if (source is DesktopLocalSource) "On device" else "Installed",
+                            accent = true,
+                        )
                     }
                 }
                 RoninMangaResultsGrid(
