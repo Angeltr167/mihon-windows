@@ -2000,7 +2000,7 @@ fun DesktopShell(
                                     Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
                                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                                 ) {
-                                    MihonSectionHeader(settingsSection.title, settingsSection.description)
+                                    RoninSectionHeader(settingsSection.title, settingsSection.description)
                                     when (settingsSection) {
                                         DesktopSettingsSection.GENERAL -> RoninPanel(Modifier.fillMaxWidth()) {
                                             Column(
