@@ -691,273 +691,114 @@ fun DesktopShell(
                                         val continueChapter = recentChapter?.let { recent ->
                                             chapters.firstOrNull { it.url == recent.url }
                                         } ?: chapters.firstOrNull()
-                                        TextButton(onClick = { selectedManga = null }) {
-                                            Text("← Back")
-                                        }
-                                        BoxWithConstraints(
-                                            Modifier.fillMaxWidth().padding(vertical = MihonSpacing.sm),
-                                        ) {
-                                            val compactDetails = maxWidth < 900.dp
-                                            val identity: @Composable () -> Unit = {
-                                                Row(
-                                                    Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.lg),
-                                                    verticalAlignment = Alignment.Top,
-                                                ) {
-                                                    DesktopCover(
-                                                        item.thumbnail_url,
-                                                        selectedSource,
-                                                        Modifier.width(224.dp).height(322.dp),
-                                                    )
-                                                    Column(
-                                                        Modifier.weight(1f),
-                                                        verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
-                                                    ) {
-                                                        Text(
-                                                            item.title,
-                                                            style = MaterialTheme.typography.headlineLarge,
-                                                        )
-                                                        listOfNotNull(item.author, item.artist)
-                                                            .filter(String::isNotBlank)
-                                                            .distinct()
-                                                            .takeIf { it.isNotEmpty() }
-                                                            ?.let {
-                                                                Text(
-                                                                    it.joinToString(" · "),
-                                                                    color = MihonPalette.muted,
-                                                                )
-                                                            }
-                                                        Text(
-                                                            item.description.orEmpty().ifBlank {
-                                                                "No description available."
-                                                            },
-                                                            color = MihonPalette.muted,
-                                                            maxLines = 8,
-                                                        )
-                                                        Button(
-                                                            onClick = {
-                                                                if (
-                                                                    selectedSource != null &&
-                                                                    continueChapter != null
-                                                                ) {
-                                                                    readerTarget = ReaderTarget(
-                                                                        selectedSource,
-                                                                        item,
-                                                                        chapters,
-                                                                        continueChapter.url,
-                                                                    )
-                                                                }
-                                                            },
-                                                            enabled =
-                                                            selectedSource != null &&
-                                                                continueChapter != null,
-                                                            modifier = Modifier.widthIn(min = 204.dp),
-                                                        ) {
-                                                            Text(
-                                                                if (recentChapter != null) {
-                                                                    "▶ Continue reading"
-                                                                } else {
-                                                                    "▶ Start reading"
-                                                                },
-                                                            )
-                                                        }
-                                                        if (recentChapter != null) {
-                                                            Text(
-                                                                if (recentChapter.read) {
-                                                                    "Last chapter finished"
-                                                                } else {
-                                                                    "Continue from page " +
-                                                                        "${recentChapter.last_page_read + 1}"
-                                                                },
-                                                                color = MihonPalette.sage,
-                                                                style = MaterialTheme.typography.labelMedium,
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            val statusPanel: @Composable () -> Unit = {
-                                                Surface(
-                                                    color = MihonPalette.raised.copy(alpha = 0.44f),
-                                                    shape = RoundedCornerShape(MihonRadius.card),
-                                                ) {
-                                                    Column(
-                                                        Modifier.fillMaxWidth().padding(MihonSpacing.md),
-                                                        verticalArrangement =
-                                                        Arrangement.spacedBy(MihonSpacing.md),
-                                                    ) {
-                                                        Row(
-                                                            Modifier.fillMaxWidth(),
-                                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                                            verticalAlignment = Alignment.CenterVertically,
-                                                        ) {
-                                                            MihonCompactChip(
-                                                                label = if (stored?.favorite == true) {
-                                                                    "In library"
-                                                                } else {
-                                                                    "Not in library"
-                                                                },
-                                                                accent = stored?.favorite == true,
-                                                            )
-                                                            TextButton(
-                                                                onClick = {
-                                                                    if (
-                                                                        stored == null &&
-                                                                        selectedSource != null
-                                                                    ) {
-                                                                        session.library.addToLibrary(
-                                                                            selectedSource.id,
-                                                                            item,
-                                                                        )
-                                                                    } else if (stored != null) {
-                                                                        session.library.setFavorite(
-                                                                            stored._id,
-                                                                            !stored.favorite,
-                                                                        )
-                                                                    }
-                                                                    refreshLibrary()
-                                                                    message = "Library updated"
-                                                                },
-                                                                enabled = snapshot != null,
-                                                            ) {
-                                                                Text(
-                                                                    if (stored?.favorite == true) {
-                                                                        "Remove"
-                                                                    } else {
-                                                                        "Add"
-                                                                    },
-                                                                )
-                                                            }
-                                                        }
-                                                        Column(
-                                                            verticalArrangement =
-                                                            Arrangement.spacedBy(MihonSpacing.xs),
-                                                        ) {
-                                                            Text(
-                                                                "SOURCE",
-                                                                color = MihonPalette.muted,
-                                                                style = MaterialTheme.typography.labelSmall,
-                                                            )
-                                                            Text(
-                                                                selectedSource?.displayName() ?: "Unknown",
-                                                                style = MaterialTheme.typography.bodyMedium,
-                                                            )
-                                                        }
-                                                        Column(
-                                                            verticalArrangement =
-                                                            Arrangement.spacedBy(MihonSpacing.xs),
-                                                        ) {
-                                                            Text(
-                                                                "TRACKING",
-                                                                color = MihonPalette.muted,
-                                                                style = MaterialTheme.typography.labelSmall,
-                                                            )
-                                                            Text(
-                                                                if (linkedTrackers.isEmpty()) {
-                                                                    "No trackers linked"
-                                                                } else {
-                                                                    linkedTrackers.joinToString(" · ")
-                                                                },
-                                                                color = if (linkedTrackers.isEmpty()) {
-                                                                    MihonPalette.muted
-                                                                } else {
-                                                                    MihonPalette.ivory
-                                                                },
-                                                                style = MaterialTheme.typography.bodySmall,
-                                                            )
-                                                            TextButton(
-                                                                onClick = {
-                                                                    trackingExpanded = !trackingExpanded
-                                                                },
-                                                                enabled = stored != null,
-                                                            ) {
-                                                                Text(
-                                                                    if (trackingExpanded) {
-                                                                        "Close tracking"
-                                                                    } else {
-                                                                        "Manage tracking"
-                                                                    },
-                                                                )
-                                                            }
-                                                        }
-                                                        Column(
-                                                            verticalArrangement =
-                                                            Arrangement.spacedBy(MihonSpacing.xs),
-                                                        ) {
-                                                            Text(
-                                                                "CATEGORIES",
-                                                                color = MihonPalette.muted,
-                                                                style = MaterialTheme.typography.labelSmall,
-                                                            )
-                                                            Text(
-                                                                if (selectedMangaCategories.isEmpty()) {
-                                                                    "Uncategorized"
-                                                                } else {
-                                                                    "${selectedMangaCategories.size} assigned"
-                                                                },
-                                                                style = MaterialTheme.typography.bodyMedium,
-                                                            )
-                                                        }
-                                                    }
-                                                }
-                                            }
-                                            if (compactDetails) {
-                                                Column(
-                                                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
-                                                ) {
-                                                    identity()
-                                                    statusPanel()
-                                                }
-                                            } else {
-                                                Row(
-                                                    Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.lg),
-                                                    verticalAlignment = Alignment.Top,
-                                                ) {
-                                                    Box(Modifier.weight(1f)) { identity() }
-                                                    Box(Modifier.width(312.dp)) { statusPanel() }
-                                                }
-                                            }
-                                        }
-                                        FlowRow(
-                                            Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                                        ) {
+                                        val openBrowserAction: (() -> Unit)? =
                                             if (selectedSource is HttpSource) {
-                                                TextButton(onClick = {
+                                                {
                                                     runCatching {
                                                         val url = selectedSource.getMangaUrl(item)
                                                         val uri = URI(url)
                                                         require(
-                                                            uri.scheme in setOf(
-                                                                "http",
-                                                                "https",
-                                                            ) && uri.userInfo == null,
+                                                            uri.scheme in setOf("http", "https") &&
+                                                                uri.userInfo == null,
                                                         )
                                                         check(graph.browserService.open(url))
-                                                    }.onFailure { notice.error(it.message ?: "Could not open browser") }
-                                                }) { Text("Open in browser") }
-                                                TextButton(onClick = {
+                                                    }.onFailure {
+                                                        notice.error(it.message ?: "Could not open browser")
+                                                    }
+                                                }
+                                            } else {
+                                                null
+                                            }
+                                        val copyLinkAction: (() -> Unit)? =
+                                            if (selectedSource is HttpSource) {
+                                                {
                                                     runCatching {
                                                         val url = selectedSource.getMangaUrl(item)
                                                         val uri = URI(url)
                                                         require(
-                                                            uri.scheme in setOf(
-                                                                "http",
-                                                                "https",
-                                                            ) && uri.userInfo == null,
+                                                            uri.scheme in setOf("http", "https") &&
+                                                                uri.userInfo == null,
                                                         )
                                                         check(graph.externalOpenService.shareText(url))
-                                                    }.onSuccess { message = "Link copied" }
-                                                        .onFailure { notice.error(it.message ?: "Could not copy link") }
-                                                }) { Text("Copy link") }
+                                                    }.onSuccess {
+                                                        message = "Link copied"
+                                                    }.onFailure {
+                                                        notice.error(it.message ?: "Could not copy link")
+                                                    }
+                                                }
+                                            } else {
+                                                null
                                             }
-                                            if (
-                                                trackingExpanded && stored != null &&
-                                                item.url.contains("/api/v1/series/")
-                                            ) {
-                                                TextButton(onClick = {
+                                        RoninMangaDetailsHero(
+                                            manga = item,
+                                            source = selectedSource,
+                                            sourceName = selectedSource?.displayName() ?: "Unknown source",
+                                            inLibrary = stored?.favorite == true,
+                                            categoryIds = selectedMangaCategories,
+                                            categories = categories,
+                                            linkedTrackers = linkedTrackers,
+                                            continueLabel = if (recentChapter != null) {
+                                                "Continue reading"
+                                            } else {
+                                                "Start reading"
+                                            },
+                                            progressLabel = recentChapter?.let {
+                                                if (it.read) {
+                                                    "Last chapter finished"
+                                                } else {
+                                                    "Continue from page ${it.last_page_read + 1}"
+                                                }
+                                            },
+                                            detailsLoading = detailsLoading,
+                                            detailsError = detailsError,
+                                            canRead = selectedSource != null && continueChapter != null,
+                                            canToggleLibrary = snapshot != null,
+                                            canManageTracking = stored != null,
+                                            trackingExpanded = trackingExpanded,
+                                            onBack = { selectedManga = null },
+                                            onRead = {
+                                                if (selectedSource != null && continueChapter != null) {
+                                                    readerTarget = ReaderTarget(
+                                                        selectedSource,
+                                                        item,
+                                                        chapters,
+                                                        continueChapter.url,
+                                                    )
+                                                }
+                                            },
+                                            onToggleLibrary = {
+                                                if (snapshot != null) {
+                                                    if (stored == null && selectedSource != null) {
+                                                        session.library.addToLibrary(selectedSource.id, item)
+                                                    } else if (stored != null) {
+                                                        session.library.setFavorite(
+                                                            stored._id,
+                                                            !stored.favorite,
+                                                        )
+                                                    }
+                                                    detailRevision++
+                                                    refreshLibrary()
+                                                    message = "Library updated"
+                                                }
+                                            },
+                                            onToggleTracking = {
+                                                trackingExpanded = !trackingExpanded
+                                            },
+                                            onRetry = {
+                                                if (selectedSource != null) {
+                                                    loadMangaDetails(selectedSource, item)
+                                                }
+                                            },
+                                            onOpenBrowser = openBrowserAction,
+                                            onCopyLink = copyLinkAction,
+                                        )
+                                        if (
+                                            trackingExpanded && stored != null &&
+                                            item.url.contains("/api/v1/series/")
+                                        ) {
+                                            RoninTextButton(
+                                                label = if (komgaTrack == null) "Link Komga" else "Sync Komga",
+                                                onClick = {
                                                     scope.launch {
                                                         runCatching {
                                                             if (komgaTrack == null) {
@@ -972,35 +813,45 @@ fun DesktopShell(
                                                                         session.library.chapter(
                                                                             stored._id,
                                                                             it.url,
-                                                                        )?.read ==
-                                                                            true
-                                                                    }.maxOfOrNull { it.chapter_number.toDouble() }
+                                                                        )?.read == true
+                                                                    }.maxOfOrNull {
+                                                                        it.chapter_number.toDouble()
+                                                                    }
                                                                 }
-                                                                if (lastRead != null && lastRead.isFinite() &&
+                                                                if (
+                                                                    lastRead != null &&
+                                                                    lastRead.isFinite() &&
                                                                     lastRead > 0
                                                                 ) {
-                                                                    session.trackerSync.enqueue(stored._id, lastRead)
+                                                                    session.trackerSync.enqueue(
+                                                                        stored._id,
+                                                                        lastRead,
+                                                                    )
                                                                 } else {
                                                                     session.trackerSync.retry(stored._id)
                                                                 }
                                                             }
                                                         }.onSuccess {
-                                                            message =
-                                                                if (komgaTrack ==
-                                                                    null
-                                                                ) {
-                                                                    "Komga tracking linked"
-                                                                } else {
-                                                                    "Komga sync queued"
-                                                                }
+                                                            message = if (komgaTrack == null) {
+                                                                "Komga tracking linked"
+                                                            } else {
+                                                                "Komga sync queued"
+                                                            }
                                                         }.onFailure {
-                                                            notice.error(it.message ?: "Komga tracking failed")
+                                                            notice.error(
+                                                                it.message ?: "Komga tracking failed",
+                                                            )
                                                         }
                                                     }
-                                                }) { Text(if (komgaTrack == null) "Link Komga" else "Sync Komga") }
-                                                trackerSyncQueue.firstOrNull { it.mangaId == stored._id }?.error?.let {
-                                                    Text(it, color = MaterialTheme.colorScheme.error)
-                                                }
+                                                },
+                                            )
+                                            trackerSyncQueue.firstOrNull {
+                                                it.mangaId == stored._id
+                                            }?.error?.let {
+                                                RoninErrorState(
+                                                    title = "Tracker sync issue",
+                                                    detail = it,
+                                                )
                                             }
                                         }
                                         if (trackingExpanded && stored != null && item.url.contains("/api/Series/")) {
