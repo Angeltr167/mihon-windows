@@ -656,7 +656,7 @@ internal fun RoninSidebarItem(
                 else -> Color.Transparent
             },
             border = if (selected) {
-                BorderStroke(RoninBorders.hairline, RoninColors.accentSage.copy(alpha = 0.34f))
+                BorderStroke(RoninBorders.hairline, RoninColors.accentCoral.copy(alpha = 0.34f))
             } else {
                 null
             },
@@ -673,11 +673,11 @@ internal fun RoninSidebarItem(
                 },
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                icon(if (selected) RoninColors.accentSage else RoninColors.textSecondary)
+                icon(if (selected) RoninColors.accentCoral else RoninColors.textSecondary)
                 if (!compact) {
                     Text(
                         title,
-                        color = if (selected) RoninColors.accentSage else RoninColors.textPrimary,
+                        color = if (selected) RoninColors.accentCoral else RoninColors.textPrimary,
                         style = MaterialTheme.typography.labelLarge,
                     )
                 }
@@ -690,7 +690,7 @@ internal fun RoninSidebarItem(
                     .width(2.dp)
                     .height(28.dp)
                     .background(
-                        RoninColors.accentSage,
+                        RoninColors.accentCoral,
                         RoundedCornerShape(RoninRadius.control),
                     ),
             )
