@@ -248,7 +248,7 @@ private fun SourceGroupRow(
     variants: List<Source>,
     onSelectSource: (Source) -> Unit,
 ) {
-    val primary = variants.first()
+    val primary = variants.preferredSourceVariant()
     val interactionSource = remember(primary.id, variants.size) { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
 
@@ -270,7 +270,8 @@ private fun SourceGroupRow(
             ),
         ) {
             val narrow = maxWidth < 680.dp
-            if (narrow) {
+            val stackActions = narrow || variants.size > 8
+            if (stackActions) {
                 Column(
                     modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
@@ -365,7 +366,7 @@ private fun SourceVariantActions(
     onSelectSource: (Source) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val primary = variants.first()
+    val primary = variants.preferredSourceVariant()
     FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
@@ -375,15 +376,22 @@ private fun SourceVariantActions(
             label = if (primary is DesktopLocalSource) "On device" else "Installed",
             accent = true,
         )
-        if (variants.size > 1 && primary !is DesktopLocalSource) {
-            variants.forEach { variant ->
+        when {
+            primary is DesktopLocalSource -> RoninBadge(primary.roninSourceLanguage())
+            variants.size > 8 -> {
+                RoninChip(
+                    label = primary.roninSourceLanguage(),
+                    onClick = { onSelectSource(primary) },
+                )
+                RoninBadge("${variants.size} languages")
+            }
+            variants.size > 1 -> variants.forEach { variant ->
                 RoninChip(
                     label = variant.roninSourceLanguage(),
                     onClick = { onSelectSource(variant) },
                 )
             }
-        } else {
-            RoninBadge(primary.roninSourceLanguage())
+            else -> RoninBadge(primary.roninSourceLanguage())
         }
         Text(
             "Browse →",
@@ -392,6 +400,9 @@ private fun SourceVariantActions(
         )
     }
 }
+
+private fun List<Source>.preferredSourceVariant(): Source =
+    firstOrNull { it.roninSourceLanguage() == "EN" } ?: first()
 
 @Composable
 private fun SourceBrowser(
