@@ -554,7 +554,7 @@ internal fun RoninSourceMangaCard(
         color = if (hovered) RoninColors.hoverSurface else RoninColors.elevatedSurface,
         border = BorderStroke(
             RoninBorders.hairline,
-            if (hovered) RoninColors.accentSage.copy(alpha = 0.42f) else RoninColors.border,
+            if (hovered) RoninColors.accentCoral.copy(alpha = 0.42f) else RoninColors.border,
         ),
     ) {
         Column(Modifier.fillMaxWidth().padding(RoninSpacing.small)) {
