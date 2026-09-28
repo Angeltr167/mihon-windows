@@ -588,6 +588,7 @@ internal fun DesktopReader(
     }
     Box(
         Modifier.fillMaxSize()
+            .background(MihonPalette.graphite)
             .onPointerEvent(PointerEventType.Move) {
                 controlsVisible = true
                 interactionVersion++
@@ -625,25 +626,51 @@ internal fun DesktopReader(
     ) {
         when {
             loadState is ReaderPageLoadState.Failed -> Box(
-                Modifier.fillMaxSize(),
+                Modifier.fillMaxSize().padding(RoninReaderMetrics.chromeHorizontalMargin),
                 contentAlignment = Alignment.Center,
             ) {
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    Modifier.widthIn(max = 560.dp),
+                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.lg),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
-                    Text((loadState as ReaderPageLoadState.Failed).reason, color = MaterialTheme.colorScheme.error)
-                    Button(onClick = {
-                        retry++
-                        controlsVisible = true
-                    }) { Text("Retry") }
+                    RoninErrorState(
+                        title = "Could not load chapter",
+                        detail = (loadState as ReaderPageLoadState.Failed).reason,
+                    )
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                    ) {
+                        RoninSecondaryButton(
+                            label = "Previous chapter",
+                            onClick = ::previousChapter,
+                            enabled = chapterIndex > 0,
+                        )
+                        RoninButton(
+                            label = "Retry",
+                            onClick = {
+                                retry++
+                                controlsVisible = true
+                            },
+                        )
+                        RoninSecondaryButton(
+                            label = "Next chapter",
+                            onClick = ::nextChapter,
+                            enabled = chapterIndex < chapters.lastIndex,
+                        )
+                    }
                 }
             }
             loadState is ReaderPageLoadState.Loading -> Box(
-                Modifier.fillMaxSize(),
+                Modifier.fillMaxSize().padding(RoninReaderMetrics.chromeHorizontalMargin),
                 contentAlignment = Alignment.Center,
             ) {
-                Text("Loading pages…", color = MihonPalette.muted)
+                RoninLoadingState(
+                    title = "Loading chapter",
+                    detail = chapters[chapterIndex].name,
+                    modifier = Modifier.widthIn(max = 520.dp),
+                )
             }
             mode == ReadingMode.VERTICAL || mode == ReadingMode.WEBTOON -> {
                 val listState = rememberLazyListState()
@@ -702,6 +729,9 @@ internal fun DesktopReader(
                                     if (rightToLeft) next() else previous()
                                 } else if (offset.x > size.width * 2 / 3) {
                                     if (rightToLeft) previous() else next()
+                                } else {
+                                    controlsVisible = !controlsVisible
+                                    interactionVersion++
                                 }
                             }
                         }
@@ -724,12 +754,13 @@ internal fun DesktopReader(
                         )
                         val geometry = fitReaderSpread(
                             pageRatios,
-                            (availableWidth - 36.dp).coerceAtLeast(1.dp).value,
-                            (availableHeight - 20.dp).coerceAtLeast(1.dp).value,
+                            (availableWidth - RoninReaderMetrics.pageHorizontalMargin * 2).coerceAtLeast(1.dp).value,
+                            (availableHeight - RoninReaderMetrics.pageVerticalMargin * 2).coerceAtLeast(1.dp).value,
                         )
                         val spreadHeight = geometry.height.dp
                         if (pair.size == 1 && fit == FitMode.WIDTH) {
-                            val width = (availableWidth - 36.dp).coerceAtLeast(1.dp)
+                            val width =
+                                (availableWidth - RoninReaderMetrics.pageHorizontalMargin * 2).coerceAtLeast(1.dp)
                             val height = width / pageRatios.single()
                             Column(
                                 Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
@@ -749,7 +780,10 @@ internal fun DesktopReader(
                             }
                         } else {
                             Row(
-                                Modifier.align(Alignment.Center).padding(horizontal = 18.dp, vertical = 10.dp),
+                                Modifier.align(Alignment.Center).padding(
+                                    horizontal = RoninReaderMetrics.pageHorizontalMargin,
+                                    vertical = RoninReaderMetrics.pageVerticalMargin,
+                                ),
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
@@ -775,9 +809,13 @@ internal fun DesktopReader(
                                     }
                                     Box(
                                         Modifier.width(displayedWidth).height(displayedHeight)
-                                            .shadow(if (isSpread) 8.dp else 12.dp, RoundedCornerShape(2.dp))
-                                            .background(Color(0xFF080B0D))
-                                            .border(1.dp, MihonPalette.outline, RoundedCornerShape(2.dp)),
+                                            .shadow(if (isSpread) 8.dp else 12.dp, RoundedCornerShape(MihonRadius.control))
+                                            .background(MihonPalette.graphite)
+                                            .border(
+                                                1.dp,
+                                                MihonPalette.outlineSoft,
+                                                RoundedCornerShape(MihonRadius.control),
+                                            ),
                                         contentAlignment = Alignment.Center,
                                     ) {
                                         ReaderImage(loader, page, fit, zoom, colorFilter, Modifier.fillMaxSize(), index)
@@ -787,7 +825,8 @@ internal fun DesktopReader(
                             if (isSpread) {
                                 Box(
                                     Modifier.align(Alignment.Center).height(spreadHeight)
-                                        .width(2.dp).background(Color(0xAA050708)),
+                                        .width(RoninReaderMetrics.pageSeamWidth)
+                                        .background(MihonPalette.graphite.copy(alpha = 0.92f)),
                                 )
                             }
                         }
