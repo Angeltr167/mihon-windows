@@ -83,8 +83,8 @@ internal object RoninReaderMetrics {
     val chromeBottomMargin = 12.dp
     val pageHorizontalMargin = 18.dp
     val pageVerticalMargin = 10.dp
-    val compactControlsBreakpoint = 760.dp
-    val narrowHeaderBreakpoint = 620.dp
+    val compactControlsBreakpoint = 860.dp
+    val narrowHeaderBreakpoint = 820.dp
     val pageSeamWidth = 2.dp
 
     const val AUTO_HIDE_DELAY_MILLIS = 2_800L
