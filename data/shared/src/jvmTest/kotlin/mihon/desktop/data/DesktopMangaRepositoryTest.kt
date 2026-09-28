@@ -85,6 +85,38 @@ class DesktopMangaRepositoryTest {
     }
 
     @Test
+    fun `category rename reorder and delete preserve existing schema contracts`() {
+        val path = Files.createTempDirectory("mihon-category-management").resolve("tachiyomi.db")
+        val manga = SManga.create().apply {
+            url = "/category-fixture"
+            title = "Category fixture"
+        }
+
+        DesktopMangaRepository.open(path).use { repository ->
+            val mangaId = repository.addToLibrary(73, manga)._id
+            repository.addCategory("Reading")
+            repository.addCategory("Planned")
+
+            val readingId = repository.categories().single { it.name == "Reading" }.id
+            val plannedId = repository.categories().single { it.name == "Planned" }.id
+            repository.setMangaCategories(mangaId, setOf(readingId))
+
+            repository.renameCategory(readingId, "Now reading")
+            assertEquals("Now reading", repository.categories().single { it.id == readingId }.name)
+
+            repository.moveCategory(plannedId, -1)
+            assertEquals(
+                listOf(plannedId, readingId),
+                repository.categories().filter { it.id > 0 }.map { it.id },
+            )
+
+            repository.deleteCategory(readingId)
+            assertTrue(repository.categories().none { it.id == readingId })
+            assertTrue(repository.mangaCategories(mangaId).isEmpty())
+        }
+    }
+
+    @Test
     fun `tracker binding and progress persist in the existing schema`() {
         val path = Files.createTempDirectory("mihon-tracker-progress").resolve("tachiyomi.db")
         val manga = SManga.create().apply {
