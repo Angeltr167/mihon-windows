@@ -116,11 +116,11 @@ internal fun DesktopReaderDefaultsSettings(graph: DesktopPlatformGraph) {
                 color = MihonPalette.muted,
             )
             androidx.compose.foundation.layout.Box {
-                TextButton(onClick = { modeExpanded = true }) { Text(mode.name.replace('_', ' ')) }
+                RoninTextButton(label = readingModeLabel(mode), onClick = { modeExpanded = true })
                 DropdownMenu(expanded = modeExpanded, onDismissRequest = { modeExpanded = false }) {
                     ReadingMode.entries.forEach { option ->
                         DropdownMenuItem(
-                            text = { Text(option.name.replace('_', ' ')) },
+                            text = { Text(readingModeLabel(option)) },
                             onClick = {
                                 mode = option
                                 modeExpanded = false
@@ -132,12 +132,16 @@ internal fun DesktopReaderDefaultsSettings(graph: DesktopPlatformGraph) {
             }
             androidx.compose.material3.HorizontalDivider()
             Text("Default page fit", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
+            Text(
+                "Width scrolls tall pages, height keeps the full page visible, and original avoids upscaling.",
+                color = MihonPalette.muted,
+            )
             androidx.compose.foundation.layout.Box {
-                TextButton(onClick = { fitExpanded = true }) { Text("Fit ${fit.name.lowercase()}") }
+                RoninTextButton(label = fitModeLabel(fit), onClick = { fitExpanded = true })
                 DropdownMenu(expanded = fitExpanded, onDismissRequest = { fitExpanded = false }) {
                     FitMode.entries.forEach { option ->
                         DropdownMenuItem(
-                            text = { Text("Fit ${option.name.lowercase()}") },
+                            text = { Text(fitModeLabel(option)) },
                             onClick = {
                                 fit = option
                                 fitExpanded = false
