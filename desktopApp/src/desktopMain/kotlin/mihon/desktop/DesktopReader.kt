@@ -88,9 +88,9 @@ import mihon.core.reader.FitMode
 import mihon.core.reader.ReaderPageLoadState
 import mihon.core.reader.ReadingMode
 import mihon.core.reader.nextPageToPreload
-import mihon.desktop.design.RoninReaderMetrics
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninRadius
+import mihon.desktop.design.RoninReaderMetrics
 import mihon.desktop.design.RoninSpacing
 import mihon.platform.desktop.DesktopPlatformGraph
 import tachiyomi.i18n.MR
