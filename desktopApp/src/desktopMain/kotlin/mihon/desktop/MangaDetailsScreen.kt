@@ -52,10 +52,8 @@ internal fun RoninMangaDetailsHero(
     onCopyLink: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
-    val authors = listOfNotNull(manga.author, manga.artist)
-        .map { it.trim() }
-        .filter(String::isNotBlank)
-        .distinct()
+    val author = manga.author?.trim()?.takeIf(String::isNotBlank)
+    val artist = manga.artist?.trim()?.takeIf(String::isNotBlank)
     val genres = manga.getGenres().orEmpty()
     val assignedCategories = categories.filter { it.id in categoryIds }
         .map { it.name.ifBlank { "Uncategorized" } }
@@ -113,9 +111,16 @@ internal fun RoninMangaDetailsHero(
                                         maxLines = 3,
                                         overflow = TextOverflow.Ellipsis,
                                     )
-                                    if (authors.isNotEmpty()) {
+                                    author?.let {
                                         Text(
-                                            authors.joinToString(" · "),
+                                            "Author · $it",
+                                            style = MaterialTheme.typography.bodyMedium,
+                                            color = RoninColors.textSecondary,
+                                        )
+                                    }
+                                    artist?.takeIf { it != author }?.let {
+                                        Text(
+                                            "Artist · $it",
                                             style = MaterialTheme.typography.bodyMedium,
                                             color = RoninColors.textSecondary,
                                         )
@@ -130,12 +135,8 @@ internal fun RoninMangaDetailsHero(
                                         label = roninMangaStatusLabel(manga.status),
                                         accent = manga.status != SManga.UNKNOWN,
                                     )
-                                    if (genres.isEmpty()) {
-                                        RoninBadge(label = "No genres listed")
-                                    } else {
-                                        genres.forEach { genre ->
-                                            RoninBadge(label = genre)
-                                        }
+                                    genres.forEach { genre ->
+                                        RoninBadge(label = genre)
                                     }
                                 }
 
