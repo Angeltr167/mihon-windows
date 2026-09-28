@@ -152,6 +152,7 @@ fun DesktopShell(
     var updateEntries by remember { mutableStateOf(emptyList<UpdatesView>()) }
     var categories by remember { mutableStateOf(emptyList<GetCategories>()) }
     var libraryLoading by remember { mutableStateOf(true) }
+    var libraryError by remember { mutableStateOf<String?>(null) }
     var libraryJob by remember { mutableStateOf<Job?>(null) }
     var libraryRequestId by remember { mutableIntStateOf(0) }
     var selectedCategory by remember { mutableStateOf<Long?>(null) }
@@ -233,6 +234,7 @@ fun DesktopShell(
         libraryRequestId++
         val requestId = libraryRequestId
         libraryLoading = true
+        libraryError = null
         libraryJob = scope.launch {
             try {
                 val snapshot = withContext(Dispatchers.IO) {
@@ -255,7 +257,11 @@ fun DesktopShell(
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Exception) {
-                if (requestId == libraryRequestId) notice.error(error.message ?: "Could not load library")
+                if (requestId == libraryRequestId) {
+                    val detail = error.message ?: "Could not load library"
+                    libraryError = detail
+                    notice.error(detail)
+                }
             } finally {
                 if (requestId == libraryRequestId) libraryLoading = false
             }
@@ -1593,6 +1599,7 @@ fun DesktopShell(
                                 search = librarySearch,
                                 onSearchChange = { librarySearch = it },
                                 loading = libraryLoading,
+                                error = libraryError,
                                 onOpenManga = ::openStoredManga,
                             )
                         }
