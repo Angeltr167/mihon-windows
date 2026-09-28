@@ -234,7 +234,7 @@ private fun SearchLinkTools(
                     RoninSearchField(
                         value = link,
                         onValueChange = onLinkChange,
-                        placeholder = "Manga or Mihon link",
+                        placeholder = "Manga or mihon:// link",
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Row(
@@ -263,7 +263,7 @@ private fun SearchLinkTools(
                     RoninSearchField(
                         value = link,
                         onValueChange = onLinkChange,
-                        placeholder = "Manga or Mihon link",
+                        placeholder = "Manga or mihon:// link",
                         modifier = Modifier.weight(1f),
                     )
                     RoninButton(
