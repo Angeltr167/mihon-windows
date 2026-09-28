@@ -1115,22 +1115,41 @@ internal fun DesktopReader(
                                 RoninTextButton(label = "More…", onClick = { showMore = true })
                                 DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
                                     ReaderMoreActions(
-                                        onClose = onClose,
+                                        onClose = {
+                                            showMore = false
+                                            onClose()
+                                        },
                                         zoom = zoom,
                                         onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
                                         onZoomReset = { zoom = 1f },
                                         onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
-                                        onAppearance = { showAppearance = true },
-                                        onFullscreen = onToggleFullscreen,
-                                        onShortcuts = { showShortcuts = true },
-                                        onSave = ::saveCurrentPage,
+                                        onAppearance = {
+                                            showMore = false
+                                            showAppearance = true
+                                        },
+                                        onFullscreen = {
+                                            showMore = false
+                                            onToggleFullscreen()
+                                        },
+                                        onShortcuts = {
+                                            showMore = false
+                                            showShortcuts = true
+                                        },
+                                        onSave = {
+                                            showMore = false
+                                            saveCurrentPage()
+                                        },
                                         canSave = pages.isNotEmpty(),
                                         onOpenSaved = savedPage?.let { path ->
                                             {
+                                                showMore = false
                                                 graph.externalOpenService.openPath(path.toString())
                                             }
                                         },
-                                        onBookmark = ::toggleChapterBookmark,
+                                        onBookmark = {
+                                            showMore = false
+                                            toggleChapterBookmark()
+                                        },
                                         canBookmark = chapterId != null,
                                         bookmarkLabel = bookmarkLabel,
                                     )
