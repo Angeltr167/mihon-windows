@@ -606,7 +606,7 @@ fun DesktopShell(
     MihonDesktopTheme {
         Surface(
             modifier = Modifier.fillMaxSize().onSizeChanged { size ->
-                compactNavigation = with(density) { size.width.toDp() < MihonSizes.navigationCompactBreakpoint }
+                compactNavigation = with(density) { size.width.toDp() < RoninLayout.sidebarCompactBreakpoint }
             },
             color = RoninColors.appBackground,
         ) {
