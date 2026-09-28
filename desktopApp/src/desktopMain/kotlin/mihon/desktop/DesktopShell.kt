@@ -1335,7 +1335,7 @@ fun DesktopShell(
                                     val subtitle = buildList {
                                         chapter.scanlator
                                             ?.takeIf(String::isNotBlank)
-                                            ?.let(::add)
+                                            ?.let { add(it) }
                                         if (
                                             storedChapter != null &&
                                             !storedChapter.read &&
@@ -1343,7 +1343,7 @@ fun DesktopShell(
                                         ) {
                                             add("Page ${storedChapter.last_page_read + 1}")
                                         }
-                                    }.joinToString(" · ").ifBlank { null }
+                                    }.joinToString(" · ").takeIf(String::isNotBlank)
                                     Column(
                                         modifier = Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                     ) {
