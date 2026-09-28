@@ -21,7 +21,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
-import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -52,6 +51,7 @@ import tachiyomi.data.Chapters
 import tachiyomi.data.GetCategories
 import tachiyomi.data.Mangas
 import tachiyomi.view.History
+import androidx.compose.foundation.lazy.grid.items as gridItems
 
 private enum class LibraryShelfFilter(val label: String) {
     ALL("All"),
