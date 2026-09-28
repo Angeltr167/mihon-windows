@@ -841,13 +841,16 @@ internal fun DesktopReader(
         AnimatedVisibility(
             visible = controlsVisible,
             modifier = Modifier.align(Alignment.TopCenter)
-                .widthIn(max = 1180.dp)
+                .widthIn(max = RoninReaderMetrics.chromeTopMaxWidth)
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 10.dp),
+                .padding(
+                    horizontal = RoninReaderMetrics.chromeHorizontalMargin,
+                    vertical = RoninReaderMetrics.chromeTopMargin,
+                ),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
         ) {
-            MihonPanel(
+            RoninPanel(
                 Modifier.fillMaxWidth()
                     .onPointerEvent(PointerEventType.Enter) {
                         controlsHovered = true
@@ -858,35 +861,52 @@ internal fun DesktopReader(
                         interactionVersion++
                     },
             ) {
-                Row(
-                    Modifier.fillMaxWidth().padding(horizontal = 10.dp, vertical = 4.dp),
-                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TextButton(onClick = onClose) { Text("←") }
-                    Column(Modifier.weight(1f)) {
-                        Text(
-                            target.manga.title,
-                            style = MaterialTheme.typography.titleMedium,
-                            maxLines = 1,
+                BoxWithConstraints(Modifier.fillMaxWidth()) {
+                    val narrowHeader = maxWidth < RoninReaderMetrics.narrowHeaderBreakpoint
+                    Row(
+                        Modifier.fillMaxWidth().padding(
+                            horizontal = MihonSpacing.sm,
+                            vertical = MihonSpacing.xs,
+                        ),
+                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        RoninInlineAction(
+                            label = if (narrowHeader) "←" else "← Back",
+                            onClick = onClose,
                         )
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                target.manga.title,
+                                style = MaterialTheme.typography.titleMedium,
+                                maxLines = 1,
+                            )
+                            Text(
+                                chapters[chapterIndex].name,
+                                color = MihonPalette.muted,
+                                style = MaterialTheme.typography.bodySmall,
+                                maxLines = 1,
+                            )
+                        }
+                        if (!narrowHeader) {
+                            RoninBadge(
+                                label = "Chapter ${chapterIndex + 1} / ${chapters.size}",
+                            )
+                        }
                         Text(
-                            chapters[chapterIndex].name,
-                            color = MihonPalette.muted,
-                            style = MaterialTheme.typography.bodySmall,
-                            maxLines = 1,
+                            if (pages.isEmpty()) {
+                                "— / —"
+                            } else {
+                                "${viewedReaderPageIndex(mode, pageIndex, pages.size) + 1} / ${pages.size}"
+                            },
+                            color = MihonPalette.sage,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                        RoninInlineAction(
+                            label = if (narrowHeader) "Full" else "Fullscreen",
+                            onClick = onToggleFullscreen,
                         )
                     }
-                    Text(
-                        if (pages.isEmpty()) {
-                            "— / —"
-                        } else {
-                            "${viewedReaderPageIndex(mode, pageIndex, pages.size) + 1} / ${pages.size}"
-                        },
-                        color = MihonPalette.muted,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                    TextButton(onClick = onToggleFullscreen) { Text("Fullscreen") }
                 }
             }
         }
