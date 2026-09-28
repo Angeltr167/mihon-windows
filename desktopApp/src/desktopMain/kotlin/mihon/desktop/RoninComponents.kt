@@ -419,7 +419,6 @@ internal fun RoninChapterRow(
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-                    verticalAlignment = Alignment.CenterVertically,
                 ) {
                     subtitle?.let {
                         Text(
