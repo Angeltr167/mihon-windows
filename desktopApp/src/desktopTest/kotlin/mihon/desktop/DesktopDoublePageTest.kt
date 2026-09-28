@@ -65,6 +65,50 @@ class DesktopDoublePageTest {
     }
 
     @Test
+    fun `reader boundary controls stop only at the global chapter edges`() {
+        assertEquals(
+            ReaderBoundaryState(canPrevious = false, canNext = true),
+            readerBoundaryState(
+                mode = ReadingMode.SINGLE_LTR,
+                pageIndex = 0,
+                pageCount = 4,
+                chapterIndex = 0,
+                chapterCount = 2,
+            ),
+        )
+        assertEquals(
+            ReaderBoundaryState(canPrevious = true, canNext = true),
+            readerBoundaryState(
+                mode = ReadingMode.DOUBLE_RTL,
+                pageIndex = 3,
+                pageCount = 5,
+                chapterIndex = 0,
+                chapterCount = 2,
+            ),
+        )
+        assertEquals(
+            ReaderBoundaryState(canPrevious = true, canNext = false),
+            readerBoundaryState(
+                mode = ReadingMode.SINGLE_RTL,
+                pageIndex = 2,
+                pageCount = 3,
+                chapterIndex = 1,
+                chapterCount = 2,
+            ),
+        )
+        assertEquals(
+            ReaderBoundaryState(canPrevious = false, canNext = false),
+            readerBoundaryState(
+                mode = ReadingMode.WEBTOON,
+                pageIndex = 0,
+                pageCount = 0,
+                chapterIndex = 0,
+                chapterCount = 1,
+            ),
+        )
+    }
+
+    @Test
     fun `touchpad deltas must accumulate and a high resolution event turns one page`() {
         var accumulated = 0f
         var result = accumulateReaderWheelDelta(accumulated, 0.3f)
