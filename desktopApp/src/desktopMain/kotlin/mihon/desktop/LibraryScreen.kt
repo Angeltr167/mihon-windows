@@ -418,53 +418,72 @@ private fun LibraryControlPanel(
                 }
             }
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom,
-            ) {
-                Column(
-                    Modifier.weight(1f),
-                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                ) {
-                    Text(
-                        "Sort",
-                        color = RoninColors.textMuted,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val compactControls = maxWidth < 620.dp
+                if (compactControls) {
+                    Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium)) {
+                        LibrarySortControls(sortMode, onSortModeChange)
+                        LibraryViewControls(viewMode, onViewModeChange, alignEnd = false)
+                    }
+                } else {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Bottom,
                     ) {
-                        LibrarySortMode.entries.forEach { mode ->
-                            RoninFilterPill(
-                                label = mode.label,
-                                selected = sortMode == mode,
-                                onClick = { onSortModeChange(mode) },
-                            )
-                        }
+                        LibrarySortControls(sortMode, onSortModeChange, Modifier.weight(1f))
+                        LibraryViewControls(viewMode, onViewModeChange, alignEnd = true)
                     }
                 }
+            }
+        }
+    }
+}
 
-                Column(
-                    horizontalAlignment = Alignment.End,
-                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                ) {
-                    Text(
-                        "View",
-                        color = RoninColors.textMuted,
-                        style = MaterialTheme.typography.labelSmall,
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
-                        LibraryViewMode.entries.forEach { mode ->
-                            RoninFilterPill(
-                                label = mode.label,
-                                selected = viewMode == mode,
-                                onClick = { onViewModeChange(mode) },
-                            )
-                        }
-                    }
-                }
+@Composable
+private fun LibrarySortControls(
+    sortMode: LibrarySortMode,
+    onSortModeChange: (LibrarySortMode) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier,
+        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+    ) {
+        Text("Sort", color = RoninColors.textMuted, style = MaterialTheme.typography.labelSmall)
+        FlowRow(
+            horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+            verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+        ) {
+            LibrarySortMode.entries.forEach { mode ->
+                RoninFilterPill(
+                    label = mode.label,
+                    selected = sortMode == mode,
+                    onClick = { onSortModeChange(mode) },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LibraryViewControls(
+    viewMode: LibraryViewMode,
+    onViewModeChange: (LibraryViewMode) -> Unit,
+    alignEnd: Boolean,
+) {
+    Column(
+        horizontalAlignment = if (alignEnd) Alignment.End else Alignment.Start,
+        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+    ) {
+        Text("View", color = RoninColors.textMuted, style = MaterialTheme.typography.labelSmall)
+        Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
+            LibraryViewMode.entries.forEach { mode ->
+                RoninFilterPill(
+                    label = mode.label,
+                    selected = viewMode == mode,
+                    onClick = { onViewModeChange(mode) },
+                )
             }
         }
     }
