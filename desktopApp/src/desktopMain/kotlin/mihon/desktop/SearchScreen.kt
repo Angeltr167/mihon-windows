@@ -28,11 +28,11 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.PointerIcon
@@ -401,7 +401,10 @@ private fun SearchResults(
                         loading = loading,
                         error = error,
                         hasNext = hasNext,
-                        onOpenManga = { manga -> onInspectManga(manga); onOpenManga(manga) },
+                        onOpenManga = { manga ->
+                            onInspectManga(manga)
+                            onOpenManga(manga)
+                        },
                         onLoadMore = onLoadMore,
                         modifier = Modifier.weight(1f),
                     )
@@ -410,7 +413,7 @@ private fun SearchResults(
                         activeQuery = activeQuery,
                         resultCount = results.size,
                         manga = inspectedManga,
-                        onOpenManga = inspectedManga?.let { manga -> { { onOpenManga(manga) } } },
+                        onOpenManga = inspectedManga?.let { manga -> { onOpenManga(manga) } },
                         modifier = Modifier.width(280.dp),
                     )
                 }
@@ -460,8 +463,12 @@ private fun SearchContextPanel(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
-                RoninBadge(label = mangaStatusLabel(manga.status), accent = manga.status != SManga.UNKNOWN)
-                onOpenManga?.let { RoninButton("Open manga", it, Modifier.fillMaxWidth()) }
+                mangaStatusLabel(manga.status)?.let { status ->
+                    RoninBadge(label = status, accent = manga.status != SManga.UNKNOWN)
+                }
+                onOpenManga?.let {
+                    RoninButton("Open manga", it, Modifier.fillMaxWidth())
+                }
             }
             RoninStat(label = "Loaded", value = resultCount.toString())
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
