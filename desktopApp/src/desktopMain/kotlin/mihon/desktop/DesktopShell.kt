@@ -101,6 +101,7 @@ private data class DetailSnapshot(
     val mangaUrl: String,
     val stored: Mangas?,
     val tracks: Map<Long, Manga_sync>,
+    val chapterStates: Map<String, Chapters>,
 )
 
 private data class LibrarySnapshot(
@@ -173,6 +174,7 @@ fun DesktopShell(
     var detailJob by remember { mutableStateOf<Job?>(null) }
     var selectedManga by remember { mutableStateOf<SManga?>(null) }
     var detailSnapshot by remember { mutableStateOf<DetailSnapshot?>(null) }
+    var detailRevision by remember { mutableIntStateOf(0) }
     var detailsLoading by remember { mutableStateOf(false) }
     var detailsError by remember { mutableStateOf<String?>(null) }
     var selectedMangaCategories by remember { mutableStateOf<Set<Long>>(emptySet()) }
@@ -551,7 +553,7 @@ fun DesktopShell(
             historyEntries.map { it.chapterId }.distinct().associateWith(session.library::chapter)
         }
     }
-    LaunchedEffect(selectedManga?.url, source?.id, message) {
+    LaunchedEffect(selectedManga?.url, source?.id, detailRevision, message) {
         val activeManga = selectedManga
         val activeSource = source
         if (activeManga == null || activeSource == null) {
@@ -561,8 +563,15 @@ fun DesktopShell(
                 val stored = session.library.find(activeSource.id, activeManga.url)
                 val tracks = stored?.let { session.library.tracks(it._id).associateBy(Manga_sync::sync_id) }
                     ?: emptyMap()
-                DetailSnapshot(activeSource.id, activeManga.url, stored, tracks) to
-                    (stored?.let { session.library.mangaCategories(it._id) } ?: emptySet())
+                DetailSnapshot(
+                    sourceId = activeSource.id,
+                    mangaUrl = activeManga.url,
+                    stored = stored,
+                    tracks = tracks,
+                    chapterStates = stored?.let { manga ->
+                        session.library.chapters(manga._id).associateBy { it.url }
+                    } ?: emptyMap(),
+                ) to (stored?.let { session.library.mangaCategories(it._id) } ?: emptySet())
             }
             detailSnapshot = snapshot
             selectedMangaCategories = memberships
@@ -626,6 +635,7 @@ fun DesktopShell(
                             target = requireNotNull(readerTarget),
                             onClose = {
                                 readerTarget = null
+                                detailRevision++
                                 refreshLibrary()
                             },
                             onToggleFullscreen = onToggleFullscreen,
