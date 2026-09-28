@@ -92,6 +92,10 @@ internal class DesktopDownloadScheduler(
         }
     }
 
+    fun clearFinished() {
+        update { items -> items.filterNot { it.status == DesktopDownloadStatus.COMPLETED } }
+    }
+
     override fun close() {
         scope.cancel()
     }
