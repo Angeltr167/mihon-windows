@@ -19,11 +19,11 @@ internal class DesktopDownloadNotifications : Closeable {
                 graphics.fillRoundRect(0, 0, 32, 32, 8, 8)
                 graphics.color = Color.WHITE
                 graphics.font = Font(Font.SANS_SERIF, Font.BOLD, 23)
-                graphics.drawString("M", 5, 25)
+                graphics.drawString("R", 6, 25)
             } finally {
                 graphics.dispose()
             }
-            TrayIcon(image, "Mihon downloads").also {
+            TrayIcon(image, "Ronin downloads").also {
                 it.isImageAutoSize = true
                 systemTray.add(it)
             }
@@ -33,7 +33,7 @@ internal class DesktopDownloadNotifications : Closeable {
     fun show(item: DesktopDownload) {
         if (item.status !in setOf(DesktopDownloadStatus.COMPLETED, DesktopDownloadStatus.FAILED)) return
         icon?.displayMessage(
-            "Mihon download",
+            "Ronin download",
             if (item.status == DesktopDownloadStatus.COMPLETED) {
                 "${item.mangaTitle} — ${item.chapterName} downloaded"
             } else {
