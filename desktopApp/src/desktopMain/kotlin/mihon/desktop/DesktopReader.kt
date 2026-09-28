@@ -32,7 +32,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -155,6 +157,37 @@ internal fun readerStartPage(
     }
 }
 
+internal fun readingModeLabel(mode: ReadingMode): String = when (mode) {
+    ReadingMode.SINGLE_LTR -> "Single · LTR"
+    ReadingMode.SINGLE_RTL -> "Single · RTL"
+    ReadingMode.DOUBLE_LTR -> "Double · LTR"
+    ReadingMode.DOUBLE_RTL -> "Double · RTL"
+    ReadingMode.VERTICAL -> "Vertical"
+    ReadingMode.WEBTOON -> "Webtoon"
+}
+
+internal fun fitModeLabel(fit: FitMode): String = when (fit) {
+    FitMode.WIDTH -> "Fit width"
+    FitMode.HEIGHT -> "Fit height"
+    FitMode.ORIGINAL -> "Original size"
+}
+
+internal fun shouldAutoHideReaderControls(
+    showAppearance: Boolean,
+    showShortcuts: Boolean,
+    showMore: Boolean,
+    showModeMenu: Boolean,
+    showFitMenu: Boolean,
+    sliderDragging: Boolean,
+    controlsHovered: Boolean,
+): Boolean = !showAppearance &&
+    !showShortcuts &&
+    !showMore &&
+    !showModeMenu &&
+    !showFitMenu &&
+    !sliderDragging &&
+    !controlsHovered
+
 /** Accumulate touchpad-sized deltas and emit at most one page direction per threshold crossing. */
 internal fun accumulateReaderWheelDelta(
     accumulated: Float,
@@ -260,6 +293,8 @@ internal fun DesktopReader(
     var showShortcuts by remember(target) { mutableStateOf(false) }
     var controlsVisible by remember(target) { mutableStateOf(true) }
     var showMore by remember(target) { mutableStateOf(false) }
+    var showModeMenu by remember(target) { mutableStateOf(false) }
+    var showFitMenu by remember(target) { mutableStateOf(false) }
     var sliderDragging by remember(target) { mutableStateOf(false) }
     var controlsHovered by remember(target) { mutableStateOf(false) }
     var sliderTargetPage by remember(target) { mutableStateOf<Int?>(null) }
@@ -499,6 +534,13 @@ internal fun DesktopReader(
         }
     }
 
+    fun previousChapter() {
+        if (chapterIndex > 0) {
+            chapterOpenIntent = ReaderChapterOpenIntent.FIRST
+            chapterIndex--
+        }
+    }
+
     fun nextChapter() {
         if (chapterIndex < chapters.lastIndex) {
             chapterOpenIntent = ReaderChapterOpenIntent.FIRST
@@ -516,16 +558,22 @@ internal fun DesktopReader(
         showAppearance,
         showShortcuts,
         showMore,
+        showModeMenu,
+        showFitMenu,
         sliderDragging,
         controlsHovered,
     ) {
         if (
             controlsVisible &&
-            !showAppearance &&
-            !showShortcuts &&
-            !showMore &&
-            !sliderDragging &&
-            !controlsHovered
+            shouldAutoHideReaderControls(
+                showAppearance = showAppearance,
+                showShortcuts = showShortcuts,
+                showMore = showMore,
+                showModeMenu = showModeMenu,
+                showFitMenu = showFitMenu,
+                sliderDragging = sliderDragging,
+                controlsHovered = controlsHovered,
+            )
         ) {
             delay(2800)
             controlsVisible = false
