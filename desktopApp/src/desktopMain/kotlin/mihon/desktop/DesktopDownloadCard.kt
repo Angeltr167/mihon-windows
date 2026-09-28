@@ -38,7 +38,11 @@ internal fun DesktopDownloadCard(
                     horizontalArrangement = Arrangement.spacedBy(mihon.desktop.design.RoninSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    DesktopCover(coverUrl, source, Modifier.width(MihonSizes.coverSmallWidth).height(MihonSizes.coverSmallHeight))
+                    DesktopCover(
+                        coverUrl,
+                        source,
+                        Modifier.width(MihonSizes.coverSmallWidth).height(MihonSizes.coverSmallHeight),
+                    )
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs)) {
                         Text(download.mangaTitle, style = MaterialTheme.typography.titleMedium)
                         Text(download.chapterName, color = MihonPalette.muted)
