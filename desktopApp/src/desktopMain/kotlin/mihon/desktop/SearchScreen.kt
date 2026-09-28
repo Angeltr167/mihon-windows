@@ -366,7 +366,10 @@ private fun SearchResults(
                 verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
             ) {
                 RoninBadge(source.roninSourceLanguage())
-                RoninBadge("Installed", accent = true)
+                RoninBadge(
+                    label = if (source is DesktopLocalSource) "On device" else "Installed",
+                    accent = true,
+                )
             }
         }
 
@@ -585,7 +588,7 @@ internal fun RoninSourceMangaCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            manga.author?.takeIf(String::isNotBlank)?.let { author ->
+            manga.author?.takeIf { it.isNotBlank() }?.let { author ->
                 Text(
                     author,
                     color = RoninColors.textMuted,
