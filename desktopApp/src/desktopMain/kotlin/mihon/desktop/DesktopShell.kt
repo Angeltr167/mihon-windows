@@ -221,6 +221,7 @@ fun DesktopShell(
     var message by notice
     var mihonProtocolRegistered by remember { mutableStateOf(protocolRegistrar.isRegistered()) }
     val downloads by session.downloads.queue.collectAsState()
+    var downloadQuery by remember { mutableStateOf("") }
     var downloadMangas by remember { mutableStateOf<Map<String, Mangas?>>(emptyMap()) }
     val trackerSyncQueue by session.trackerSync.pending.collectAsState()
     val incomingLink by incomingLinks.collectAsState()
@@ -1992,7 +1993,7 @@ fun DesktopShell(
                                 DesktopSettingsNavigation(
                                     selected = settingsSection,
                                     onSelect = { settingsSection = it },
-                                    modifier = Modifier.width(196.dp).fillMaxHeight()
+                                    modifier = Modifier.width(if (compactNavigation) 164.dp else 196.dp).fillMaxHeight()
                                         .background(MihonPalette.panel, RoundedCornerShape(MihonRadius.panel)),
                                 )
                                 Column(
@@ -2454,7 +2455,7 @@ fun DesktopShell(
                                                             "Scheduled library updates: off"
                                                         } else {
                                                             "Scheduled updates: every $updateInterval hours " +
-                                                                "while Mihon is open"
+                                                                "while Ronin is open"
                                                         },
                                                     )
                                                 }
@@ -2488,8 +2489,8 @@ fun DesktopShell(
                                             ) {
                                                 Text("Windows links", style = MaterialTheme.typography.titleMedium)
                                                 Text(
-                                                    "Mihon can handle manga and tracker callback links " +
-                                                        "for this Windows account.",
+                                                    "Ronin keeps compatibility with existing mihon:// manga and " +
+                                                        "tracker callback links for this Windows account.",
                                                     color = MihonPalette.muted,
                                                 )
                                                 Text(
@@ -2511,19 +2512,19 @@ fun DesktopShell(
                                                         }.onSuccess {
                                                             mihonProtocolRegistered = !mihonProtocolRegistered
                                                             message = if (mihonProtocolRegistered) {
-                                                                "Mihon browser links registered for this Windows user"
+                                                                "Ronin browser-link compatibility registered for this Windows user"
                                                             } else {
-                                                                "Mihon browser links unregistered"
+                                                                "Ronin browser-link compatibility unregistered"
                                                             }
                                                         }.onFailure {
-                                                            notice.error(it.message ?: "Could not update Mihon links")
+                                                            notice.error(it.message ?: "Could not update Ronin link compatibility")
                                                         }
                                                     }) {
                                                         Text(
                                                             if (mihonProtocolRegistered) {
-                                                                "Unregister Mihon links"
+                                                                "Unregister browser links"
                                                             } else {
-                                                                "Register Mihon links"
+                                                                "Register browser links"
                                                             },
                                                         )
                                                     }
@@ -2551,6 +2552,10 @@ fun DesktopShell(
                                 trailing = {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         TextButton(
+                                            onClick = { session.downloads.clearFinished() },
+                                            enabled = downloads.any { it.status == DesktopDownloadStatus.COMPLETED },
+                                        ) { Text("Clear finished") }
+                                        TextButton(
                                             onClick = { session.downloads.pause() },
                                             enabled = downloads.any {
                                                 it.status == DesktopDownloadStatus.RUNNING ||
@@ -2567,10 +2572,32 @@ fun DesktopShell(
                                     }
                                 },
                             )
+                            val visibleDownloads = if (downloadQuery.isBlank()) {
+                                downloads
+                            } else {
+                                downloads.filter { item ->
+                                    item.mangaTitle.contains(downloadQuery, ignoreCase = true) ||
+                                        item.chapterName.contains(downloadQuery, ignoreCase = true)
+                                }
+                            }
+                            if (downloads.isNotEmpty()) {
+                                OutlinedTextField(
+                                    value = downloadQuery,
+                                    onValueChange = { downloadQuery = it },
+                                    label = { Text("Search downloads") },
+                                    singleLine = true,
+                                    modifier = Modifier.fillMaxWidth(),
+                                )
+                            }
                             if (downloads.isEmpty()) {
                                 MihonEmptyState(
                                     "No downloads",
                                     "Queue a chapter from its manga details or the Updates screen.",
+                                )
+                            } else if (visibleDownloads.isEmpty()) {
+                                MihonEmptyState(
+                                    "No matching downloads",
+                                    "Try a different manga or chapter name.",
                                 )
                             } else {
                                 LazyColumn(
@@ -2586,7 +2613,7 @@ fun DesktopShell(
                                         "Failed" to setOf(DesktopDownloadStatus.FAILED),
                                         "Completed" to setOf(DesktopDownloadStatus.COMPLETED),
                                     ).forEach { (heading, statuses) ->
-                                        val grouped = downloads.filter { it.status in statuses }
+                                        val grouped = visibleDownloads.filter { it.status in statuses }
                                         if (grouped.isNotEmpty()) {
                                             item {
                                                 Text(
