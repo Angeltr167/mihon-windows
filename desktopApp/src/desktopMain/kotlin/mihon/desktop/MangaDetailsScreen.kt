@@ -53,7 +53,7 @@ internal fun RoninMangaDetailsHero(
     modifier: Modifier = Modifier,
 ) {
     val authors = listOfNotNull(manga.author, manga.artist)
-        .map(String::trim)
+        .map { it.trim() }
         .filter(String::isNotBlank)
         .distinct()
     val genres = manga.getGenres().orEmpty()
