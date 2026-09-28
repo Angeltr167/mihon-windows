@@ -855,7 +855,10 @@ internal fun DesktopReader(
                                     }
                                     Box(
                                         Modifier.width(displayedWidth).height(displayedHeight)
-                                            .shadow(if (isSpread) 8.dp else 12.dp, RoundedCornerShape(MihonRadius.control))
+                                            .shadow(
+                                                if (isSpread) 8.dp else 12.dp,
+                                                RoundedCornerShape(MihonRadius.control),
+                                            )
                                             .background(MihonPalette.graphite)
                                             .border(
                                                 1.dp,
