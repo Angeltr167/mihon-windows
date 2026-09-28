@@ -2549,9 +2549,9 @@ fun DesktopShell(
                             }
                         }
                         screen == Screen.DOWNLOADS -> {
-                            MihonSectionHeader(
-                                "Downloads",
-                                "${downloads.size} chapters in the persisted queue",
+                            RoninSectionHeader(
+                                title = "Downloads",
+                                subtitle = "${downloads.size} chapters in the persisted queue",
                                 trailing = {
                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                         TextButton(
