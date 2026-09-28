@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
@@ -299,6 +300,9 @@ private fun SearchSourcePicker(
         DropdownMenu(
             expanded = expanded,
             onDismissRequest = { onExpandedChange(false) },
+            modifier = Modifier
+                .widthIn(min = 240.dp, max = 360.dp)
+                .heightIn(max = 460.dp),
         ) {
             sources
                 .sortedWith(compareBy<Source> { it.name.lowercase() }.thenBy { it.lang })
