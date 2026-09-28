@@ -17,10 +17,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import eu.kanade.tachiyomi.source.Source
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninMangaMetrics
 import mihon.desktop.design.RoninSpacing
-import eu.kanade.tachiyomi.source.Source
 
 @Composable
 internal fun DesktopDownloadCard(
@@ -44,7 +44,9 @@ internal fun DesktopDownloadCard(
                     DesktopCover(
                         coverUrl,
                         source,
-                        Modifier.width(RoninMangaMetrics.coverCompactWidth).height(RoninMangaMetrics.coverCompactHeight),
+                        Modifier.width(
+                            RoninMangaMetrics.coverCompactWidth,
+                        ).height(RoninMangaMetrics.coverCompactHeight),
                     )
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
                         Text(download.mangaTitle, style = MaterialTheme.typography.titleMedium)
