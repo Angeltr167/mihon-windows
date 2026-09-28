@@ -136,6 +136,25 @@ internal data class ReaderSpreadGeometry(val height: Float, val widths: List<Flo
 
 internal data class ReaderWheelResult(val remainder: Float, val direction: Int?)
 
+internal enum class ReaderChapterOpenIntent {
+    RESTORE,
+    FIRST,
+    LAST,
+}
+
+internal fun readerStartPage(
+    intent: ReaderChapterOpenIntent,
+    storedPage: Int,
+    pageCount: Int,
+): Int {
+    require(pageCount > 0)
+    return when (intent) {
+        ReaderChapterOpenIntent.RESTORE -> storedPage.coerceIn(0, pageCount - 1)
+        ReaderChapterOpenIntent.FIRST -> 0
+        ReaderChapterOpenIntent.LAST -> pageCount - 1
+    }
+}
+
 /** Accumulate touchpad-sized deltas and emit at most one page direction per threshold crossing. */
 internal fun accumulateReaderWheelDelta(
     accumulated: Float,
@@ -202,7 +221,7 @@ internal fun DesktopReader(
     var loadedChapterIndex by remember(target) { mutableIntStateOf(-1) }
     var loadState by remember(target) { mutableStateOf<ReaderPageLoadState>(ReaderPageLoadState.Loading) }
     var retry by remember(target) { mutableIntStateOf(0) }
-    var openAtLastPage by remember(target) { mutableStateOf(false) }
+    var chapterOpenIntent by remember(target) { mutableStateOf(ReaderChapterOpenIntent.RESTORE) }
     var mode by remember(target) {
         mutableStateOf(
             runCatching {
@@ -332,8 +351,11 @@ internal fun DesktopReader(
             }
             loaded to stored
         }.onSuccess { (loaded, stored) ->
-            val restored =
-                if (openAtLastPage) loaded.lastIndex else stored.last_page_read.toInt().coerceIn(0, loaded.lastIndex)
+            val restored = readerStartPage(
+                chapterOpenIntent,
+                stored.last_page_read.toInt(),
+                loaded.size,
+            )
             pageIndex = normalizeReaderPageIndex(mode, restored, loaded.size)
             pages = loaded
             chapterId = stored._id
@@ -341,7 +363,7 @@ internal fun DesktopReader(
             mangaId = stored.manga_id
             trackerSyncAttempted = stored.read
             loadedChapterIndex = chapterIndex
-            openAtLastPage = false
+            chapterOpenIntent = ReaderChapterOpenIntent.RESTORE
             loadState = ReaderPageLoadState.Ready(loaded.size)
         }.onFailure {
             if (it is CancellationException) throw it
@@ -416,7 +438,7 @@ internal fun DesktopReader(
         if (destination != null) {
             navigateTo(destination)
         } else if (chapterIndex < chapters.lastIndex) {
-            pageIndex = 0
+            chapterOpenIntent = ReaderChapterOpenIntent.FIRST
             chapterIndex++
         }
     }
@@ -427,7 +449,7 @@ internal fun DesktopReader(
         if (destination != null) {
             navigateTo(destination)
         } else if (chapterIndex > 0) {
-            openAtLastPage = true
+            chapterOpenIntent = ReaderChapterOpenIntent.LAST
             chapterIndex--
         }
     }
@@ -479,7 +501,7 @@ internal fun DesktopReader(
 
     fun nextChapter() {
         if (chapterIndex < chapters.lastIndex) {
-            openAtLastPage = false
+            chapterOpenIntent = ReaderChapterOpenIntent.FIRST
             chapterIndex++
         }
     }
@@ -850,7 +872,7 @@ internal fun DesktopReader(
                     ) {
                         TextButton(onClick = {
                             if (chapterIndex > 0) {
-                                openAtLastPage = false
+                                chapterOpenIntent = ReaderChapterOpenIntent.FIRST
                                 chapterIndex--
                             }
                         }, enabled = chapterIndex > 0) { Text("‹ Chapter") }
