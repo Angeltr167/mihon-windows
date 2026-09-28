@@ -24,12 +24,12 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import mihon.core.reader.FitMode
+import mihon.core.reader.ReadingMode
 import mihon.desktop.design.RoninBorders
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninRadius
 import mihon.desktop.design.RoninSpacing
-import mihon.core.reader.FitMode
-import mihon.core.reader.ReadingMode
 import mihon.platform.desktop.DesktopPlatformGraph
 
 internal enum class DesktopSettingsSection(val title: String, val description: String) {
