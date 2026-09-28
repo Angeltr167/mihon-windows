@@ -1332,7 +1332,7 @@ fun DesktopShell(
                                                     detail = "Fetching the latest chapter list from the source.",
                                                 )
                                                 detailsError != null -> Column(
-                                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                                 ) {
                                                     RoninErrorState(
                                                         title = "Could not load chapters",
@@ -2553,25 +2553,26 @@ fun DesktopShell(
                                 title = "Downloads",
                                 subtitle = "${downloads.size} chapters in the persisted queue",
                                 trailing = {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        TextButton(
+                                    Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
+                                        RoninTextButton(
                                             onClick = { session.downloads.clearFinished() },
                                             enabled = downloads.any { it.status == DesktopDownloadStatus.COMPLETED },
                                         ) { Text("Clear finished") }
-                                        TextButton(
+                                        RoninTextButton(
                                             onClick = { session.downloads.pause() },
                                             enabled = downloads.any {
                                                 it.status == DesktopDownloadStatus.RUNNING ||
                                                     it.status == DesktopDownloadStatus.PENDING
                                             },
                                         ) { Text("Pause all") }
-                                        Button(
+                                        RoninButton(
+                                            label = "Resume all",
                                             onClick = { session.downloads.resume() },
                                             enabled = downloads.any {
                                                 it.status == DesktopDownloadStatus.PAUSED ||
                                                     it.status == DesktopDownloadStatus.FAILED
                                             },
-                                        ) { Text("Resume all") }
+                                        )
                                     }
                                 },
                             )
@@ -2584,21 +2585,20 @@ fun DesktopShell(
                                 }
                             }
                             if (downloads.isNotEmpty()) {
-                                OutlinedTextField(
+                                RoninSearchField(
                                     value = downloadQuery,
                                     onValueChange = { downloadQuery = it },
-                                    label = { Text("Search downloads") },
-                                    singleLine = true,
+                                    placeholder = "Search downloads",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                             if (downloads.isEmpty()) {
-                                MihonEmptyState(
+                                RoninEmptyState(
                                     "No downloads",
                                     "Queue a chapter from its manga details or the Updates screen.",
                                 )
                             } else if (visibleDownloads.isEmpty()) {
-                                MihonEmptyState(
+                                RoninEmptyState(
                                     "No matching downloads",
                                     "Try a different manga or chapter name.",
                                 )
