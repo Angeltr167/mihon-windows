@@ -7,7 +7,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.focusable
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.gestures.detectTapGestures
@@ -31,8 +30,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -1217,9 +1218,40 @@ private fun ReaderImage(
                 )
             },
             onFailure = { failure ->
-                Text("Page ${index + 1}: ${failure.message ?: "failed"} — retry", Modifier.clickable { retry++ })
+                RoninPanel(Modifier.widthIn(max = 420.dp).padding(MihonSpacing.md)) {
+                    Column(
+                        Modifier.fillMaxWidth().padding(MihonSpacing.lg),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                    ) {
+                        Text(
+                            "Page " + (index + 1) + " could not be loaded",
+                            style = MaterialTheme.typography.titleSmall,
+                        )
+                        Text(
+                            failure.message ?: "The page request or image decode failed.",
+                            color = MihonPalette.muted,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
+                        RoninSecondaryButton(label = "Retry page", onClick = { retry++ })
+                    }
+                }
             },
-        ) ?: Text("Loading page ${index + 1}…")
+        ) ?: Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+        ) {
+            CircularProgressIndicator(
+                modifier = Modifier.width(20.dp).height(20.dp),
+                strokeWidth = 2.dp,
+                color = MihonPalette.sage,
+            )
+            Text(
+                "Loading page " + (index + 1) + "…",
+                color = MihonPalette.muted,
+                style = MaterialTheme.typography.bodySmall,
+            )
+        }
     }
 }
 
