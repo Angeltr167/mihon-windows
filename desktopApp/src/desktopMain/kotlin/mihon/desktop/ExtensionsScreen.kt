@@ -635,7 +635,7 @@ private fun ExtensionRow(
             .hoverable(interactionSource),
         shape = RoundedCornerShape(RoninRadius.card),
         color = if (hovered) RoninColors.hoverSurface else RoninColors.elevatedSurface,
-        border = BorderStroke(RoninBorders.hairline, if (hovered) RoninColors.accentSage else RoninColors.border),
+        border = BorderStroke(RoninBorders.hairline, if (hovered) RoninColors.accentCoral else RoninColors.border),
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().padding(RoninSpacing.medium)) {
             val narrow = maxWidth < 760.dp
