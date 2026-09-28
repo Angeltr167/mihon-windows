@@ -580,10 +580,6 @@ internal fun DesktopReader(
     val bookmarkLabel = stringResource(
         if (chapterBookmarked) MR.strings.action_remove_bookmark else MR.strings.action_bookmark,
     )
-    val canNavigatePrevious = pages.isNotEmpty() &&
-        (previousReaderPageIndex(mode, pageIndex, pages.size) != null || chapterIndex > 0)
-    val canNavigateNext = pages.isNotEmpty() &&
-        (nextReaderPageIndex(mode, pageIndex, pages.size) != null || chapterIndex < chapters.lastIndex)
     LaunchedEffect(
         controlsVisible,
         interactionVersion,
