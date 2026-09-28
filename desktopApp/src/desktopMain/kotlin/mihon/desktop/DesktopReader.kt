@@ -34,6 +34,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -865,45 +866,50 @@ internal fun DesktopReader(
                     val narrowHeader = maxWidth < RoninReaderMetrics.narrowHeaderBreakpoint
                     Row(
                         Modifier.fillMaxWidth().padding(
-                            horizontal = MihonSpacing.sm,
-                            vertical = MihonSpacing.xs,
+                            horizontal = MihonSpacing.md,
+                            vertical = MihonSpacing.sm,
                         ),
                         horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RoninInlineAction(
-                            label = if (narrowHeader) "←" else "← Back",
-                            onClick = onClose,
-                        )
+                        RoninTextButton(label = "← Back", onClick = onClose)
                         Column(Modifier.weight(1f)) {
-                            Text(
-                                target.manga.title,
-                                style = MaterialTheme.typography.titleMedium,
-                                maxLines = 1,
-                            )
+                            if (!narrowHeader) {
+                                Text(
+                                    target.manga.title,
+                                    style = MaterialTheme.typography.titleMedium,
+                                    maxLines = 1,
+                                )
+                            }
                             Text(
                                 chapters[chapterIndex].name,
-                                color = MihonPalette.muted,
-                                style = MaterialTheme.typography.bodySmall,
+                                color = if (narrowHeader) MihonPalette.ivory else MihonPalette.muted,
+                                style = if (narrowHeader) {
+                                    MaterialTheme.typography.titleSmall
+                                } else {
+                                    MaterialTheme.typography.bodySmall
+                                },
                                 maxLines = 1,
                             )
                         }
                         if (!narrowHeader) {
                             RoninBadge(
-                                label = "Chapter ${chapterIndex + 1} / ${chapters.size}",
+                                label = readingModeLabel(mode),
+                                accent = mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL,
                             )
                         }
                         Text(
                             if (pages.isEmpty()) {
                                 "— / —"
                             } else {
-                                "${viewedReaderPageIndex(mode, pageIndex, pages.size) + 1} / ${pages.size}"
+                                (viewedReaderPageIndex(mode, pageIndex, pages.size) + 1).toString() +
+                                    " / " + pages.size
                             },
                             color = MihonPalette.sage,
                             style = MaterialTheme.typography.labelLarge,
                         )
-                        RoninInlineAction(
-                            label = if (narrowHeader) "Full" else "Fullscreen",
+                        RoninTextButton(
+                            label = if (narrowHeader) "⛶" else "Fullscreen",
                             onClick = onToggleFullscreen,
                         )
                     }
@@ -995,53 +1001,43 @@ internal fun DesktopReader(
                             ),
                             verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
                         ) {
-                            RoninInlineAction(
+                            RoninTextButton(
                                 label = if (compactControls) "‹ Ch." else "‹ Chapter",
                                 onClick = ::previousChapter,
                                 enabled = chapterIndex > 0,
                             )
                             RoninSecondaryButton(
-                                label = "‹ Page",
+                                label = if (compactControls) "‹" else "‹ Page",
                                 onClick = ::previous,
-                                enabled = canNavigatePrevious,
+                                enabled = pages.isNotEmpty(),
                             )
                             RoninSecondaryButton(
-                                label = "Page ›",
+                                label = if (compactControls) "›" else "Page ›",
                                 onClick = ::next,
-                                enabled = canNavigateNext,
+                                enabled = pages.isNotEmpty(),
                             )
-                            RoninInlineAction(
+                            RoninTextButton(
                                 label = if (compactControls) "Ch. ›" else "Chapter ›",
                                 onClick = ::nextChapter,
                                 enabled = chapterIndex < chapters.lastIndex,
                             )
                             Box {
-                                RoninChip(
+                                RoninTextButton(
                                     label = readingModeLabel(mode),
-                                    selected = true,
-                                    onClick = {
-                                        showModeMenu = true
-                                        showFitMenu = false
-                                        showMore = false
-                                    },
+                                    onClick = { showModeMenu = true },
                                 )
                                 DropdownMenu(
                                     expanded = showModeMenu,
                                     onDismissRequest = { showModeMenu = false },
                                 ) {
                                     ReadingMode.entries.forEach { option ->
-                                        androidx.compose.material3.DropdownMenuItem(
+                                        DropdownMenuItem(
                                             text = { Text(readingModeLabel(option)) },
                                             onClick = {
                                                 if (pages.isNotEmpty()) {
-                                                    val currentPage =
-                                                        viewedReaderPageIndex(mode, pageIndex, pages.size)
+                                                    val currentPage = viewedReaderPageIndex(mode, pageIndex, pages.size)
                                                     mode = option
-                                                    pageIndex = normalizeReaderPageIndex(
-                                                        mode,
-                                                        currentPage,
-                                                        pages.size,
-                                                    )
+                                                    pageIndex = normalizeReaderPageIndex(mode, currentPage, pages.size)
                                                 } else {
                                                     mode = option
                                                 }
@@ -1053,44 +1049,35 @@ internal fun DesktopReader(
                                 }
                             }
                             Box {
-                                RoninChip(
+                                RoninTextButton(
                                     label = fitModeLabel(fit),
-                                    onClick = {
-                                        showFitMenu = true
-                                        showModeMenu = false
-                                        showMore = false
-                                    },
+                                    onClick = { showFitMenu = true },
                                 )
                                 DropdownMenu(
                                     expanded = showFitMenu,
                                     onDismissRequest = { showFitMenu = false },
                                 ) {
                                     FitMode.entries.forEach { option ->
-                                        androidx.compose.material3.DropdownMenuItem(
+                                        DropdownMenuItem(
                                             text = { Text(fitModeLabel(option)) },
                                             onClick = {
                                                 fit = option
-                                                graph.keyValueStore.putString("desktop.reader.fit", option.name)
+                                                graph.keyValueStore.putString("desktop.reader.fit", fit.name)
                                                 showFitMenu = false
                                             },
                                         )
                                     }
                                 }
                             }
-                            RoninBadge(label = "${(zoom * 100).roundToInt()}%")
+                            RoninBadge(label = (zoom * 100).roundToInt().toString() + "%")
                             Box {
-                                RoninInlineAction(
-                                    label = "More…",
-                                    onClick = {
-                                        showMore = true
-                                        showModeMenu = false
-                                        showFitMenu = false
-                                    },
-                                )
+                                RoninTextButton(label = "More…", onClick = { showMore = true })
                                 DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
                                     ReaderMoreActions(
                                         onClose = onClose,
+                                        zoom = zoom,
                                         onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
+                                        onZoomReset = { zoom = 1f },
                                         onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
                                         onAppearance = { showAppearance = true },
                                         onFullscreen = onToggleFullscreen,
@@ -1105,8 +1092,6 @@ internal fun DesktopReader(
                                         onBookmark = ::toggleChapterBookmark,
                                         canBookmark = chapterId != null,
                                         bookmarkLabel = bookmarkLabel,
-                                        onNextChapter = ::nextChapter,
-                                        canNextChapter = chapterIndex < chapters.lastIndex,
                                     )
                                 }
                             }
@@ -1121,7 +1106,9 @@ internal fun DesktopReader(
 @Composable
 private fun ReaderMoreActions(
     onClose: () -> Unit,
+    zoom: Float,
     onZoomOut: () -> Unit,
+    onZoomReset: () -> Unit,
     onZoomIn: () -> Unit,
     onAppearance: () -> Unit,
     onFullscreen: () -> Unit,
@@ -1132,20 +1119,39 @@ private fun ReaderMoreActions(
     onBookmark: () -> Unit,
     canBookmark: Boolean,
     bookmarkLabel: String,
-    onNextChapter: () -> Unit,
-    canNextChapter: Boolean,
 ) {
-    Column {
-        TextButton(onClick = onClose) { Text("Back to manga") }
-        TextButton(onClick = onZoomOut) { Text("Zoom −") }
-        TextButton(onClick = onZoomIn) { Text("Zoom +") }
-        TextButton(onClick = onAppearance) { Text("Appearance") }
-        TextButton(onClick = onFullscreen) { Text("Fullscreen") }
-        TextButton(onClick = onShortcuts) { Text("Keys") }
-        TextButton(onClick = onSave, enabled = canSave) { Text("Save page…") }
-        onOpenSaved?.let { TextButton(onClick = it) { Text("Open saved page") } }
-        TextButton(onClick = onBookmark, enabled = canBookmark) { Text(bookmarkLabel) }
-        TextButton(onClick = onNextChapter, enabled = canNextChapter) { Text("Next chapter") }
+    Column(Modifier.widthIn(min = 210.dp)) {
+        DropdownMenuItem(
+            text = { Text("Zoom out · " + (zoom * 100).roundToInt() + "%") },
+            onClick = onZoomOut,
+            enabled = zoom > 0.5f,
+        )
+        DropdownMenuItem(
+            text = { Text("Reset zoom · 100%") },
+            onClick = onZoomReset,
+            enabled = zoom != 1f,
+        )
+        DropdownMenuItem(
+            text = { Text("Zoom in · " + (zoom * 100).roundToInt() + "%") },
+            onClick = onZoomIn,
+            enabled = zoom < 4f,
+        )
+        HorizontalDivider()
+        DropdownMenuItem(text = { Text("Appearance") }, onClick = onAppearance)
+        DropdownMenuItem(text = { Text("Keyboard shortcuts") }, onClick = onShortcuts)
+        DropdownMenuItem(text = { Text("Fullscreen · F11") }, onClick = onFullscreen)
+        HorizontalDivider()
+        DropdownMenuItem(text = { Text("Save current page…") }, onClick = onSave, enabled = canSave)
+        onOpenSaved?.let { action ->
+            DropdownMenuItem(text = { Text("Open saved page") }, onClick = action)
+        }
+        DropdownMenuItem(
+            text = { Text(bookmarkLabel) },
+            onClick = onBookmark,
+            enabled = canBookmark,
+        )
+        HorizontalDivider()
+        DropdownMenuItem(text = { Text("Back to manga") }, onClick = onClose)
     }
 }
 
