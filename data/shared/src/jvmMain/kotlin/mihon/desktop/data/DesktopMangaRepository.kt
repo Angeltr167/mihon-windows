@@ -223,6 +223,34 @@ class DesktopMangaRepository private constructor(
         database.categoriesQueries.insert(name.trim(), categories().size.toLong(), 0)
     }
 
+    fun renameCategory(categoryId: Long, name: String) {
+        require(categoryId > 0) { "System category cannot be renamed" }
+        require(name.isNotBlank()) { "Category name cannot be blank" }
+        database.categoriesQueries.updateName(name.trim(), categoryId)
+    }
+
+    fun deleteCategory(categoryId: Long) {
+        require(categoryId > 0) { "System category cannot be deleted" }
+        database.categoriesQueries.delete(categoryId)
+    }
+
+    fun moveCategory(categoryId: Long, offset: Int) {
+        require(categoryId > 0) { "System category cannot be reordered" }
+        require(offset == -1 || offset == 1) { "Category offset must be -1 or 1" }
+        database.transaction {
+            val ordered = categories().filter { it.id > 0 }.sortedBy { it.order }
+            val currentIndex = ordered.indexOfFirst { it.id == categoryId }
+            if (currentIndex == -1) return@transaction
+            val targetIndex = currentIndex + offset
+            if (targetIndex !in ordered.indices) return@transaction
+
+            val current = ordered[currentIndex]
+            val target = ordered[targetIndex]
+            database.categoriesQueries.updateOrder(target.order, current.id)
+            database.categoriesQueries.updateOrder(current.order, target.id)
+        }
+    }
+
     /** Merge an Android protobuf backup into Mihon's existing schema. */
     fun importBackup(backup: MihonBackup): BackupImportSummary {
         var importedChapters = 0
