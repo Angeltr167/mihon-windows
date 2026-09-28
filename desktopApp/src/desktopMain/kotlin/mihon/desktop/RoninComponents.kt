@@ -128,7 +128,7 @@ internal fun RoninButton(
         modifier = modifier.height(RoninMangaMetrics.controlHeight),
         shape = RoundedCornerShape(RoninRadius.control),
         colors = ButtonDefaults.buttonColors(
-            containerColor = RoninColors.accentSage,
+            containerColor = RoninColors.accentCoral,
             contentColor = RoninColors.appBackground,
             disabledContainerColor = RoninColors.secondarySurface,
             disabledContentColor = RoninColors.textDisabled,
@@ -258,13 +258,13 @@ internal fun RoninChip(
         modifier = interactiveModifier,
         shape = RoundedCornerShape(RoninRadius.pill),
         color = when {
-            selected -> RoninColors.accentSage.copy(alpha = 0.14f)
-            accent -> RoninColors.accentSage.copy(alpha = 0.12f)
+            selected -> RoninColors.accentCoral.copy(alpha = 0.14f)
+            accent -> RoninColors.accentCoral.copy(alpha = 0.12f)
             else -> RoninColors.secondarySurface
         },
         border = BorderStroke(
             RoninBorders.hairline,
-            if (highlighted) RoninColors.accentSage.copy(alpha = 0.52f) else RoninColors.borderSubtle,
+            if (highlighted) RoninColors.accentCoral.copy(alpha = 0.52f) else RoninColors.borderSubtle,
         ),
     ) {
         Text(
@@ -273,7 +273,7 @@ internal fun RoninChip(
                 horizontal = if (selected) RoninSpacing.medium else RoninSpacing.small,
                 vertical = if (selected) RoninSpacing.small else RoninSpacing.xSmall,
             ),
-            color = if (highlighted) RoninColors.accentSage else RoninColors.textSecondary,
+            color = if (highlighted) RoninColors.accentCoral else RoninColors.textSecondary,
             style = if (selected) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelSmall,
         )
     }
