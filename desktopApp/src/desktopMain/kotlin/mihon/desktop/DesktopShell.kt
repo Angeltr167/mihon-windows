@@ -2517,7 +2517,10 @@ fun DesktopShell(
                                                                 "Ronin browser-link compatibility unregistered"
                                                             }
                                                         }.onFailure {
-                                                            notice.error(it.message ?: "Could not update Ronin link compatibility")
+                                                            notice.error(
+                                                                it.message
+                                                                    ?: "Could not update Ronin link compatibility",
+                                                            )
                                                         }
                                                     }) {
                                                         Text(
