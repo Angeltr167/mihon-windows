@@ -75,6 +75,22 @@ internal object RoninLayout {
     val chapterRowMinHeight = 58.dp
 }
 
+internal object RoninReaderMetrics {
+    val chromeTopMaxWidth = 1180.dp
+    val chromeBottomMaxWidth = 1040.dp
+    val chromeHorizontalMargin = 16.dp
+    val chromeTopMargin = 10.dp
+    val chromeBottomMargin = 12.dp
+    val pageHorizontalMargin = 18.dp
+    val pageVerticalMargin = 10.dp
+    val compactControlsBreakpoint = 760.dp
+    val narrowHeaderBreakpoint = 620.dp
+    val pageSeamWidth = 2.dp
+
+    const val AUTO_HIDE_DELAY_MILLIS = 2_800L
+    const val WHEEL_GESTURE_RESET_MILLIS = 260L
+}
+
 internal object RoninMangaMetrics {
     const val COVER_ASPECT_RATIO = 0.70f
 
