@@ -276,10 +276,10 @@ private fun DiscoverExtensions(
         RoninPanel(Modifier.fillMaxWidth().padding(bottom = RoninSpacing.medium)) {
             BoxWithConstraints(Modifier.fillMaxWidth().padding(RoninSpacing.medium)) {
                 val narrow = maxWidth < 720.dp
-                val copy: @Composable () -> Unit = {
+                val copy: @Composable (Modifier) -> Unit = { modifier ->
                     Column(
                         verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro),
-                        modifier = if (narrow) Modifier.fillMaxWidth() else Modifier.weight(1f),
+                        modifier = modifier,
                     ) {
                         Text("Keiyoushi catalog", style = MaterialTheme.typography.titleMedium)
                         Text(
@@ -291,7 +291,7 @@ private fun DiscoverExtensions(
                 }
                 if (narrow) {
                     Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
-                        copy()
+                        copy(Modifier.fillMaxWidth())
                         RoninButton("Refresh catalog", onRefresh, enabled = engineRunning && !loading)
                     }
                 } else {
@@ -299,7 +299,7 @@ private fun DiscoverExtensions(
                         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        copy()
+                        copy(Modifier.weight(1f))
                         RoninButton("Refresh catalog", onRefresh, enabled = engineRunning && !loading)
                     }
                 }
@@ -639,9 +639,9 @@ private fun ExtensionRow(
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().padding(RoninSpacing.medium)) {
             val narrow = maxWidth < 760.dp
-            val identity: @Composable () -> Unit = {
+            val identity: @Composable (Modifier) -> Unit = { modifier ->
                 Column(
-                    modifier = if (narrow) Modifier.fillMaxWidth() else Modifier.weight(1f),
+                    modifier = modifier,
                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                 ) {
                     Text(title, style = MaterialTheme.typography.titleMedium)
@@ -662,7 +662,7 @@ private fun ExtensionRow(
 
             if (narrow) {
                 Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
-                    identity()
+                    identity(Modifier.fillMaxWidth())
                     actions?.let {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
@@ -675,7 +675,7 @@ private fun ExtensionRow(
                     horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    identity()
+                    identity(Modifier.weight(1f))
                     actions?.let {
                         FlowRow(
                             horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
