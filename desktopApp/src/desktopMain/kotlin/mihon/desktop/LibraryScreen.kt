@@ -11,8 +11,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -21,6 +21,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items as gridItems
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -51,7 +52,6 @@ import tachiyomi.data.Chapters
 import tachiyomi.data.GetCategories
 import tachiyomi.data.Mangas
 import tachiyomi.view.History
-import androidx.compose.foundation.lazy.grid.items as gridItems
 
 private enum class LibraryShelfFilter(val label: String) {
     ALL("All"),
@@ -231,72 +231,81 @@ internal fun LibraryScreen(
                         modifier = Modifier.fillMaxSize(),
                         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.large),
                     ) {
-                    Column(Modifier.weight(1f).fillMaxHeight()) {
-                if (visibleContinueReading.isNotEmpty()) {
-                    LibrarySectionLabel(
-                        title = "Continue reading",
-                        detail = "${visibleContinueReading.size} recent",
-                    )
-                    LazyRow(
-                        modifier = Modifier.fillMaxWidth().padding(bottom = RoninSpacing.large),
-                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
-                    ) {
-                        items(visibleContinueReading, key = { it.manga._id }) { item ->
-                            ContinueReadingCard(
-                                item = item,
-                                source = sourceById[item.manga.source],
-                                onOpenManga = { id, url -> inspectedMangaId = id; onOpenManga(id, url) },
+                        Column(Modifier.weight(1f).fillMaxHeight()) {
+                            if (visibleContinueReading.isNotEmpty()) {
+                                LibrarySectionLabel(
+                                    title = "Continue reading",
+                                    detail = "${visibleContinueReading.size} recent",
+                                )
+                                LazyRow(
+                                    modifier = Modifier.fillMaxWidth().padding(bottom = RoninSpacing.large),
+                                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
+                                ) {
+                                    items(visibleContinueReading, key = { it.manga._id }) { item ->
+                                        ContinueReadingCard(
+                                            item = item,
+                                            source = sourceById[item.manga.source],
+                                            onOpenManga = { id, url ->
+                                                inspectedMangaId = id
+                                                onOpenManga(id, url)
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+
+                            LibrarySectionLabel(
+                                title = if (selectedCategoryName == null) "Collection" else selectedCategoryName,
+                                detail = "${visibleLibrary.size} titles · ${sortMode.label}",
+                            )
+
+                            when (viewMode) {
+                                LibraryViewMode.GRID -> LazyVerticalGrid(
+                                    columns = GridCells.Adaptive(minSize = 174.dp),
+                                    modifier = Modifier.weight(1f),
+                                    horizontalArrangement = Arrangement.spacedBy(RoninLayout.gridGap),
+                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.large),
+                                ) {
+                                    gridItems(visibleLibrary, key = Mangas::_id) { manga ->
+                                        LibraryGridCard(
+                                            manga = manga,
+                                            source = sourceById[manga.source],
+                                            chapter = recentChapters[manga._id],
+                                            onOpenManga = { id, url ->
+                                                inspectedMangaId = id
+                                                onOpenManga(id, url)
+                                            },
+                                        )
+                                    }
+                                }
+
+                                LibraryViewMode.LIST -> LazyColumn(
+                                    modifier = Modifier.weight(1f),
+                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                                ) {
+                                    items(visibleLibrary, key = Mangas::_id) { manga ->
+                                        LibraryListCard(
+                                            manga = manga,
+                                            source = sourceById[manga.source],
+                                            chapter = recentChapters[manga._id],
+                                            onOpenManga = { id, url ->
+                                                inspectedMangaId = id
+                                                onOpenManga(id, url)
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (showInspector && inspectedManga != null) {
+                            LibraryInspector(
+                                manga = inspectedManga,
+                                source = sourceById[inspectedManga.source],
+                                chapter = recentChapters[inspectedManga._id],
+                                onOpenManga = onOpenManga,
+                                modifier = Modifier.width(RoninLayout.rightPanelWidth),
                             )
                         }
-                    }
-                }
-
-                LibrarySectionLabel(
-                    title = if (selectedCategoryName == null) "Collection" else selectedCategoryName,
-                    detail = "${visibleLibrary.size} titles · ${sortMode.label}",
-                )
-
-                when (viewMode) {
-                    LibraryViewMode.GRID -> LazyVerticalGrid(
-                        columns = GridCells.Adaptive(minSize = 174.dp),
-                        modifier = Modifier.weight(1f),
-                        horizontalArrangement = Arrangement.spacedBy(RoninLayout.gridGap),
-                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.large),
-                    ) {
-                        gridItems(visibleLibrary, key = Mangas::_id) { manga ->
-                            LibraryGridCard(
-                                manga = manga,
-                                source = sourceById[manga.source],
-                                chapter = recentChapters[manga._id],
-                                onOpenManga = { id, url -> inspectedMangaId = id; onOpenManga(id, url) },
-                            )
-                        }
-                    }
-
-                    LibraryViewMode.LIST -> LazyColumn(
-                        modifier = Modifier.weight(1f),
-                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                    ) {
-                        items(visibleLibrary, key = Mangas::_id) { manga ->
-                            LibraryListCard(
-                                manga = manga,
-                                source = sourceById[manga.source],
-                                chapter = recentChapters[manga._id],
-                                onOpenManga = { id, url -> inspectedMangaId = id; onOpenManga(id, url) },
-                            )
-                        }
-                    }
-                }
-                    }
-                    if (showInspector && inspectedManga != null) {
-                        LibraryInspector(
-                            manga = inspectedManga,
-                            source = sourceById[inspectedManga.source],
-                            chapter = recentChapters[inspectedManga._id],
-                            onOpenManga = onOpenManga,
-                            modifier = Modifier.width(RoninLayout.rightPanelWidth),
-                        )
-                    }
                     }
                 }
             }
@@ -326,11 +335,20 @@ private fun LibraryInspector(
                     contentScale = ContentScale.Crop,
                 )
             }
-            Text(manga.title, style = MaterialTheme.typography.titleLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
+            Text(
+                manga.title,
+                style = MaterialTheme.typography.titleLarge,
+                maxLines = 3,
+                overflow = TextOverflow.Ellipsis,
+            )
             source?.let { RoninBadge(it.roninSourceDisplayName()) }
-            Text(chapterProgressLabel(chapter), color = RoninColors.textSecondary, style = MaterialTheme.typography.bodyMedium)
+            Text(
+                chapterProgressLabel(chapter),
+                color = RoninColors.textSecondary,
+                style = MaterialTheme.typography.bodyMedium,
+            )
             RoninButton(
-                label = if (chapter?.read == false) "Continue reading" else "Open manga",
+                label = "Open manga",
                 onClick = { onOpenManga(manga._id, manga.url) },
                 modifier = Modifier.fillMaxWidth(),
             )
