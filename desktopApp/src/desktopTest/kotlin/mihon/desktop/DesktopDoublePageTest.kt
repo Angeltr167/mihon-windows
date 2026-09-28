@@ -7,6 +7,15 @@ import org.junit.jupiter.api.Assertions.assertTrue
 import org.junit.jupiter.api.Test
 
 class DesktopDoublePageTest {
+
+    @Test
+    fun `chapter transitions override stored progress while direct opens restore it`() {
+        assertEquals(4, readerStartPage(ReaderChapterOpenIntent.RESTORE, storedPage = 4, pageCount = 10))
+        assertEquals(0, readerStartPage(ReaderChapterOpenIntent.FIRST, storedPage = 4, pageCount = 10))
+        assertEquals(9, readerStartPage(ReaderChapterOpenIntent.LAST, storedPage = 4, pageCount = 10))
+        assertEquals(9, readerStartPage(ReaderChapterOpenIntent.RESTORE, storedPage = 99, pageCount = 10))
+    }
+
     @Test
     fun `touchpad deltas must accumulate and a high resolution event turns one page`() {
         var accumulated = 0f
