@@ -255,6 +255,25 @@ internal fun DesktopReader(
     onToggleFullscreen: () -> Unit,
 ) {
     val chapters = remember(target) { target.chapters.asReversed() }
+    if (chapters.isEmpty()) {
+        Box(
+            Modifier.fillMaxSize().padding(RoninReaderMetrics.chromeHorizontalMargin),
+            contentAlignment = Alignment.Center,
+        ) {
+            Column(
+                Modifier.widthIn(max = 560.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.spacedBy(MihonSpacing.lg),
+            ) {
+                RoninErrorState(
+                    title = "No chapters to read",
+                    detail = "This reader target does not contain a readable chapter.",
+                )
+                RoninButton(label = "Back to manga", onClick = onClose)
+            }
+        }
+        return
+    }
     val loader = remember(session) { DesktopPageLoader(session.localPages, session.downloads.store) }
     val focusRequester = remember(target) { FocusRequester() }
     val scope = rememberCoroutineScope()
