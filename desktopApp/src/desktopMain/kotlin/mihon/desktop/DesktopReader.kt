@@ -89,6 +89,9 @@ import mihon.core.reader.ReaderPageLoadState
 import mihon.core.reader.ReadingMode
 import mihon.core.reader.nextPageToPreload
 import mihon.desktop.design.RoninReaderMetrics
+import mihon.desktop.design.RoninColors
+import mihon.desktop.design.RoninRadius
+import mihon.desktop.design.RoninSpacing
 import mihon.platform.desktop.DesktopPlatformGraph
 import tachiyomi.i18n.MR
 import java.nio.file.Files
@@ -264,7 +267,7 @@ internal fun DesktopReader(
             Column(
                 Modifier.widthIn(max = 560.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(MihonSpacing.lg),
+                verticalArrangement = Arrangement.spacedBy(RoninSpacing.large),
             ) {
                 RoninErrorState(
                     title = "No chapters to read",
@@ -641,7 +644,7 @@ internal fun DesktopReader(
     }
     Box(
         Modifier.fillMaxSize()
-            .background(MihonPalette.graphite)
+            .background(RoninColors.appBackground)
             .onPointerEvent(PointerEventType.Move) {
                 controlsVisible = true
                 interactionVersion++
@@ -684,7 +687,7 @@ internal fun DesktopReader(
             ) {
                 Column(
                     Modifier.widthIn(max = 560.dp),
-                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.lg),
+                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.large),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     RoninErrorState(
@@ -692,8 +695,8 @@ internal fun DesktopReader(
                         detail = (loadState as ReaderPageLoadState.Failed).reason,
                     )
                     FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm, Alignment.CenterHorizontally),
-                        verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small, Alignment.CenterHorizontally),
+                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                     ) {
                         RoninSecondaryButton(
                             label = "Previous chapter",
@@ -775,7 +778,7 @@ internal fun DesktopReader(
                 }
                 BoxWithConstraints(
                     Modifier.fillMaxSize()
-                        .background(MihonPalette.graphite)
+                        .background(RoninColors.appBackground)
                         .pointerInput(pageIndex, mode) {
                             detectTapGestures { offset ->
                                 if (offset.x < size.width / 3) {
@@ -799,7 +802,7 @@ internal fun DesktopReader(
                 ) {
                     val availableWidth = maxWidth
                     val availableHeight = maxHeight
-                    Box(Modifier.fillMaxSize().background(MihonPalette.graphite)) {
+                    Box(Modifier.fillMaxSize().background(RoninColors.appBackground)) {
                         val isSpread = pair.size == 2
                         val pageRatios = safeReaderRatios(
                             decodedPages?.map { it.width.toFloat() / it.height },
@@ -864,13 +867,13 @@ internal fun DesktopReader(
                                         Modifier.width(displayedWidth).height(displayedHeight)
                                             .shadow(
                                                 if (isSpread) 8.dp else 12.dp,
-                                                RoundedCornerShape(MihonRadius.control),
+                                                RoundedCornerShape(RoninRadius.control),
                                             )
-                                            .background(MihonPalette.graphite)
+                                            .background(RoninColors.appBackground)
                                             .border(
                                                 1.dp,
-                                                MihonPalette.outlineSoft,
-                                                RoundedCornerShape(MihonRadius.control),
+                                                RoninColors.borderSubtle,
+                                                RoundedCornerShape(RoninRadius.control),
                                             ),
                                         contentAlignment = Alignment.Center,
                                     ) {
@@ -882,7 +885,7 @@ internal fun DesktopReader(
                                 Box(
                                     Modifier.align(Alignment.Center).height(spreadHeight)
                                         .width(RoninReaderMetrics.pageSeamWidth)
-                                        .background(MihonPalette.graphite.copy(alpha = 0.92f)),
+                                        .background(RoninColors.appBackground.copy(alpha = 0.92f)),
                                 )
                             }
                         }
@@ -917,10 +920,10 @@ internal fun DesktopReader(
                     val narrowHeader = maxWidth < RoninReaderMetrics.narrowHeaderBreakpoint
                     Row(
                         Modifier.fillMaxWidth().padding(
-                            horizontal = MihonSpacing.md,
-                            vertical = MihonSpacing.sm,
+                            horizontal = RoninSpacing.medium,
+                            vertical = RoninSpacing.small,
                         ),
-                        horizontalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RoninTextButton(label = "← Back", onClick = onClose)
@@ -934,7 +937,7 @@ internal fun DesktopReader(
                             }
                             Text(
                                 chapters[chapterIndex].name,
-                                color = if (narrowHeader) MihonPalette.ivory else MihonPalette.muted,
+                                color = if (narrowHeader) RoninColors.textPrimary else RoninColors.textMuted,
                                 style = if (narrowHeader) {
                                     MaterialTheme.typography.titleSmall
                                 } else {
@@ -956,7 +959,7 @@ internal fun DesktopReader(
                                 (viewedReaderPageIndex(mode, pageIndex, pages.size) + 1).toString() +
                                     " / " + pages.size
                             },
-                            color = MihonPalette.sage,
+                            color = RoninColors.accentSage,
                             style = MaterialTheme.typography.labelLarge,
                         )
                         RoninTextButton(
@@ -969,7 +972,7 @@ internal fun DesktopReader(
         }
         val readerNotice = trackerError ?: pendingTrackerSync.firstOrNull { it.mangaId == mangaId }?.error
         if (readerNotice != null || pageActionMessage != null) {
-            MihonPanel(
+            RoninPanel(
                 Modifier.align(Alignment.TopCenter)
                     .widthIn(max = 920.dp)
                     .fillMaxWidth()
@@ -977,10 +980,10 @@ internal fun DesktopReader(
             ) {
                 Column(
                     Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 8.dp),
-                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                 ) {
                     readerNotice?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-                    pageActionMessage?.let { Text(it, color = MihonPalette.muted) }
+                    pageActionMessage?.let { Text(it, color = RoninColors.textMuted) }
                 }
             }
         }
@@ -1031,11 +1034,11 @@ internal fun DesktopReader(
                     },
                     enabled = pages.isNotEmpty(),
                     valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = MihonSpacing.sm),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = RoninSpacing.small),
                     colors = SliderDefaults.colors(
-                        thumbColor = MihonPalette.sage,
-                        activeTrackColor = MihonPalette.sage,
-                        inactiveTrackColor = MihonPalette.outline,
+                        thumbColor = RoninColors.accentSage,
+                        activeTrackColor = RoninColors.accentSage,
+                        inactiveTrackColor = RoninColors.border,
                     ),
                 )
                 RoninPanel(Modifier.fillMaxWidth()) {
@@ -1043,14 +1046,14 @@ internal fun DesktopReader(
                         val compactControls = maxWidth < RoninReaderMetrics.compactControlsBreakpoint
                         FlowRow(
                             Modifier.fillMaxWidth().padding(
-                                horizontal = MihonSpacing.sm,
-                                vertical = MihonSpacing.xs,
+                                horizontal = RoninSpacing.small,
+                                vertical = RoninSpacing.xSmall,
                             ),
                             horizontalArrangement = Arrangement.spacedBy(
-                                MihonSpacing.xs,
+                                RoninSpacing.xSmall,
                                 Alignment.CenterHorizontally,
                             ),
-                            verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+                            verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                         ) {
                             RoninTextButton(
                                 label = if (compactControls) "‹ Ch." else "‹ Chapter",
@@ -1291,11 +1294,11 @@ private fun ReaderImage(
                 )
             },
             onFailure = { failure ->
-                RoninPanel(Modifier.widthIn(max = 420.dp).padding(MihonSpacing.md)) {
+                RoninPanel(Modifier.widthIn(max = 420.dp).padding(RoninSpacing.medium)) {
                     Column(
-                        Modifier.fillMaxWidth().padding(MihonSpacing.lg),
+                        Modifier.fillMaxWidth().padding(RoninSpacing.large),
                         horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                     ) {
                         Text(
                             "Page " + (index + 1) + " could not be loaded",
@@ -1303,7 +1306,7 @@ private fun ReaderImage(
                         )
                         Text(
                             failure.message ?: "The page request or image decode failed.",
-                            color = MihonPalette.muted,
+                            color = RoninColors.textMuted,
                             style = MaterialTheme.typography.bodySmall,
                         )
                         RoninSecondaryButton(label = "Retry page", onClick = { retry++ })
@@ -1312,16 +1315,16 @@ private fun ReaderImage(
             },
         ) ?: Column(
             horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+            verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
         ) {
             CircularProgressIndicator(
                 modifier = Modifier.width(20.dp).height(20.dp),
                 strokeWidth = 2.dp,
-                color = MihonPalette.sage,
+                color = RoninColors.accentSage,
             )
             Text(
                 "Loading page " + (index + 1) + "…",
-                color = MihonPalette.muted,
+                color = RoninColors.textMuted,
                 style = MaterialTheme.typography.bodySmall,
             )
         }
