@@ -1372,7 +1372,7 @@ fun DesktopShell(
                                                     verticalArrangement = Arrangement.spacedBy(4.dp),
                                                 ) {
                                                     if (storedChapter != null) {
-                                                        RoninTextButton(
+                                                        RoninInlineAction(
                                                             label = if (storedChapter.bookmark) {
                                                                 "Unbookmark"
                                                             } else {
@@ -1411,7 +1411,7 @@ fun DesktopShell(
                                                             DesktopDownloadStatus.PAUSED,
                                                             DesktopDownloadStatus.FAILED,
                                                             null,
-                                                            -> RoninTextButton(
+                                                            -> RoninInlineAction(
                                                                 label = when (queued?.status) {
                                                                     DesktopDownloadStatus.PAUSED -> "Resume"
                                                                     DesktopDownloadStatus.FAILED -> "Retry"
