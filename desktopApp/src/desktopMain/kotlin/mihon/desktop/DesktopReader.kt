@@ -930,9 +930,13 @@ internal fun DesktopReader(
         AnimatedVisibility(
             visible = controlsVisible,
             modifier = Modifier.align(Alignment.BottomCenter)
-                .widthIn(max = 1040.dp)
+                .widthIn(max = RoninReaderMetrics.chromeBottomMaxWidth)
                 .fillMaxWidth()
-                .padding(start = 16.dp, end = 16.dp, bottom = 12.dp),
+                .padding(
+                    start = RoninReaderMetrics.chromeHorizontalMargin,
+                    end = RoninReaderMetrics.chromeHorizontalMargin,
+                    bottom = RoninReaderMetrics.chromeBottomMargin,
+                ),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
         ) {
@@ -970,61 +974,141 @@ internal fun DesktopReader(
                     },
                     enabled = pages.isNotEmpty(),
                     valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp),
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = MihonSpacing.sm),
                     colors = SliderDefaults.colors(
                         thumbColor = MihonPalette.sage,
                         activeTrackColor = MihonPalette.sage,
                         inactiveTrackColor = MihonPalette.outline,
                     ),
                 )
-                MihonPanel(Modifier.fillMaxWidth()) {
-                    FlowRow(
-                        Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 2.dp),
-                        horizontalArrangement = Arrangement.spacedBy(4.dp, Alignment.CenterHorizontally),
-                    ) {
-                        TextButton(onClick = {
-                            if (chapterIndex > 0) {
-                                chapterOpenIntent = ReaderChapterOpenIntent.FIRST
-                                chapterIndex--
-                            }
-                        }, enabled = chapterIndex > 0) { Text("‹ Chapter") }
-                        TextButton(onClick = ::previous, enabled = pages.isNotEmpty()) { Text("‹ Page") }
-                        TextButton(onClick = ::next, enabled = pages.isNotEmpty()) { Text("Page ›") }
-                        TextButton(onClick = {
-                            if (pages.isNotEmpty()) {
-                                val currentPage = viewedReaderPageIndex(mode, pageIndex, pages.size)
-                                mode = ReadingMode.entries[(mode.ordinal + 1) % ReadingMode.entries.size]
-                                pageIndex = normalizeReaderPageIndex(mode, currentPage, pages.size)
-                            }
-                            graph.keyValueStore.putString("desktop.reader.mode", mode.name)
-                        }) { Text(mode.name.replace('_', ' ')) }
-                        TextButton(onClick = {
-                            fit = FitMode.entries[(fit.ordinal + 1) % FitMode.entries.size]
-                            graph.keyValueStore.putString("desktop.reader.fit", fit.name)
-                        }) { Text("Fit ${fit.name.lowercase()}") }
-                        Box {
-                            TextButton(onClick = { showMore = true }) { Text("More…") }
-                            DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
-                                ReaderMoreActions(
-                                    onClose = onClose,
-                                    onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
-                                    onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
-                                    onAppearance = { showAppearance = true },
-                                    onFullscreen = onToggleFullscreen,
-                                    onShortcuts = { showShortcuts = true },
-                                    onSave = ::saveCurrentPage,
-                                    canSave = pages.isNotEmpty(),
-                                    onOpenSaved = savedPage?.let { path ->
-                                        {
-                                            graph.externalOpenService.openPath(path.toString())
-                                        }
+                RoninPanel(Modifier.fillMaxWidth()) {
+                    BoxWithConstraints(Modifier.fillMaxWidth()) {
+                        val compactControls = maxWidth < RoninReaderMetrics.compactControlsBreakpoint
+                        FlowRow(
+                            Modifier.fillMaxWidth().padding(
+                                horizontal = MihonSpacing.sm,
+                                vertical = MihonSpacing.xs,
+                            ),
+                            horizontalArrangement = Arrangement.spacedBy(
+                                MihonSpacing.xs,
+                                Alignment.CenterHorizontally,
+                            ),
+                            verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+                        ) {
+                            RoninInlineAction(
+                                label = if (compactControls) "‹ Ch." else "‹ Chapter",
+                                onClick = ::previousChapter,
+                                enabled = chapterIndex > 0,
+                            )
+                            RoninSecondaryButton(
+                                label = "‹ Page",
+                                onClick = ::previous,
+                                enabled = canNavigatePrevious,
+                            )
+                            RoninSecondaryButton(
+                                label = "Page ›",
+                                onClick = ::next,
+                                enabled = canNavigateNext,
+                            )
+                            RoninInlineAction(
+                                label = if (compactControls) "Ch. ›" else "Chapter ›",
+                                onClick = ::nextChapter,
+                                enabled = chapterIndex < chapters.lastIndex,
+                            )
+                            Box {
+                                RoninChip(
+                                    label = readingModeLabel(mode),
+                                    selected = true,
+                                    onClick = {
+                                        showModeMenu = true
+                                        showFitMenu = false
+                                        showMore = false
                                     },
-                                    onBookmark = ::toggleChapterBookmark,
-                                    canBookmark = chapterId != null,
-                                    bookmarkLabel = bookmarkLabel,
-                                    onNextChapter = ::nextChapter,
-                                    canNextChapter = chapterIndex < chapters.lastIndex,
                                 )
+                                DropdownMenu(
+                                    expanded = showModeMenu,
+                                    onDismissRequest = { showModeMenu = false },
+                                ) {
+                                    ReadingMode.entries.forEach { option ->
+                                        androidx.compose.material3.DropdownMenuItem(
+                                            text = { Text(readingModeLabel(option)) },
+                                            onClick = {
+                                                if (pages.isNotEmpty()) {
+                                                    val currentPage =
+                                                        viewedReaderPageIndex(mode, pageIndex, pages.size)
+                                                    mode = option
+                                                    pageIndex = normalizeReaderPageIndex(
+                                                        mode,
+                                                        currentPage,
+                                                        pages.size,
+                                                    )
+                                                } else {
+                                                    mode = option
+                                                }
+                                                graph.keyValueStore.putString("desktop.reader.mode", mode.name)
+                                                showModeMenu = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                            Box {
+                                RoninChip(
+                                    label = fitModeLabel(fit),
+                                    onClick = {
+                                        showFitMenu = true
+                                        showModeMenu = false
+                                        showMore = false
+                                    },
+                                )
+                                DropdownMenu(
+                                    expanded = showFitMenu,
+                                    onDismissRequest = { showFitMenu = false },
+                                ) {
+                                    FitMode.entries.forEach { option ->
+                                        androidx.compose.material3.DropdownMenuItem(
+                                            text = { Text(fitModeLabel(option)) },
+                                            onClick = {
+                                                fit = option
+                                                graph.keyValueStore.putString("desktop.reader.fit", option.name)
+                                                showFitMenu = false
+                                            },
+                                        )
+                                    }
+                                }
+                            }
+                            RoninBadge(label = "${(zoom * 100).roundToInt()}%")
+                            Box {
+                                RoninInlineAction(
+                                    label = "More…",
+                                    onClick = {
+                                        showMore = true
+                                        showModeMenu = false
+                                        showFitMenu = false
+                                    },
+                                )
+                                DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
+                                    ReaderMoreActions(
+                                        onClose = onClose,
+                                        onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
+                                        onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
+                                        onAppearance = { showAppearance = true },
+                                        onFullscreen = onToggleFullscreen,
+                                        onShortcuts = { showShortcuts = true },
+                                        onSave = ::saveCurrentPage,
+                                        canSave = pages.isNotEmpty(),
+                                        onOpenSaved = savedPage?.let { path ->
+                                            {
+                                                graph.externalOpenService.openPath(path.toString())
+                                            }
+                                        },
+                                        onBookmark = ::toggleChapterBookmark,
+                                        canBookmark = chapterId != null,
+                                        bookmarkLabel = bookmarkLabel,
+                                        onNextChapter = ::nextChapter,
+                                        canNextChapter = chapterIndex < chapters.lastIndex,
+                                    )
+                                }
                             }
                         }
                     }
