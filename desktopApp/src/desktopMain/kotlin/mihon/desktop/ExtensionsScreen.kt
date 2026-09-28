@@ -1,6 +1,7 @@
 package mihon.desktop
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.hoverable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsHoveredAsState
 import androidx.compose.foundation.layout.Arrangement
@@ -616,11 +617,12 @@ private fun ExtensionRow(
     val hovered by interactionSource.collectIsHoveredAsState()
 
     Surface(
-        modifier = Modifier.fillMaxWidth().pointerHoverIcon(PointerIcon.Hand),
+        modifier = Modifier.fillMaxWidth()
+            .pointerHoverIcon(PointerIcon.Hand)
+            .hoverable(interactionSource),
         shape = RoundedCornerShape(RoninRadius.card),
         color = if (hovered) RoninColors.hoverSurface else RoninColors.elevatedSurface,
         border = BorderStroke(RoninBorders.hairline, if (hovered) RoninColors.accentSageMuted else RoninColors.border),
-        interactionSource = interactionSource,
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth().padding(RoninSpacing.medium)) {
             val narrow = maxWidth < 760.dp
