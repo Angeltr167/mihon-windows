@@ -373,19 +373,30 @@ internal fun RoninMangaCard(
 internal fun RoninChapterRow(
     title: String,
     subtitle: String? = null,
+    read: Boolean? = null,
+    bookmarked: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null,
     trailing: (@Composable () -> Unit)? = null,
 ) {
+    val interactionSource = remember { MutableInteractionSource() }
+    val hovered by interactionSource.collectIsHoveredAsState()
     val rowModifier = if (onClick != null) {
-        modifier.clickable(role = Role.Button, onClick = onClick)
+        modifier
+            .pointerHoverIcon(PointerIcon.Hand)
+            .clickable(
+                interactionSource = interactionSource,
+                indication = null,
+                role = Role.Button,
+            ) { onClick() }
     } else {
         modifier
     }
 
     Surface(
         modifier = rowModifier.fillMaxWidth(),
-        color = Color.Transparent,
+        shape = RoundedCornerShape(RoninRadius.control),
+        color = if (hovered) RoninColors.hoverSurface else Color.Transparent,
     ) {
         Row(
             Modifier.fillMaxWidth()
@@ -396,22 +407,38 @@ internal fun RoninChapterRow(
         ) {
             Column(
                 Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro),
+                verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
             ) {
                 Text(
                     title,
+                    color = if (read == true) RoninColors.textMuted else RoninColors.textPrimary,
                     style = MaterialTheme.typography.bodyMedium,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                subtitle?.let {
-                    Text(
-                        it,
-                        color = RoninColors.textMuted,
-                        style = MaterialTheme.typography.bodySmall,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    subtitle?.let {
+                        Text(
+                            it,
+                            color = RoninColors.textMuted,
+                            style = MaterialTheme.typography.bodySmall,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                    }
+                    read?.let {
+                        RoninBadge(
+                            label = if (it) "Read" else "Unread",
+                            accent = !it,
+                        )
+                    }
+                    if (bookmarked) {
+                        RoninBadge(label = "Bookmarked", accent = true)
+                    }
                 }
             }
             trailing?.invoke()
