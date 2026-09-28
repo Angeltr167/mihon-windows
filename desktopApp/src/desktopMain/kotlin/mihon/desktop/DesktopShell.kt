@@ -1993,7 +1993,7 @@ fun DesktopShell(
                                 DesktopSettingsNavigation(
                                     selected = settingsSection,
                                     onSelect = { settingsSection = it },
-                                    modifier = Modifier.width(if (compactNavigation) 164.dp else 196.dp).fillMaxHeight()
+                                    modifier = Modifier.width(if (compactNavigation) 152.dp else 196.dp).fillMaxHeight()
                                         .background(RoninColors.elevatedSurface, RoundedCornerShape(RoninRadius.panel)),
                                 )
                                 Column(
@@ -2022,8 +2022,8 @@ fun DesktopShell(
                                         DesktopSettingsSection.STORAGE -> {
                                             RoninPanel(Modifier.fillMaxWidth()) {
                                                 Column(
-                                                    Modifier.fillMaxWidth().padding(14.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                    Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                                 ) {
                                                     Text("Migration", style = MaterialTheme.typography.titleMedium)
                                                     Text(
@@ -2079,8 +2079,8 @@ fun DesktopShell(
                                             HorizontalDivider(Modifier.padding(vertical = 8.dp))
                                             RoninPanel(Modifier.fillMaxWidth()) {
                                                 Column(
-                                                    Modifier.fillMaxWidth().padding(14.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                                    Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                                                 ) {
                                                     Text(
                                                         "Application and storage",
@@ -2436,8 +2436,8 @@ fun DesktopShell(
                                         }
                                         DesktopSettingsSection.LIBRARY -> RoninPanel(Modifier.fillMaxWidth()) {
                                             Column(
-                                                Modifier.fillMaxWidth().padding(12.dp),
-                                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                                Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                             ) {
                                                 Text(
                                                     "Library and downloads",
