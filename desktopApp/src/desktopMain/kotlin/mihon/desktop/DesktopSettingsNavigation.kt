@@ -66,7 +66,14 @@ internal fun DesktopSettingsNavigation(
                     .clickable(role = Role.Tab) { onSelect(section) },
                 shape = RoundedCornerShape(RoninRadius.control),
                 color = if (isSelected) RoninColors.accentCoral.copy(alpha = 0.13f) else Color.Transparent,
-                border = if (isSelected) BorderStroke(RoninBorders.hairline, RoninColors.accentCoral.copy(alpha = 0.38f)) else null,
+                border = if (isSelected) {
+                    BorderStroke(
+                        RoninBorders.hairline,
+                        RoninColors.accentCoral.copy(alpha = 0.38f),
+                    )
+                } else {
+                    null
+                },
             ) {
                 Row(
                     Modifier.fillMaxWidth().padding(horizontal = RoninSpacing.medium, vertical = RoninSpacing.small),
