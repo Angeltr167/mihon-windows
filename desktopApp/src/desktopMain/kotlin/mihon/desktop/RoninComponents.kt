@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -169,6 +170,28 @@ internal fun RoninTextButton(
         shape = RoundedCornerShape(RoninRadius.control),
     ) {
         Text(label, style = MaterialTheme.typography.labelLarge)
+    }
+}
+
+@Composable
+internal fun RoninInlineAction(
+    label: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    enabled: Boolean = true,
+) {
+    TextButton(
+        onClick = onClick,
+        enabled = enabled,
+        modifier = modifier.height(32.dp),
+        shape = RoundedCornerShape(RoninRadius.control),
+        contentPadding = PaddingValues(horizontal = RoninSpacing.small),
+        colors = ButtonDefaults.textButtonColors(
+            contentColor = RoninColors.textSecondary,
+            disabledContentColor = RoninColors.textDisabled,
+        ),
+    ) {
+        Text(label, style = MaterialTheme.typography.labelMedium)
     }
 }
 
@@ -426,11 +449,8 @@ internal fun RoninChapterRow(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        read?.let {
-                            RoninBadge(
-                                label = if (it) "Read" else "Unread",
-                                accent = !it,
-                            )
+                        if (read == true) {
+                            RoninBadge(label = "Read")
                         }
                         if (bookmarked) {
                             RoninBadge(label = "Bookmarked", accent = true)
