@@ -26,6 +26,11 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.StringResource
 import dev.icerock.moko.resources.compose.stringResource
+import mihon.desktop.design.RoninBorders
+import mihon.desktop.design.RoninColors
+import mihon.desktop.design.RoninLayout
+import mihon.desktop.design.RoninRadius
+import mihon.desktop.design.RoninSpacing
 import tachiyomi.i18n.MR
 
 internal enum class Screen(val title: StringResource) {
@@ -47,32 +52,32 @@ internal fun DesktopNavigation(
     onNavigate: (Screen) -> Unit,
 ) {
     Box(
-        Modifier.width(if (compact) MihonSizes.navigationCompact else MihonSizes.navigationExpanded)
+        Modifier.width(if (compact) RoninLayout.sidebarCompact else RoninLayout.sidebarExpanded)
             .fillMaxHeight()
-            .background(MihonPalette.panel),
+            .background(RoninColors.sidebarSurface),
     ) {
         Column(
             Modifier.fillMaxWidth()
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(
-                    horizontal = if (compact) MihonSpacing.xs else MihonSpacing.md,
-                    vertical = MihonSpacing.md,
+                    horizontal = if (compact) RoninSpacing.xSmall else RoninSpacing.medium,
+                    vertical = RoninSpacing.medium,
                 ),
-            verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+            verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
         ) {
             RoninNavigationBrand(compact)
 
             Box(
                 Modifier.fillMaxWidth()
                     .padding(
-                        start = if (compact) MihonSpacing.xs else MihonSpacing.sm,
-                        end = if (compact) MihonSpacing.xs else MihonSpacing.sm,
-                        top = MihonSpacing.sm,
-                        bottom = MihonSpacing.md,
+                        start = if (compact) RoninSpacing.xSmall else RoninSpacing.small,
+                        end = if (compact) RoninSpacing.xSmall else RoninSpacing.small,
+                        top = RoninSpacing.small,
+                        bottom = RoninSpacing.medium,
                     )
-                    .height(1.dp)
-                    .background(MihonPalette.outlineSoft),
+                    .height(RoninBorders.hairline)
+                    .background(RoninColors.borderSubtle),
             )
 
             Screen.entries.forEachIndexed { index, item ->
@@ -90,9 +95,9 @@ internal fun DesktopNavigation(
 
         Box(
             Modifier.align(Alignment.CenterEnd)
-                .width(1.dp)
+                .width(RoninBorders.hairline)
                 .fillMaxHeight()
-                .background(MihonPalette.outlineSoft),
+                .background(RoninColors.borderSubtle),
         )
     }
 }
@@ -101,22 +106,22 @@ internal fun DesktopNavigation(
 private fun RoninNavigationBrand(compact: Boolean) {
     Row(
         modifier = Modifier.fillMaxWidth().padding(
-            horizontal = if (compact) MihonSpacing.xs else MihonSpacing.sm,
-            vertical = MihonSpacing.sm,
+            horizontal = if (compact) RoninSpacing.xSmall else RoninSpacing.small,
+            vertical = RoninSpacing.small,
         ),
-        horizontalArrangement = if (compact) Arrangement.Center else Arrangement.spacedBy(MihonSpacing.sm),
+        horizontalArrangement = if (compact) Arrangement.Center else Arrangement.spacedBy(RoninSpacing.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Surface(
             modifier = Modifier.size(36.dp),
-            shape = RoundedCornerShape(MihonRadius.control),
-            color = MihonPalette.selected,
-            border = BorderStroke(1.dp, MihonPalette.outline),
+            shape = RoundedCornerShape(RoninRadius.control),
+            color = RoninColors.selectedSurface,
+            border = BorderStroke(RoninBorders.hairline, RoninColors.accentCoral.copy(alpha = 0.45f)),
         ) {
             Box(contentAlignment = Alignment.Center) {
                 Text(
                     "R",
-                    color = MihonPalette.sage,
+                    color = RoninColors.accentCoral,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                 )
@@ -124,24 +129,24 @@ private fun RoninNavigationBrand(compact: Boolean) {
         }
 
         if (!compact) {
-            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
                 Text(
                     "RONIN",
-                    color = MihonPalette.ivory,
+                    color = RoninColors.textPrimary,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.6.sp,
                 )
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Box(
-                        Modifier.width(18.dp).height(1.dp).background(MihonPalette.gold),
+                        Modifier.width(18.dp).height(RoninBorders.hairline).background(RoninColors.accentCoral),
                     )
                     Text(
                         "MANGA READER",
-                        color = MihonPalette.mutedQuiet,
+                        color = RoninColors.textMuted,
                         style = MaterialTheme.typography.labelSmall,
                         letterSpacing = 0.8.sp,
                     )

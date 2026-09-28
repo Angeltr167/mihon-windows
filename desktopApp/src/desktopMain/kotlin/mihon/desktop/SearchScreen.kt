@@ -28,6 +28,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,6 +81,13 @@ internal fun SearchScreen(
     onLoadMore: () -> Unit,
 ) {
     var sourceMenuExpanded by remember { mutableStateOf(false) }
+    var inspectedManga by remember { mutableStateOf<SManga?>(null) }
+
+    LaunchedEffect(results) {
+        if (inspectedManga == null || results.none { it.url == inspectedManga?.url }) {
+            inspectedManga = results.firstOrNull()
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxSize(),
@@ -209,6 +217,8 @@ internal fun SearchScreen(
                 error = error,
                 hasNext = hasNext,
                 onOpenManga = onOpenManga,
+                inspectedManga = inspectedManga,
+                onInspectManga = { inspectedManga = it },
                 onLoadMore = onLoadMore,
                 modifier = Modifier.weight(1f),
             )
@@ -342,6 +352,8 @@ private fun SearchResults(
     error: String?,
     hasNext: Boolean,
     onOpenManga: (SManga) -> Unit,
+    inspectedManga: SManga?,
+    onInspectManga: (SManga) -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -389,7 +401,10 @@ private fun SearchResults(
                         loading = loading,
                         error = error,
                         hasNext = hasNext,
-                        onOpenManga = onOpenManga,
+                        onOpenManga = { manga ->
+                            onInspectManga(manga)
+                            onOpenManga(manga)
+                        },
                         onLoadMore = onLoadMore,
                         modifier = Modifier.weight(1f),
                     )
@@ -397,7 +412,9 @@ private fun SearchResults(
                         source = source,
                         activeQuery = activeQuery,
                         resultCount = results.size,
-                        modifier = Modifier.width(260.dp),
+                        manga = inspectedManga,
+                        onOpenManga = inspectedManga?.let { manga -> { onOpenManga(manga) } },
+                        modifier = Modifier.width(280.dp),
                     )
                 }
             } else {
@@ -421,6 +438,8 @@ private fun SearchContextPanel(
     source: Source,
     activeQuery: String,
     resultCount: Int,
+    manga: SManga?,
+    onOpenManga: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     RoninPanel(modifier) {
@@ -428,7 +447,29 @@ private fun SearchContextPanel(
             modifier = Modifier.fillMaxWidth().padding(RoninSpacing.medium),
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
-            Text("Search scope", style = MaterialTheme.typography.titleMedium)
+            Text("Inspector", style = MaterialTheme.typography.titleLarge)
+            if (manga != null) {
+                RoninCover(Modifier.fillMaxWidth()) {
+                    DesktopCover(
+                        manga.thumbnail_url,
+                        source,
+                        Modifier.fillMaxWidth().aspectRatio(RoninMangaMetrics.COVER_ASPECT_RATIO),
+                        contentScale = ContentScale.Crop,
+                    )
+                }
+                Text(
+                    manga.title,
+                    style = MaterialTheme.typography.titleLarge,
+                    maxLines = 3,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                mangaStatusLabel(manga.status)?.let { status ->
+                    RoninBadge(label = status, accent = manga.status != SManga.UNKNOWN)
+                }
+                onOpenManga?.let {
+                    RoninButton("Open manga", it, Modifier.fillMaxWidth())
+                }
+            }
             RoninStat(label = "Loaded", value = resultCount.toString())
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
                 Text(
@@ -554,7 +595,7 @@ internal fun RoninSourceMangaCard(
         color = if (hovered) RoninColors.hoverSurface else RoninColors.elevatedSurface,
         border = BorderStroke(
             RoninBorders.hairline,
-            if (hovered) RoninColors.accentSage.copy(alpha = 0.42f) else RoninColors.border,
+            if (hovered) RoninColors.accentCoral.copy(alpha = 0.42f) else RoninColors.border,
         ),
     ) {
         Column(Modifier.fillMaxWidth().padding(RoninSpacing.small)) {

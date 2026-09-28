@@ -10,11 +10,11 @@ internal fun RoninDesktopTheme(content: @Composable () -> Unit) {
 
     MaterialTheme(
         colorScheme = darkColorScheme(
-            primary = RoninColors.accentSage,
+            primary = RoninColors.accentCoral,
             onPrimary = RoninColors.appBackground,
             primaryContainer = RoninColors.selectedSurface,
-            onPrimaryContainer = RoninColors.accentSage,
-            secondary = RoninColors.textSecondary,
+            onPrimaryContainer = RoninColors.accentCoralHover,
+            secondary = RoninColors.accentSage,
             onSecondary = RoninColors.appBackground,
             secondaryContainer = RoninColors.secondarySurface,
             onSecondaryContainer = RoninColors.textPrimary,
@@ -35,7 +35,7 @@ internal fun RoninDesktopTheme(content: @Composable () -> Unit) {
             surfaceContainer = RoninColors.elevatedSurface,
             surfaceContainerHigh = RoninColors.secondarySurface,
             surfaceContainerHighest = RoninColors.hoverSurface,
-            surfaceTint = RoninColors.accentSage,
+            surfaceTint = RoninColors.accentCoral,
             outline = RoninColors.border,
             outlineVariant = RoninColors.borderSubtle,
             error = RoninColors.error,

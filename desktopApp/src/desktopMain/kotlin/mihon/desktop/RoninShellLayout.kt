@@ -18,7 +18,8 @@ import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.graphics.Brush
+import mihon.desktop.design.RoninBorders
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninLayout
 import mihon.desktop.design.RoninSpacing
@@ -37,19 +38,29 @@ internal fun RowScope.RoninMainContent(
     rightPanel: (@Composable () -> Unit)? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
-    BoxWithConstraints(modifier = modifier.background(RoninColors.appBackground)) {
+    BoxWithConstraints(
+        modifier = modifier.background(
+            Brush.verticalGradient(
+                colors = listOf(
+                    RoninColors.appBackground,
+                    RoninColors.elevatedSurface.copy(alpha = 0.72f),
+                    RoninColors.appBackground,
+                ),
+            ),
+        ),
+    ) {
         val showRightPanel =
             !readerMode && rightPanel != null && maxWidth >= RoninLayout.rightPanelBreakpoint
         val horizontalGutter = when {
             readerMode -> RoninSpacing.small
-            maxWidth >= RoninLayout.wideContentBreakpoint -> MihonSizes.gutterWide
-            compactNavigation -> MihonSizes.gutterCompact
-            else -> MihonSizes.gutterDesktop
+            maxWidth >= RoninLayout.wideContentBreakpoint -> RoninLayout.gutterWide
+            compactNavigation -> RoninLayout.gutterCompact
+            else -> RoninLayout.gutterDesktop
         }
         val verticalGutter = when {
             readerMode -> RoninSpacing.small
-            compactNavigation -> MihonSizes.gutterCompact
-            else -> MihonSizes.gutterDesktop
+            compactNavigation -> RoninLayout.gutterCompact
+            else -> RoninLayout.gutterDesktop
         }
 
         Row(Modifier.fillMaxSize()) {
@@ -58,7 +69,7 @@ internal fun RowScope.RoninMainContent(
                     Modifier.fillMaxSize()
                 } else {
                     Modifier.align(Alignment.TopCenter)
-                        .widthIn(max = MihonSizes.contentMaxWidth)
+                        .widthIn(max = RoninLayout.contentMaxWidth)
                         .fillMaxWidth()
                         .fillMaxHeight()
                 }
@@ -75,9 +86,9 @@ internal fun RowScope.RoninMainContent(
 
             if (showRightPanel) {
                 Surface(
-                    modifier = Modifier.width(MihonSizes.rightPanelWidth).fillMaxHeight(),
-                    color = RoninColors.elevatedSurface,
-                    border = BorderStroke(1.dp, RoninColors.borderSubtle),
+                    modifier = Modifier.width(RoninLayout.rightPanelWidth).fillMaxHeight(),
+                    color = RoninColors.elevatedSurface.copy(alpha = 0.96f),
+                    border = BorderStroke(RoninBorders.hairline, RoninColors.borderSubtle),
                 ) {
                     Box(Modifier.fillMaxSize().padding(RoninSpacing.large)) {
                         rightPanel?.invoke()

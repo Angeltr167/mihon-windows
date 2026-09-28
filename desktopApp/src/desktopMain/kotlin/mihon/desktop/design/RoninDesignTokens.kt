@@ -10,26 +10,31 @@ import androidx.compose.ui.unit.dp
  * introducing one-off colors, dimensions, radii, or layout constants.
  */
 internal object RoninColors {
-    val appBackground = Color(0xFF0B1013)
-    val elevatedSurface = Color(0xFF11191D)
-    val secondarySurface = Color(0xFF182125)
-    val selectedSurface = Color(0xFF1B2825)
-    val hoverSurface = Color(0xFF202A2D)
+    val appBackground = Color(0xFF0A0E0F)
+    val elevatedSurface = Color(0xFF111718)
+    val secondarySurface = Color(0xFF171E1E)
+    val selectedSurface = Color(0xFF2A201D)
+    val hoverSurface = Color(0xFF202626)
+    val sidebarSurface = Color(0xFF0D1213)
 
-    val border = Color(0xFF344044)
-    val borderSubtle = Color(0xFF273237)
+    val border = Color(0xFF383D3B)
+    val borderSubtle = Color(0xFF282E2D)
 
-    val textPrimary = Color(0xFFE8E9E2)
-    val textSecondary = Color(0xFFB8BDBA)
-    val textMuted = Color(0xFF8F9793)
-    val textDisabled = Color(0xFF626B67)
+    val textPrimary = Color(0xFFF0EBDD)
+    val textSecondary = Color(0xFFC0BBAF)
+    val textMuted = Color(0xFF918E86)
+    val textDisabled = Color(0xFF666963)
 
-    val accentSage = Color(0xFFC6DEA1)
-    val accentSageHover = Color(0xFFD6E9B8)
+    // Coral/apricot is the product action accent from the approved mockups.
+    // Sage is deliberately semantic/secondary: progress, healthy states and quiet metadata.
+    val accentCoral = Color(0xFFE58D73)
+    val accentCoralHover = Color(0xFFF0A087)
+    val accentSage = Color(0xFFB8C7A5)
+    val accentSageHover = Color(0xFFC9D5B9)
     val accentGold = Color(0xFFC7A66A)
 
-    val success = Color(0xFFA9C98F)
-    val warning = Color(0xFFD8B46A)
+    val success = Color(0xFFAFC39D)
+    val warning = Color(0xFFD7B276)
     val error = Color(0xFFFFB4AB)
     val errorContainer = Color(0xFF3A2525)
 }
@@ -46,9 +51,9 @@ internal object RoninSpacing {
 
 internal object RoninRadius {
     val control = 6.dp
-    val cover = 8.dp
-    val card = 10.dp
-    val panel = 12.dp
+    val cover = 7.dp
+    val card = 8.dp
+    val panel = 10.dp
     val pill = 999.dp
 }
 
@@ -58,15 +63,15 @@ internal object RoninBorders {
 }
 
 internal object RoninLayout {
-    val sidebarExpanded = 202.dp
+    val sidebarExpanded = 220.dp
     val sidebarCompact = 64.dp
     val sidebarCompactBreakpoint = 900.dp
 
     val gutterCompact = 12.dp
     val gutterDesktop = 24.dp
-    val gutterWide = 48.dp
+    val gutterWide = 40.dp
     val contentMaxWidth = 1680.dp
-    val rightPanelWidth = 320.dp
+    val rightPanelWidth = 326.dp
     val rightPanelBreakpoint = 1320.dp
     val wideContentBreakpoint = 1600.dp
 

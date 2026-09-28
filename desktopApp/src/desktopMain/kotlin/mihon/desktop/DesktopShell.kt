@@ -606,9 +606,9 @@ fun DesktopShell(
     MihonDesktopTheme {
         Surface(
             modifier = Modifier.fillMaxSize().onSizeChanged { size ->
-                compactNavigation = with(density) { size.width.toDp() < MihonSizes.navigationCompactBreakpoint }
+                compactNavigation = with(density) { size.width.toDp() < RoninLayout.sidebarCompactBreakpoint }
             },
-            color = MihonPalette.graphite,
+            color = RoninColors.appBackground,
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().onPreviewKeyEvent { event ->
@@ -638,11 +638,11 @@ fun DesktopShell(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 ) {
                     if (message.isNotBlank()) {
-                        MihonPanel(Modifier.fillMaxWidth()) {
+                        RoninPanel(Modifier.fillMaxWidth()) {
                             Text(
                                 message,
                                 Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-                                color = if (notice.isError) MaterialTheme.colorScheme.error else MihonPalette.muted,
+                                color = if (notice.isError) MaterialTheme.colorScheme.error else RoninColors.textMuted,
                             )
                         }
                     }
@@ -1332,7 +1332,7 @@ fun DesktopShell(
                                                     detail = "Fetching the latest chapter list from the source.",
                                                 )
                                                 detailsError != null -> Column(
-                                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                                 ) {
                                                     RoninErrorState(
                                                         title = "Could not load chapters",
@@ -1988,48 +1988,48 @@ fun DesktopShell(
                         screen == Screen.SETTINGS -> {
                             Row(
                                 Modifier.fillMaxSize(),
-                                horizontalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                             ) {
                                 DesktopSettingsNavigation(
                                     selected = settingsSection,
                                     onSelect = { settingsSection = it },
-                                    modifier = Modifier.width(if (compactNavigation) 164.dp else 196.dp).fillMaxHeight()
-                                        .background(MihonPalette.panel, RoundedCornerShape(MihonRadius.panel)),
+                                    modifier = Modifier.width(if (compactNavigation) 152.dp else 196.dp).fillMaxHeight()
+                                        .background(RoninColors.elevatedSurface, RoundedCornerShape(RoninRadius.panel)),
                                 )
                                 Column(
                                     Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
-                                    verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                                 ) {
-                                    MihonSectionHeader(settingsSection.title, settingsSection.description)
+                                    RoninSectionHeader(settingsSection.title, settingsSection.description)
                                     when (settingsSection) {
-                                        DesktopSettingsSection.GENERAL -> MihonPanel(Modifier.fillMaxWidth()) {
+                                        DesktopSettingsSection.GENERAL -> RoninPanel(Modifier.fillMaxWidth()) {
                                             Column(
-                                                Modifier.fillMaxWidth().padding(MihonSpacing.lg),
-                                                verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                                Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                             ) {
                                                 Text("Ronin for Windows", style = MaterialTheme.typography.titleMedium)
                                                 Text(
                                                     "Language follows Windows. " +
                                                         "Library and reader preferences are saved on this device.",
-                                                    color = MihonPalette.muted,
+                                                    color = RoninColors.textMuted,
                                                 )
                                                 Text(
                                                     "Language: ${graph.localeService.currentLanguageTag()}",
-                                                    color = MihonPalette.muted,
+                                                    color = RoninColors.textMuted,
                                                 )
                                             }
                                         }
                                         DesktopSettingsSection.STORAGE -> {
-                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                            RoninPanel(Modifier.fillMaxWidth()) {
                                                 Column(
-                                                    Modifier.fillMaxWidth().padding(14.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                                                    Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                                 ) {
                                                     Text("Migration", style = MaterialTheme.typography.titleMedium)
                                                     Text(
                                                         "Import a Mihon Android .tachibk backup. " +
                                                             "Matching manga records are updated.",
-                                                        color = MihonPalette.muted,
+                                                        color = RoninColors.textMuted,
                                                     )
                                                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                                                         OutlinedTextField(
@@ -2077,10 +2077,10 @@ fun DesktopShell(
                                                 }
                                             }
                                             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                                            MihonPanel(Modifier.fillMaxWidth()) {
+                                            RoninPanel(Modifier.fillMaxWidth()) {
                                                 Column(
-                                                    Modifier.fillMaxWidth().padding(14.dp),
-                                                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                                                    Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                                                 ) {
                                                     Text(
                                                         "Application and storage",
@@ -2088,11 +2088,11 @@ fun DesktopShell(
                                                     )
                                                     Text(
                                                         "Local library: ${graph.appDirectories.localLibrary}",
-                                                        color = MihonPalette.muted,
+                                                        color = RoninColors.textMuted,
                                                     )
                                                     Text(
                                                         "Database: ${graph.appDirectories.database}",
-                                                        color = MihonPalette.muted,
+                                                        color = RoninColors.textMuted,
                                                     )
                                                 }
                                             }
@@ -2434,10 +2434,10 @@ fun DesktopShell(
                                                 }) { Text("Complete MangaBaka sign-in") }
                                             }
                                         }
-                                        DesktopSettingsSection.LIBRARY -> MihonPanel(Modifier.fillMaxWidth()) {
+                                        DesktopSettingsSection.LIBRARY -> RoninPanel(Modifier.fillMaxWidth()) {
                                             Column(
-                                                Modifier.fillMaxWidth().padding(12.dp),
-                                                verticalArrangement = Arrangement.spacedBy(6.dp),
+                                                Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                             ) {
                                                 Text(
                                                     "Library and downloads",
@@ -2461,42 +2461,42 @@ fun DesktopShell(
                                                 }
                                                 Text(
                                                     "Downloads wait for an active network connection.",
-                                                    color = MihonPalette.muted,
+                                                    color = RoninColors.textMuted,
                                                 )
                                             }
                                         }
                                         DesktopSettingsSection.READER -> DesktopReaderDefaultsSettings(graph)
-                                        DesktopSettingsSection.DOWNLOADS -> MihonPanel(Modifier.fillMaxWidth()) {
+                                        DesktopSettingsSection.DOWNLOADS -> RoninPanel(Modifier.fillMaxWidth()) {
                                             Column(
-                                                Modifier.fillMaxWidth().padding(MihonSpacing.lg),
-                                                verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                                Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                             ) {
                                                 Text("Download queue", style = MaterialTheme.typography.titleMedium)
                                                 Text(
                                                     "Downloads pause when the network is unavailable " +
                                                         "and resume from the queue.",
-                                                    color = MihonPalette.muted,
+                                                    color = RoninColors.textMuted,
                                                 )
                                                 TextButton(onClick = { navigateToScreen(Screen.DOWNLOADS) }) {
                                                     Text("Open downloads")
                                                 }
                                             }
                                         }
-                                        DesktopSettingsSection.ADVANCED -> MihonPanel(Modifier.fillMaxWidth()) {
+                                        DesktopSettingsSection.ADVANCED -> RoninPanel(Modifier.fillMaxWidth()) {
                                             Column(
-                                                Modifier.fillMaxWidth().padding(MihonSpacing.lg),
-                                                verticalArrangement = Arrangement.spacedBy(MihonSpacing.sm),
+                                                Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                             ) {
                                                 Text("Windows links", style = MaterialTheme.typography.titleMedium)
                                                 Text(
                                                     "Ronin keeps compatibility with existing mihon:// manga and " +
                                                         "tracker callback links for this Windows account.",
-                                                    color = MihonPalette.muted,
+                                                    color = RoninColors.textMuted,
                                                 )
                                                 Text(
                                                     "Status: " +
                                                         if (mihonProtocolRegistered) "registered" else "not registered",
-                                                    color = MihonPalette.muted,
+                                                    color = RoninColors.textMuted,
                                                 )
                                                 if (
                                                     System.getProperty("os.name")
@@ -2537,7 +2537,7 @@ fun DesktopShell(
                                                 Text(
                                                     "A locally trusted signing fingerprint records a local trust " +
                                                         "decision; it does not verify a publisher identity.",
-                                                    color = MihonPalette.muted,
+                                                    color = RoninColors.textMuted,
                                                 )
                                                 TextButton(onClick = { navigateToScreen(Screen.EXTENSIONS) }) {
                                                     Text("Manage extensions")
@@ -2549,29 +2549,30 @@ fun DesktopShell(
                             }
                         }
                         screen == Screen.DOWNLOADS -> {
-                            MihonSectionHeader(
-                                "Downloads",
-                                "${downloads.size} chapters in the persisted queue",
+                            RoninSectionHeader(
+                                title = "Downloads",
+                                subtitle = "${downloads.size} chapters in the persisted queue",
                                 trailing = {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                        TextButton(
+                                    Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
+                                        RoninTextButton(
                                             onClick = { session.downloads.clearFinished() },
                                             enabled = downloads.any { it.status == DesktopDownloadStatus.COMPLETED },
                                         ) { Text("Clear finished") }
-                                        TextButton(
+                                        RoninTextButton(
                                             onClick = { session.downloads.pause() },
                                             enabled = downloads.any {
                                                 it.status == DesktopDownloadStatus.RUNNING ||
                                                     it.status == DesktopDownloadStatus.PENDING
                                             },
                                         ) { Text("Pause all") }
-                                        Button(
+                                        RoninButton(
+                                            label = "Resume all",
                                             onClick = { session.downloads.resume() },
                                             enabled = downloads.any {
                                                 it.status == DesktopDownloadStatus.PAUSED ||
                                                     it.status == DesktopDownloadStatus.FAILED
                                             },
-                                        ) { Text("Resume all") }
+                                        )
                                     }
                                 },
                             )
@@ -2584,21 +2585,20 @@ fun DesktopShell(
                                 }
                             }
                             if (downloads.isNotEmpty()) {
-                                OutlinedTextField(
+                                RoninSearchField(
                                     value = downloadQuery,
                                     onValueChange = { downloadQuery = it },
-                                    label = { Text("Search downloads") },
-                                    singleLine = true,
+                                    placeholder = "Search downloads",
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                             if (downloads.isEmpty()) {
-                                MihonEmptyState(
+                                RoninEmptyState(
                                     "No downloads",
                                     "Queue a chapter from its manga details or the Updates screen.",
                                 )
                             } else if (visibleDownloads.isEmpty()) {
-                                MihonEmptyState(
+                                RoninEmptyState(
                                     "No matching downloads",
                                     "Try a different manga or chapter name.",
                                 )
@@ -2622,7 +2622,7 @@ fun DesktopShell(
                                                 Text(
                                                     heading,
                                                     style = MaterialTheme.typography.titleMedium,
-                                                    color = MihonPalette.sage,
+                                                    color = RoninColors.accentSage,
                                                 )
                                             }
                                         }

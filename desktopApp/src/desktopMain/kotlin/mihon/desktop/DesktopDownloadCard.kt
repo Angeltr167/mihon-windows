@@ -18,6 +18,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.source.Source
+import mihon.desktop.design.RoninColors
+import mihon.desktop.design.RoninMangaMetrics
+import mihon.desktop.design.RoninSpacing
 
 @Composable
 internal fun DesktopDownloadCard(
@@ -41,11 +44,13 @@ internal fun DesktopDownloadCard(
                     DesktopCover(
                         coverUrl,
                         source,
-                        Modifier.width(MihonSizes.coverSmallWidth).height(MihonSizes.coverSmallHeight),
+                        Modifier.width(
+                            RoninMangaMetrics.coverCompactWidth,
+                        ).height(RoninMangaMetrics.coverCompactHeight),
                     )
-                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs)) {
+                    Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
                         Text(download.mangaTitle, style = MaterialTheme.typography.titleMedium)
-                        Text(download.chapterName, color = MihonPalette.muted)
+                        Text(download.chapterName, color = RoninColors.textMuted)
                         Text(
                             when (download.status) {
                                 DesktopDownloadStatus.PENDING -> "Queued"
@@ -57,7 +62,7 @@ internal fun DesktopDownloadCard(
                             color = if (download.status == DesktopDownloadStatus.FAILED) {
                                 MaterialTheme.colorScheme.error
                             } else {
-                                MihonPalette.sage
+                                RoninColors.accentSage
                             },
                             style = MaterialTheme.typography.labelMedium,
                         )
@@ -65,12 +70,12 @@ internal fun DesktopDownloadCard(
                             LinearProgressIndicator(
                                 progress = { (download.pagesDone.toFloat() / download.pageCount).coerceIn(0f, 1f) },
                                 modifier = Modifier.fillMaxWidth(),
-                                color = MihonPalette.sage,
-                                trackColor = MihonPalette.raised,
+                                color = RoninColors.accentSage,
+                                trackColor = RoninColors.borderSubtle,
                             )
                             Text(
                                 "${download.pagesDone} / ${download.pageCount} pages",
-                                color = MihonPalette.muted,
+                                color = RoninColors.textMuted,
                                 style = MaterialTheme.typography.bodySmall,
                             )
                         }

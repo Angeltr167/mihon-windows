@@ -26,6 +26,10 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import mihon.core.reader.FitMode
 import mihon.core.reader.ReadingMode
+import mihon.desktop.design.RoninBorders
+import mihon.desktop.design.RoninColors
+import mihon.desktop.design.RoninRadius
+import mihon.desktop.design.RoninSpacing
 import mihon.platform.desktop.DesktopPlatformGraph
 
 internal enum class DesktopSettingsSection(val title: String, val description: String) {
@@ -45,13 +49,13 @@ internal fun DesktopSettingsNavigation(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(MihonSpacing.sm),
-        verticalArrangement = Arrangement.spacedBy(MihonSpacing.xs),
+        modifier = modifier.padding(RoninSpacing.small),
+        verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
     ) {
         Text(
             "SETTINGS",
-            modifier = Modifier.padding(horizontal = MihonSpacing.sm, vertical = MihonSpacing.md),
-            color = MihonPalette.muted,
+            modifier = Modifier.padding(horizontal = RoninSpacing.small, vertical = RoninSpacing.medium),
+            color = RoninColors.textMuted,
             style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
         )
         DesktopSettingsSection.entries.forEach { section ->
@@ -60,17 +64,24 @@ internal fun DesktopSettingsNavigation(
                 modifier = Modifier.fillMaxWidth()
                     .semantics { this.selected = isSelected }
                     .clickable(role = Role.Tab) { onSelect(section) },
-                shape = RoundedCornerShape(MihonRadius.control),
-                color = if (isSelected) MihonPalette.sage.copy(alpha = 0.13f) else Color.Transparent,
-                border = if (isSelected) BorderStroke(1.dp, MihonPalette.sage.copy(alpha = 0.38f)) else null,
+                shape = RoundedCornerShape(RoninRadius.control),
+                color = if (isSelected) RoninColors.accentCoral.copy(alpha = 0.13f) else Color.Transparent,
+                border = if (isSelected) {
+                    BorderStroke(
+                        RoninBorders.hairline,
+                        RoninColors.accentCoral.copy(alpha = 0.38f),
+                    )
+                } else {
+                    null
+                },
             ) {
                 Row(
-                    Modifier.fillMaxWidth().padding(horizontal = MihonSpacing.md, vertical = MihonSpacing.sm),
+                    Modifier.fillMaxWidth().padding(horizontal = RoninSpacing.medium, vertical = RoninSpacing.small),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
                         section.title,
-                        color = if (isSelected) MihonPalette.sage else MihonPalette.ivory,
+                        color = if (isSelected) RoninColors.accentCoral else RoninColors.textPrimary,
                         style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
                     )
                 }
@@ -104,15 +115,15 @@ internal fun DesktopReaderDefaultsSettings(graph: DesktopPlatformGraph) {
     var modeExpanded by remember { mutableStateOf(false) }
     var fitExpanded by remember { mutableStateOf(false) }
 
-    MihonPanel(Modifier.fillMaxWidth()) {
+    RoninPanel(Modifier.fillMaxWidth()) {
         Column(
-            Modifier.fillMaxWidth().padding(MihonSpacing.lg),
-            verticalArrangement = Arrangement.spacedBy(MihonSpacing.md),
+            Modifier.fillMaxWidth().padding(RoninSpacing.large),
+            verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
             Text("Default reading mode", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
             Text(
                 "New chapters open with this mode. Change it at any time from the reader controls.",
-                color = MihonPalette.muted,
+                color = RoninColors.textMuted,
             )
             androidx.compose.foundation.layout.Box {
                 RoninTextButton(label = readingModeLabel(mode), onClick = { modeExpanded = true })
@@ -129,11 +140,11 @@ internal fun DesktopReaderDefaultsSettings(graph: DesktopPlatformGraph) {
                     }
                 }
             }
-            androidx.compose.material3.HorizontalDivider()
+            androidx.compose.material3.HorizontalDivider(color = RoninColors.borderSubtle)
             Text("Default page fit", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
             Text(
                 "Width scrolls tall pages, height keeps the full page visible, and original avoids upscaling.",
-                color = MihonPalette.muted,
+                color = RoninColors.textMuted,
             )
             androidx.compose.foundation.layout.Box {
                 RoninTextButton(label = fitModeLabel(fit), onClick = { fitExpanded = true })
