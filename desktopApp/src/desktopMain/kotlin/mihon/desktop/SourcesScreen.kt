@@ -366,27 +366,21 @@ private fun SourceVariantActions(
     modifier: Modifier = Modifier,
 ) {
     val primary = variants.first()
-    Row(
+    FlowRow(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-        verticalAlignment = Alignment.CenterVertically,
+        verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
     ) {
         RoninBadge(
             label = if (primary is DesktopLocalSource) "On device" else "Installed",
             accent = true,
         )
         if (variants.size > 1 && primary !is DesktopLocalSource) {
-            FlowRow(
-                modifier = Modifier.weight(1f, fill = false),
-                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-                verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-            ) {
-                variants.forEach { variant ->
-                    RoninChip(
-                        label = variant.roninSourceLanguage(),
-                        onClick = { onSelectSource(variant) },
-                    )
-                }
+            variants.forEach { variant ->
+                RoninChip(
+                    label = variant.roninSourceLanguage(),
+                    onClick = { onSelectSource(variant) },
+                )
             }
         } else {
             RoninBadge(primary.roninSourceLanguage())
