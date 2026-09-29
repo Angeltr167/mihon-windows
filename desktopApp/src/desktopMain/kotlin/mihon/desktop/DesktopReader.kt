@@ -1049,126 +1049,133 @@ internal fun DesktopReader(
                         val compactControls = maxWidth < RoninReaderMetrics.compactControlsBreakpoint
                         FlowRow(
                             Modifier.fillMaxWidth().padding(
-                                horizontal = RoninSpacing.small,
-                                vertical = RoninSpacing.xSmall,
+                                horizontal = RoninSpacing.large,
+                                vertical = RoninSpacing.small,
                             ),
-                            horizontalArrangement = Arrangement.spacedBy(
-                                RoninSpacing.xSmall,
-                                Alignment.CenterHorizontally,
-                            ),
-                            verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+                            horizontalArrangement = if (compactControls) {
+                                Arrangement.spacedBy(RoninSpacing.small, Alignment.CenterHorizontally)
+                            } else {
+                                Arrangement.SpaceBetween
+                            },
+                            verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                         ) {
-                            RoninTextButton(
-                                label = if (compactControls) "‹ Ch." else "‹ Chapter",
-                                onClick = ::previousChapter,
-                                enabled = chapterIndex > 0,
-                            )
-                            RoninSecondaryButton(
-                                label = if (compactControls) "‹" else "‹ Page",
-                                onClick = ::previous,
-                                enabled = boundaryState.canPrevious,
-                            )
-                            RoninSecondaryButton(
-                                label = if (compactControls) "›" else "Page ›",
-                                onClick = ::next,
-                                enabled = boundaryState.canNext,
-                            )
-                            RoninTextButton(
-                                label = if (compactControls) "Ch. ›" else "Chapter ›",
-                                onClick = ::nextChapter,
-                                enabled = chapterIndex < chapters.lastIndex,
-                            )
-                            Box {
+                            Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
                                 RoninTextButton(
-                                    label = readingModeLabel(mode),
-                                    onClick = { showModeMenu = true },
+                                    label = if (compactControls) "‹ Ch." else "‹ Chapter",
+                                    onClick = ::previousChapter,
+                                    enabled = chapterIndex > 0,
                                 )
-                                DropdownMenu(
-                                    expanded = showModeMenu,
-                                    onDismissRequest = { showModeMenu = false },
-                                ) {
-                                    ReadingMode.entries.forEach { option ->
-                                        DropdownMenuItem(
-                                            text = { Text(readingModeLabel(option)) },
-                                            onClick = {
-                                                if (pages.isNotEmpty()) {
-                                                    val currentPage = viewedReaderPageIndex(mode, pageIndex, pages.size)
-                                                    mode = option
-                                                    pageIndex = normalizeReaderPageIndex(mode, currentPage, pages.size)
-                                                } else {
-                                                    mode = option
-                                                }
-                                                graph.keyValueStore.putString("desktop.reader.mode", mode.name)
-                                                showModeMenu = false
-                                            },
-                                        )
-                                    }
-                                }
-                            }
-                            Box {
+                                RoninSecondaryButton(
+                                    label = if (compactControls) "‹" else "‹ Page",
+                                    onClick = ::previous,
+                                    enabled = boundaryState.canPrevious,
+                                )
+                                RoninSecondaryButton(
+                                    label = if (compactControls) "›" else "Page ›",
+                                    onClick = ::next,
+                                    enabled = boundaryState.canNext,
+                                )
                                 RoninTextButton(
-                                    label = fitModeLabel(fit),
-                                    onClick = { showFitMenu = true },
+                                    label = if (compactControls) "Ch. ›" else "Chapter ›",
+                                    onClick = ::nextChapter,
+                                    enabled = chapterIndex < chapters.lastIndex,
                                 )
-                                DropdownMenu(
-                                    expanded = showFitMenu,
-                                    onDismissRequest = { showFitMenu = false },
-                                ) {
-                                    FitMode.entries.forEach { option ->
-                                        DropdownMenuItem(
-                                            text = { Text(fitModeLabel(option)) },
-                                            onClick = {
-                                                fit = option
-                                                graph.keyValueStore.putString("desktop.reader.fit", fit.name)
-                                                showFitMenu = false
-                                            },
-                                        )
-                                    }
-                                }
                             }
-                            RoninBadge(label = (zoom * 100).roundToInt().toString() + "%")
-                            Box {
-                                RoninTextButton(label = "More…", onClick = { showMore = true })
-                                DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
-                                    ReaderMoreActions(
-                                        onClose = {
-                                            showMore = false
-                                            onClose()
-                                        },
-                                        zoom = zoom,
-                                        onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
-                                        onZoomReset = { zoom = 1f },
-                                        onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
-                                        onAppearance = {
-                                            showMore = false
-                                            showAppearance = true
-                                        },
-                                        onFullscreen = {
-                                            showMore = false
-                                            onToggleFullscreen()
-                                        },
-                                        onShortcuts = {
-                                            showMore = false
-                                            showShortcuts = true
-                                        },
-                                        onSave = {
-                                            showMore = false
-                                            saveCurrentPage()
-                                        },
-                                        canSave = pages.isNotEmpty(),
-                                        onOpenSaved = savedPage?.let { path ->
-                                            {
-                                                showMore = false
-                                                graph.externalOpenService.openPath(path.toString())
-                                            }
-                                        },
-                                        onBookmark = {
-                                            showMore = false
-                                            toggleChapterBookmark()
-                                        },
-                                        canBookmark = chapterId != null,
-                                        bookmarkLabel = bookmarkLabel,
+                            Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
+                                Box {
+                                    RoninTextButton(
+                                        label = readingModeLabel(mode),
+                                        onClick = { showModeMenu = true },
                                     )
+                                    DropdownMenu(
+                                        expanded = showModeMenu,
+                                        onDismissRequest = { showModeMenu = false },
+                                    ) {
+                                        ReadingMode.entries.forEach { option ->
+                                            DropdownMenuItem(
+                                                text = { Text(readingModeLabel(option)) },
+                                                onClick = {
+                                                    if (pages.isNotEmpty()) {
+                                                        val currentPage =
+                                                            viewedReaderPageIndex(mode, pageIndex, pages.size)
+                                                        mode = option
+                                                        pageIndex =
+                                                            normalizeReaderPageIndex(mode, currentPage, pages.size)
+                                                    } else {
+                                                        mode = option
+                                                    }
+                                                    graph.keyValueStore.putString("desktop.reader.mode", mode.name)
+                                                    showModeMenu = false
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                                Box {
+                                    RoninTextButton(
+                                        label = fitModeLabel(fit),
+                                        onClick = { showFitMenu = true },
+                                    )
+                                    DropdownMenu(
+                                        expanded = showFitMenu,
+                                        onDismissRequest = { showFitMenu = false },
+                                    ) {
+                                        FitMode.entries.forEach { option ->
+                                            DropdownMenuItem(
+                                                text = { Text(fitModeLabel(option)) },
+                                                onClick = {
+                                                    fit = option
+                                                    graph.keyValueStore.putString("desktop.reader.fit", fit.name)
+                                                    showFitMenu = false
+                                                },
+                                            )
+                                        }
+                                    }
+                                }
+                                RoninBadge(label = (zoom * 100).roundToInt().toString() + "%")
+                                Box {
+                                    RoninTextButton(label = "More…", onClick = { showMore = true })
+                                    DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
+                                        ReaderMoreActions(
+                                            onClose = {
+                                                showMore = false
+                                                onClose()
+                                            },
+                                            zoom = zoom,
+                                            onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
+                                            onZoomReset = { zoom = 1f },
+                                            onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
+                                            onAppearance = {
+                                                showMore = false
+                                                showAppearance = true
+                                            },
+                                            onFullscreen = {
+                                                showMore = false
+                                                onToggleFullscreen()
+                                            },
+                                            onShortcuts = {
+                                                showMore = false
+                                                showShortcuts = true
+                                            },
+                                            onSave = {
+                                                showMore = false
+                                                saveCurrentPage()
+                                            },
+                                            canSave = pages.isNotEmpty(),
+                                            onOpenSaved = savedPage?.let { path ->
+                                                {
+                                                    showMore = false
+                                                    graph.externalOpenService.openPath(path.toString())
+                                                }
+                                            },
+                                            onBookmark = {
+                                                showMore = false
+                                                toggleChapterBookmark()
+                                            },
+                                            canBookmark = chapterId != null,
+                                            bookmarkLabel = bookmarkLabel,
+                                        )
+                                    }
                                 }
                             }
                         }

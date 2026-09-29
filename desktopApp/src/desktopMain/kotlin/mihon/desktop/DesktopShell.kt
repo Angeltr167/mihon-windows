@@ -67,6 +67,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import mihon.core.extension.desktop.DesktopExtensionInstallResult
 import mihon.core.extension.desktop.DesktopRepositoryEntry
+import mihon.desktop.design.RoninColors
+import mihon.desktop.design.RoninDesktopTheme
+import mihon.desktop.design.RoninLayout
+import mihon.desktop.design.RoninRadius
+import mihon.desktop.design.RoninSpacing
 import mihon.platform.api.OpenFileRequest
 import mihon.platform.desktop.DesktopPlatformGraph
 import mihon.platform.desktop.WindowsProtocolRegistrar
@@ -603,7 +608,7 @@ fun DesktopShell(
 
     val density = LocalDensity.current
     var compactNavigation by remember { mutableStateOf(false) }
-    MihonDesktopTheme {
+    RoninDesktopTheme {
         Surface(
             modifier = Modifier.fillMaxSize().onSizeChanged { size ->
                 compactNavigation = with(density) { size.width.toDp() < RoninLayout.sidebarCompactBreakpoint }
@@ -1988,15 +1993,14 @@ fun DesktopShell(
                         screen == Screen.SETTINGS -> {
                             Row(
                                 Modifier.fillMaxSize(),
-                                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
+                                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.large),
                             ) {
                                 DesktopSettingsNavigation(
                                     selected = settingsSection,
                                     onSelect = { settingsSection = it },
                                     modifier = Modifier.width(
                                         if (compactNavigation) 152.dp else RoninLayout.settingsNavigationWidth,
-                                    ).fillMaxHeight()
-                                        .background(RoninColors.elevatedSurface, RoundedCornerShape(RoninRadius.panel)),
+                                    ).fillMaxHeight(),
                                 )
                                 Column(
                                     Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
@@ -2008,23 +2012,35 @@ fun DesktopShell(
                                         pageHeading = true,
                                     )
                                     when (settingsSection) {
-                                        DesktopSettingsSection.GENERAL -> RoninPanel(Modifier.fillMaxWidth()) {
-                                            Column(
-                                                Modifier.fillMaxWidth().padding(RoninSpacing.large),
-                                                verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                                            ) {
-                                                Text("Ronin for Windows", style = MaterialTheme.typography.titleMedium)
-                                                Text(
-                                                    "Language follows Windows. " +
-                                                        "Library and reader preferences are saved on this device.",
-                                                    color = RoninColors.textMuted,
-                                                )
-                                                Text(
-                                                    "Language: ${graph.localeService.currentLanguageTag()}",
-                                                    color = RoninColors.textMuted,
-                                                )
-                                            }
-                                        }
+                                        DesktopSettingsSection.GENERAL -> DesktopSettingsOverview(
+                                            graph = graph,
+                                            languageTag = graph.localeService.currentLanguageTag(),
+                                            mangaCount = library.size,
+                                            updateIntervalHours = updateInterval,
+                                            queuedDownloadCount = downloads.size,
+                                            activeDownloadCount = downloads.count {
+                                                it.status == DesktopDownloadStatus.RUNNING ||
+                                                    it.status == DesktopDownloadStatus.PENDING
+                                            },
+                                            failedDownloadCount = downloads.count {
+                                                it.status == DesktopDownloadStatus.FAILED
+                                            },
+                                            connectedTrackers = listOfNotNull(
+                                                "AniList".takeIf { aniListLoggedIn },
+                                                "MangaUpdates".takeIf { mangaUpdatesLoggedIn },
+                                                "Kitsu".takeIf { kitsuLoggedIn },
+                                                "MyAnimeList".takeIf { malLoggedIn },
+                                                "Shikimori".takeIf { shikimoriLoggedIn },
+                                                "Hikka".takeIf { hikkaLoggedIn },
+                                                "Bangumi".takeIf { bangumiLoggedIn },
+                                                "MangaBaka".takeIf { mangaBakaLoggedIn },
+                                            ),
+                                            installedExtensionCount = installedDesktopExtensions.size +
+                                                suwayomiExtensions.count { it.installed && !it.obsolete },
+                                            protocolRegistered = mihonProtocolRegistered,
+                                            onSelectSection = { settingsSection = it },
+                                            onOpenDownloads = { navigateToScreen(Screen.DOWNLOADS) },
+                                        )
                                         DesktopSettingsSection.STORAGE -> {
                                             RoninPanel(Modifier.fillMaxWidth()) {
                                                 Column(
@@ -2109,340 +2125,382 @@ fun DesktopShell(
                                             }
                                         }
                                         DesktopSettingsSection.TRACKING -> {
-                                            Text(
-                                                "Tracker integrations",
-                                                style = MaterialTheme.typography.titleLarge,
-                                                modifier = Modifier.padding(top = 8.dp),
-                                            )
-                                            Text(
-                                                "AniList: ${if (aniListLoggedIn) "signed in" else "not signed in"}",
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            if (aniListLoggedIn) {
-                                                RoninTextButton(onClick = {
-                                                    session.aniListTracker.logout()
-                                                    aniListLoggedIn = false
-                                                    message = "AniList signed out"
-                                                }) { Text("Sign out of AniList") }
-                                            } else {
-                                                RoninTextButton(onClick = {
-                                                    if (!graph.browserService.open(DesktopAniListTracker.AUTH_URL)) {
-                                                        notice.error("Could not open AniList in the browser")
-                                                    }
-                                                }) { Text("Sign in to AniList in browser") }
-                                                Text("If the redirect fails, paste its URL below.")
-                                                OutlinedTextField(
-                                                    aniListCallback,
-                                                    { aniListCallback = it },
-                                                    label = { Text("Paste AniList redirect URL") },
-                                                    visualTransformation = PasswordVisualTransformation(),
-                                                )
-                                                RoninTextButton(onClick = {
-                                                    val callback = aniListCallback
-                                                    aniListCallback = ""
-                                                    scope.launch {
-                                                        runCatching {
-                                                            session.aniListTracker.loginFromCallback(callback)
-                                                        }
-                                                            .onSuccess { name ->
-                                                                aniListLoggedIn = true
-                                                                message = "Signed in to AniList as $name"
+                                            RoninPanel(Modifier.fillMaxWidth()) {
+                                                Column(
+                                                    Modifier.fillMaxWidth().padding(RoninSpacing.large),
+                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                                                ) {
+                                                    Text(
+                                                        "Tracker integrations",
+                                                        style = MaterialTheme.typography.titleLarge,
+                                                    )
+                                                    Text(
+                                                        "Tracker account sign-in status and actions.",
+                                                        color = RoninColors.textMuted,
+                                                    )
+                                                    Text(
+                                                        "AniList",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    if (aniListLoggedIn) {
+                                                        RoninTextButton(onClick = {
+                                                            session.aniListTracker.logout()
+                                                            aniListLoggedIn = false
+                                                            message = "AniList signed out"
+                                                        }) { Text("Sign out of AniList") }
+                                                    } else {
+                                                        RoninTextButton(onClick = {
+                                                            val browserOpened = graph.browserService.open(
+                                                                DesktopAniListTracker.AUTH_URL,
+                                                            )
+                                                            if (!browserOpened) {
+                                                                notice.error("Could not open AniList in the browser")
                                                             }
-                                                            .onFailure {
-                                                                notice.error(it.message ?: "AniList sign-in failed")
+                                                        }) { Text("Sign in to AniList in browser") }
+                                                        Text("If the redirect fails, paste its URL below.")
+                                                        OutlinedTextField(
+                                                            aniListCallback,
+                                                            { aniListCallback = it },
+                                                            label = { Text("Paste AniList redirect URL") },
+                                                            visualTransformation = PasswordVisualTransformation(),
+                                                        )
+                                                        RoninTextButton(onClick = {
+                                                            val callback = aniListCallback
+                                                            aniListCallback = ""
+                                                            scope.launch {
+                                                                runCatching {
+                                                                    session.aniListTracker.loginFromCallback(callback)
+                                                                }
+                                                                    .onSuccess { name ->
+                                                                        aniListLoggedIn = true
+                                                                        message = "Signed in to AniList as $name"
+                                                                    }
+                                                                    .onFailure {
+                                                                        notice.error(
+                                                                            it.message ?: "AniList sign-in failed",
+                                                                        )
+                                                                    }
                                                             }
+                                                        }) { Text("Complete AniList sign-in") }
                                                     }
-                                                }) { Text("Complete AniList sign-in") }
-                                            }
-                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                                            Text(
-                                                "MangaUpdates: " +
-                                                    if (mangaUpdatesLoggedIn) "signed in" else "not signed in",
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            if (mangaUpdatesLoggedIn) {
-                                                RoninTextButton(onClick = {
-                                                    session.mangaUpdatesTracker.logout()
-                                                    mangaUpdatesLoggedIn = false
-                                                    message = "MangaUpdates signed out"
-                                                }) { Text("Sign out of MangaUpdates") }
-                                            } else {
-                                                OutlinedTextField(
-                                                    mangaUpdatesUsername,
-                                                    { mangaUpdatesUsername = it },
-                                                    label = { Text("MangaUpdates username") },
-                                                )
-                                                OutlinedTextField(
-                                                    mangaUpdatesPassword,
-                                                    { mangaUpdatesPassword = it },
-                                                    label = { Text("MangaUpdates password") },
-                                                    visualTransformation = PasswordVisualTransformation(),
-                                                )
-                                                RoninTextButton(onClick = {
-                                                    val username = mangaUpdatesUsername
-                                                    val password = mangaUpdatesPassword
-                                                    mangaUpdatesPassword = ""
-                                                    scope.launch {
-                                                        runCatching {
-                                                            session.mangaUpdatesTracker.login(username, password)
-                                                        }
-                                                            .onSuccess { name ->
-                                                                mangaUpdatesLoggedIn = true
-                                                                message = "Signed in to MangaUpdates as $name"
+                                                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                                    Text(
+                                                        "MangaUpdates",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    if (mangaUpdatesLoggedIn) {
+                                                        RoninTextButton(onClick = {
+                                                            session.mangaUpdatesTracker.logout()
+                                                            mangaUpdatesLoggedIn = false
+                                                            message = "MangaUpdates signed out"
+                                                        }) { Text("Sign out of MangaUpdates") }
+                                                    } else {
+                                                        OutlinedTextField(
+                                                            mangaUpdatesUsername,
+                                                            { mangaUpdatesUsername = it },
+                                                            label = { Text("MangaUpdates username") },
+                                                        )
+                                                        OutlinedTextField(
+                                                            mangaUpdatesPassword,
+                                                            { mangaUpdatesPassword = it },
+                                                            label = { Text("MangaUpdates password") },
+                                                            visualTransformation = PasswordVisualTransformation(),
+                                                        )
+                                                        RoninTextButton(onClick = {
+                                                            val username = mangaUpdatesUsername
+                                                            val password = mangaUpdatesPassword
+                                                            mangaUpdatesPassword = ""
+                                                            scope.launch {
+                                                                runCatching {
+                                                                    session.mangaUpdatesTracker.login(
+                                                                        username,
+                                                                        password,
+                                                                    )
+                                                                }
+                                                                    .onSuccess { name ->
+                                                                        mangaUpdatesLoggedIn = true
+                                                                        message = "Signed in to MangaUpdates as $name"
+                                                                    }.onFailure {
+                                                                        notice.error(
+                                                                            it.message ?: "MangaUpdates sign-in failed",
+                                                                        )
+                                                                    }
+                                                            }
+                                                        }) { Text("Sign in to MangaUpdates") }
+                                                    }
+                                                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                                    Text(
+                                                        "Kitsu",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    if (kitsuLoggedIn) {
+                                                        RoninTextButton(onClick = {
+                                                            session.kitsuTracker.logout()
+                                                            kitsuLoggedIn = false
+                                                            message = "Kitsu signed out"
+                                                        }) { Text("Sign out of Kitsu") }
+                                                    } else {
+                                                        OutlinedTextField(
+                                                            kitsuUsername,
+                                                            { kitsuUsername = it },
+                                                            label = { Text("Kitsu username") },
+                                                        )
+                                                        OutlinedTextField(
+                                                            kitsuPassword,
+                                                            { kitsuPassword = it },
+                                                            label = { Text("Kitsu password") },
+                                                            visualTransformation = PasswordVisualTransformation(),
+                                                        )
+                                                        RoninTextButton(onClick = {
+                                                            val username = kitsuUsername
+                                                            val password = kitsuPassword
+                                                            kitsuPassword = ""
+                                                            scope.launch {
+                                                                runCatching {
+                                                                    session.kitsuTracker.login(username, password)
+                                                                }
+                                                                    .onSuccess { name ->
+                                                                        kitsuLoggedIn = true
+                                                                        message = "Signed in to Kitsu as $name"
+                                                                    }.onFailure {
+                                                                        notice.error(
+                                                                            it.message ?: "Kitsu sign-in failed",
+                                                                        )
+                                                                    }
+                                                            }
+                                                        }) { Text("Sign in to Kitsu") }
+                                                    }
+                                                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                                    Text(
+                                                        "MyAnimeList",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    if (malLoggedIn) {
+                                                        RoninTextButton(onClick = {
+                                                            session.myAnimeListTracker.logout()
+                                                            malLoggedIn = false
+                                                            message = "MyAnimeList signed out"
+                                                        }) { Text("Sign out of MyAnimeList") }
+                                                    } else {
+                                                        RoninTextButton(onClick = {
+                                                            runCatching {
+                                                                val url = session.myAnimeListTracker.beginLogin()
+                                                                check(graph.browserService.open(url))
                                                             }.onFailure {
-                                                                notice.error(
-                                                                    it.message ?: "MangaUpdates sign-in failed",
-                                                                )
+                                                                notice.error(it.message ?: "Could not open MyAnimeList")
                                                             }
+                                                        }) { Text("Sign in to MyAnimeList in browser") }
+                                                        Text("If the redirect fails, paste its URL below.")
+                                                        OutlinedTextField(
+                                                            malCallback,
+                                                            { malCallback = it },
+                                                            label = { Text("Paste MyAnimeList redirect URL") },
+                                                            visualTransformation = PasswordVisualTransformation(),
+                                                        )
+                                                        RoninTextButton(onClick = {
+                                                            val callback = malCallback
+                                                            malCallback = ""
+                                                            scope.launch {
+                                                                runCatching {
+                                                                    session.myAnimeListTracker.loginFromCallback(
+                                                                        callback,
+                                                                    )
+                                                                }
+                                                                    .onSuccess { name ->
+                                                                        malLoggedIn = true
+                                                                        message = "Signed in to MyAnimeList as $name"
+                                                                    }.onFailure {
+                                                                        notice.error(
+                                                                            it.message ?: "MyAnimeList sign-in failed",
+                                                                        )
+                                                                    }
+                                                            }
+                                                        }) { Text("Complete MyAnimeList sign-in") }
                                                     }
-                                                }) { Text("Sign in to MangaUpdates") }
-                                            }
-                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                                            Text(
-                                                "Kitsu: ${if (kitsuLoggedIn) "signed in" else "not signed in"}",
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            if (kitsuLoggedIn) {
-                                                RoninTextButton(onClick = {
-                                                    session.kitsuTracker.logout()
-                                                    kitsuLoggedIn = false
-                                                    message = "Kitsu signed out"
-                                                }) { Text("Sign out of Kitsu") }
-                                            } else {
-                                                OutlinedTextField(
-                                                    kitsuUsername,
-                                                    { kitsuUsername = it },
-                                                    label = { Text("Kitsu username") },
-                                                )
-                                                OutlinedTextField(
-                                                    kitsuPassword,
-                                                    { kitsuPassword = it },
-                                                    label = { Text("Kitsu password") },
-                                                    visualTransformation = PasswordVisualTransformation(),
-                                                )
-                                                RoninTextButton(onClick = {
-                                                    val username = kitsuUsername
-                                                    val password = kitsuPassword
-                                                    kitsuPassword = ""
-                                                    scope.launch {
-                                                        runCatching { session.kitsuTracker.login(username, password) }
-                                                            .onSuccess { name ->
-                                                                kitsuLoggedIn = true
-                                                                message = "Signed in to Kitsu as $name"
+                                                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                                    Text(
+                                                        "Shikimori",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    if (shikimoriLoggedIn) {
+                                                        RoninTextButton(onClick = {
+                                                            session.shikimoriTracker.logout()
+                                                            shikimoriLoggedIn = false
+                                                            message = "Shikimori signed out"
+                                                        }) { Text("Sign out of Shikimori") }
+                                                    } else {
+                                                        RoninTextButton(onClick = {
+                                                            runCatching {
+                                                                val authorizationUrl =
+                                                                    session.shikimoriTracker.beginLogin()
+                                                                check(graph.browserService.open(authorizationUrl))
                                                             }.onFailure {
-                                                                notice.error(it.message ?: "Kitsu sign-in failed")
+                                                                notice.error(it.message ?: "Could not open Shikimori")
                                                             }
+                                                        }) { Text("Sign in to Shikimori in browser") }
+                                                        Text("If the redirect fails, paste its URL below.")
+                                                        OutlinedTextField(
+                                                            shikimoriCallback,
+                                                            { shikimoriCallback = it },
+                                                            label = { Text("Paste Shikimori redirect URL") },
+                                                            visualTransformation = PasswordVisualTransformation(),
+                                                        )
+                                                        RoninTextButton(onClick = {
+                                                            val callback = shikimoriCallback
+                                                            shikimoriCallback = ""
+                                                            scope.launch {
+                                                                runCatching {
+                                                                    session.shikimoriTracker.loginFromCallback(callback)
+                                                                }
+                                                                    .onSuccess { name ->
+                                                                        shikimoriLoggedIn = true
+                                                                        message = "Signed in to Shikimori as $name"
+                                                                    }.onFailure {
+                                                                        notice.error(
+                                                                            it.message ?: "Shikimori sign-in failed",
+                                                                        )
+                                                                    }
+                                                            }
+                                                        }) { Text("Complete Shikimori sign-in") }
                                                     }
-                                                }) { Text("Sign in to Kitsu") }
-                                            }
-                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                                            Text(
-                                                "MyAnimeList: ${if (malLoggedIn) "signed in" else "not signed in"}",
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            if (malLoggedIn) {
-                                                RoninTextButton(onClick = {
-                                                    session.myAnimeListTracker.logout()
-                                                    malLoggedIn = false
-                                                    message = "MyAnimeList signed out"
-                                                }) { Text("Sign out of MyAnimeList") }
-                                            } else {
-                                                RoninTextButton(onClick = {
-                                                    runCatching {
-                                                        val url = session.myAnimeListTracker.beginLogin()
-                                                        check(graph.browserService.open(url))
-                                                    }.onFailure {
-                                                        notice.error(it.message ?: "Could not open MyAnimeList")
-                                                    }
-                                                }) { Text("Sign in to MyAnimeList in browser") }
-                                                Text("If the redirect fails, paste its URL below.")
-                                                OutlinedTextField(
-                                                    malCallback,
-                                                    { malCallback = it },
-                                                    label = { Text("Paste MyAnimeList redirect URL") },
-                                                    visualTransformation = PasswordVisualTransformation(),
-                                                )
-                                                RoninTextButton(onClick = {
-                                                    val callback = malCallback
-                                                    malCallback = ""
-                                                    scope.launch {
-                                                        runCatching {
-                                                            session.myAnimeListTracker.loginFromCallback(callback)
-                                                        }
-                                                            .onSuccess { name ->
-                                                                malLoggedIn = true
-                                                                message = "Signed in to MyAnimeList as $name"
+                                                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                                    Text(
+                                                        "Hikka",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    if (hikkaLoggedIn) {
+                                                        RoninTextButton(onClick = {
+                                                            session.hikkaTracker.logout()
+                                                            hikkaLoggedIn = false
+                                                            message = "Hikka signed out"
+                                                        }) { Text("Sign out of Hikka") }
+                                                    } else {
+                                                        RoninTextButton(onClick = {
+                                                            runCatching {
+                                                                val authorizationUrl = session.hikkaTracker.beginLogin()
+                                                                check(graph.browserService.open(authorizationUrl))
                                                             }.onFailure {
-                                                                notice.error(it.message ?: "MyAnimeList sign-in failed")
+                                                                notice.error(it.message ?: "Could not open Hikka")
                                                             }
+                                                        }) { Text("Sign in to Hikka in browser") }
+                                                        Text("If the redirect fails, paste its URL below.")
+                                                        OutlinedTextField(
+                                                            hikkaCallback,
+                                                            { hikkaCallback = it },
+                                                            label = { Text("Paste Hikka redirect URL") },
+                                                            visualTransformation = PasswordVisualTransformation(),
+                                                        )
+                                                        RoninTextButton(onClick = {
+                                                            val callback = hikkaCallback
+                                                            hikkaCallback = ""
+                                                            scope.launch {
+                                                                runCatching {
+                                                                    session.hikkaTracker.loginFromCallback(callback)
+                                                                }
+                                                                    .onSuccess { name ->
+                                                                        hikkaLoggedIn = true
+                                                                        message = "Signed in to Hikka as $name"
+                                                                    }.onFailure {
+                                                                        notice.error(
+                                                                            it.message ?: "Hikka sign-in failed",
+                                                                        )
+                                                                    }
+                                                            }
+                                                        }) { Text("Complete Hikka sign-in") }
                                                     }
-                                                }) { Text("Complete MyAnimeList sign-in") }
-                                            }
-                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                                            Text(
-                                                "Shikimori: ${if (shikimoriLoggedIn) "signed in" else "not signed in"}",
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            if (shikimoriLoggedIn) {
-                                                RoninTextButton(onClick = {
-                                                    session.shikimoriTracker.logout()
-                                                    shikimoriLoggedIn = false
-                                                    message = "Shikimori signed out"
-                                                }) { Text("Sign out of Shikimori") }
-                                            } else {
-                                                RoninTextButton(onClick = {
-                                                    runCatching {
-                                                        val authorizationUrl = session.shikimoriTracker.beginLogin()
-                                                        check(graph.browserService.open(authorizationUrl))
-                                                    }.onFailure {
-                                                        notice.error(it.message ?: "Could not open Shikimori")
-                                                    }
-                                                }) { Text("Sign in to Shikimori in browser") }
-                                                Text("If the redirect fails, paste its URL below.")
-                                                OutlinedTextField(
-                                                    shikimoriCallback,
-                                                    { shikimoriCallback = it },
-                                                    label = { Text("Paste Shikimori redirect URL") },
-                                                    visualTransformation = PasswordVisualTransformation(),
-                                                )
-                                                RoninTextButton(onClick = {
-                                                    val callback = shikimoriCallback
-                                                    shikimoriCallback = ""
-                                                    scope.launch {
-                                                        runCatching {
-                                                            session.shikimoriTracker.loginFromCallback(callback)
-                                                        }
-                                                            .onSuccess { name ->
-                                                                shikimoriLoggedIn = true
-                                                                message = "Signed in to Shikimori as $name"
+                                                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                                    Text(
+                                                        "Bangumi",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    if (bangumiLoggedIn) {
+                                                        RoninTextButton(onClick = {
+                                                            session.bangumiTracker.logout()
+                                                            bangumiLoggedIn = false
+                                                            message = "Bangumi signed out"
+                                                        }) { Text("Sign out of Bangumi") }
+                                                    } else {
+                                                        RoninTextButton(onClick = {
+                                                            runCatching {
+                                                                val authorizationUrl =
+                                                                    session.bangumiTracker.beginLogin()
+                                                                check(graph.browserService.open(authorizationUrl))
                                                             }.onFailure {
-                                                                notice.error(it.message ?: "Shikimori sign-in failed")
+                                                                notice.error(it.message ?: "Could not open Bangumi")
                                                             }
+                                                        }) { Text("Sign in to Bangumi in browser") }
+                                                        Text("If the redirect fails, paste its URL below.")
+                                                        OutlinedTextField(
+                                                            bangumiCallback,
+                                                            { bangumiCallback = it },
+                                                            label = { Text("Paste Bangumi redirect URL") },
+                                                            visualTransformation = PasswordVisualTransformation(),
+                                                        )
+                                                        RoninTextButton(onClick = {
+                                                            val callback = bangumiCallback
+                                                            bangumiCallback = ""
+                                                            scope.launch {
+                                                                runCatching {
+                                                                    session.bangumiTracker.loginFromCallback(callback)
+                                                                }
+                                                                    .onSuccess { name ->
+                                                                        bangumiLoggedIn = true
+                                                                        message = "Signed in to Bangumi as $name"
+                                                                    }.onFailure {
+                                                                        notice.error(
+                                                                            it.message ?: "Bangumi sign-in failed",
+                                                                        )
+                                                                    }
+                                                            }
+                                                        }) { Text("Complete Bangumi sign-in") }
                                                     }
-                                                }) { Text("Complete Shikimori sign-in") }
-                                            }
-                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                                            Text(
-                                                "Hikka: ${if (hikkaLoggedIn) "signed in" else "not signed in"}",
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            if (hikkaLoggedIn) {
-                                                RoninTextButton(onClick = {
-                                                    session.hikkaTracker.logout()
-                                                    hikkaLoggedIn = false
-                                                    message = "Hikka signed out"
-                                                }) { Text("Sign out of Hikka") }
-                                            } else {
-                                                RoninTextButton(onClick = {
-                                                    runCatching {
-                                                        val authorizationUrl = session.hikkaTracker.beginLogin()
-                                                        check(graph.browserService.open(authorizationUrl))
-                                                    }.onFailure { notice.error(it.message ?: "Could not open Hikka") }
-                                                }) { Text("Sign in to Hikka in browser") }
-                                                Text("If the redirect fails, paste its URL below.")
-                                                OutlinedTextField(
-                                                    hikkaCallback,
-                                                    { hikkaCallback = it },
-                                                    label = { Text("Paste Hikka redirect URL") },
-                                                    visualTransformation = PasswordVisualTransformation(),
-                                                )
-                                                RoninTextButton(onClick = {
-                                                    val callback = hikkaCallback
-                                                    hikkaCallback = ""
-                                                    scope.launch {
-                                                        runCatching { session.hikkaTracker.loginFromCallback(callback) }
-                                                            .onSuccess { name ->
-                                                                hikkaLoggedIn = true
-                                                                message = "Signed in to Hikka as $name"
+                                                    HorizontalDivider(Modifier.padding(vertical = 6.dp))
+                                                    Text(
+                                                        "MangaBaka",
+                                                        style = MaterialTheme.typography.titleMedium,
+                                                    )
+                                                    if (mangaBakaLoggedIn) {
+                                                        RoninTextButton(onClick = {
+                                                            session.mangaBakaTracker.logout()
+                                                            mangaBakaLoggedIn = false
+                                                            message = "MangaBaka signed out"
+                                                        }) { Text("Sign out of MangaBaka") }
+                                                    } else {
+                                                        RoninTextButton(onClick = {
+                                                            runCatching {
+                                                                val authorizationUrl =
+                                                                    session.mangaBakaTracker.beginLogin()
+                                                                check(graph.browserService.open(authorizationUrl))
                                                             }.onFailure {
-                                                                notice.error(it.message ?: "Hikka sign-in failed")
+                                                                notice.error(it.message ?: "Could not open MangaBaka")
                                                             }
-                                                    }
-                                                }) { Text("Complete Hikka sign-in") }
-                                            }
-                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                                            Text(
-                                                "Bangumi: ${if (bangumiLoggedIn) "signed in" else "not signed in"}",
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            if (bangumiLoggedIn) {
-                                                RoninTextButton(onClick = {
-                                                    session.bangumiTracker.logout()
-                                                    bangumiLoggedIn = false
-                                                    message = "Bangumi signed out"
-                                                }) { Text("Sign out of Bangumi") }
-                                            } else {
-                                                RoninTextButton(onClick = {
-                                                    runCatching {
-                                                        val authorizationUrl = session.bangumiTracker.beginLogin()
-                                                        check(graph.browserService.open(authorizationUrl))
-                                                    }.onFailure { notice.error(it.message ?: "Could not open Bangumi") }
-                                                }) { Text("Sign in to Bangumi in browser") }
-                                                Text("If the redirect fails, paste its URL below.")
-                                                OutlinedTextField(
-                                                    bangumiCallback,
-                                                    { bangumiCallback = it },
-                                                    label = { Text("Paste Bangumi redirect URL") },
-                                                    visualTransformation = PasswordVisualTransformation(),
-                                                )
-                                                RoninTextButton(onClick = {
-                                                    val callback = bangumiCallback
-                                                    bangumiCallback = ""
-                                                    scope.launch {
-                                                        runCatching {
-                                                            session.bangumiTracker.loginFromCallback(callback)
-                                                        }
-                                                            .onSuccess { name ->
-                                                                bangumiLoggedIn = true
-                                                                message = "Signed in to Bangumi as $name"
-                                                            }.onFailure {
-                                                                notice.error(it.message ?: "Bangumi sign-in failed")
+                                                        }) { Text("Sign in to MangaBaka in browser") }
+                                                        Text("If the redirect fails, paste its URL below.")
+                                                        OutlinedTextField(
+                                                            mangaBakaCallback,
+                                                            { mangaBakaCallback = it },
+                                                            label = { Text("Paste MangaBaka redirect URL") },
+                                                            visualTransformation = PasswordVisualTransformation(),
+                                                        )
+                                                        RoninTextButton(onClick = {
+                                                            val callback = mangaBakaCallback
+                                                            mangaBakaCallback = ""
+                                                            scope.launch {
+                                                                runCatching {
+                                                                    session.mangaBakaTracker.loginFromCallback(callback)
+                                                                }
+                                                                    .onSuccess { name ->
+                                                                        mangaBakaLoggedIn = true
+                                                                        message = "Signed in to MangaBaka as $name"
+                                                                    }.onFailure {
+                                                                        notice.error(
+                                                                            it.message ?: "MangaBaka sign-in failed",
+                                                                        )
+                                                                    }
                                                             }
+                                                        }) { Text("Complete MangaBaka sign-in") }
                                                     }
-                                                }) { Text("Complete Bangumi sign-in") }
-                                            }
-                                            HorizontalDivider(Modifier.padding(vertical = 6.dp))
-                                            Text(
-                                                "MangaBaka: ${if (mangaBakaLoggedIn) "signed in" else "not signed in"}",
-                                                style = MaterialTheme.typography.titleMedium,
-                                            )
-                                            if (mangaBakaLoggedIn) {
-                                                RoninTextButton(onClick = {
-                                                    session.mangaBakaTracker.logout()
-                                                    mangaBakaLoggedIn = false
-                                                    message = "MangaBaka signed out"
-                                                }) { Text("Sign out of MangaBaka") }
-                                            } else {
-                                                RoninTextButton(onClick = {
-                                                    runCatching {
-                                                        val authorizationUrl = session.mangaBakaTracker.beginLogin()
-                                                        check(graph.browserService.open(authorizationUrl))
-                                                    }.onFailure {
-                                                        notice.error(it.message ?: "Could not open MangaBaka")
-                                                    }
-                                                }) { Text("Sign in to MangaBaka in browser") }
-                                                Text("If the redirect fails, paste its URL below.")
-                                                OutlinedTextField(
-                                                    mangaBakaCallback,
-                                                    { mangaBakaCallback = it },
-                                                    label = { Text("Paste MangaBaka redirect URL") },
-                                                    visualTransformation = PasswordVisualTransformation(),
-                                                )
-                                                RoninTextButton(onClick = {
-                                                    val callback = mangaBakaCallback
-                                                    mangaBakaCallback = ""
-                                                    scope.launch {
-                                                        runCatching {
-                                                            session.mangaBakaTracker.loginFromCallback(callback)
-                                                        }
-                                                            .onSuccess { name ->
-                                                                mangaBakaLoggedIn = true
-                                                                message = "Signed in to MangaBaka as $name"
-                                                            }.onFailure {
-                                                                notice.error(it.message ?: "MangaBaka sign-in failed")
-                                                            }
-                                                    }
-                                                }) { Text("Complete MangaBaka sign-in") }
+                                                }
                                             }
                                         }
                                         DesktopSettingsSection.LIBRARY -> RoninPanel(Modifier.fillMaxWidth()) {
@@ -2523,7 +2581,8 @@ fun DesktopShell(
                                                         }.onSuccess {
                                                             mihonProtocolRegistered = !mihonProtocolRegistered
                                                             message = if (mihonProtocolRegistered) {
-                                                                "Ronin browser-link compatibility registered for this Windows user"
+                                                                "Ronin browser-link compatibility registered " +
+                                                                    "for this Windows user"
                                                             } else {
                                                                 "Ronin browser-link compatibility unregistered"
                                                             }

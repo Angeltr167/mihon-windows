@@ -33,6 +33,12 @@ internal object RoninColors {
     val accentSageHover = Color(0xFFC9D5B9)
     val accentGold = Color(0xFFC7A66A)
 
+    // Low-contrast layers for Ronin's original, code-drawn night landscape.
+    val atmosphereMoon = Color(0xFFD9CCAA)
+    val atmosphereFar = Color(0xFF253532)
+    val atmosphereMid = Color(0xFF192622)
+    val atmosphereNear = Color(0xFF101817)
+
     val success = Color(0xFFAFC39D)
     val warning = Color(0xFFD7B276)
     val error = Color(0xFFFFB4AB)
@@ -63,38 +69,39 @@ internal object RoninBorders {
 }
 
 internal object RoninLayout {
-    val sidebarExpanded = 196.dp
-    val sidebarCompact = 64.dp
-    val sidebarCompactBreakpoint = 900.dp
+    val sidebarExpanded = 248.dp
+    val sidebarCompact = 68.dp
+    val sidebarCompactBreakpoint = 960.dp
 
     val gutterCompact = 12.dp
-    val gutterDesktop = 24.dp
-    val gutterWide = 40.dp
-    val contentMaxWidth = 1680.dp
-    val rightPanelWidth = 280.dp
+    val gutterDesktop = 28.dp
+    val gutterWide = 44.dp
+    val contentMaxWidth = 1800.dp
+    val rightPanelWidth = 304.dp
 
     // Measured inside the content area, after navigation and page gutters.
-    val rightPanelBreakpoint = 1080.dp
-    val settingsNavigationWidth = 176.dp
+    val rightPanelBreakpoint = 1120.dp
+    val settingsNavigationWidth = 220.dp
     val compactSummaryMaxHeight = 180.dp
     val libraryControlsMaxHeight = 160.dp
+    val settingsPanelMinHeight = 220.dp
     val wideContentBreakpoint = 1600.dp
 
-    val gridGap = 16.dp
-    val listRowMinHeight = 56.dp
-    val chapterRowMinHeight = 58.dp
+    val gridGap = 20.dp
+    val listRowMinHeight = 64.dp
+    val chapterRowMinHeight = 64.dp
 }
 
 internal object RoninReaderMetrics {
-    val chromeTopMaxWidth = 1180.dp
-    val chromeBottomMaxWidth = 1040.dp
-    val chromeHorizontalMargin = 16.dp
-    val chromeTopMargin = 10.dp
-    val chromeBottomMargin = 12.dp
-    val pageHorizontalMargin = 18.dp
-    val pageVerticalMargin = 10.dp
-    val compactControlsBreakpoint = 860.dp
-    val narrowHeaderBreakpoint = 820.dp
+    val chromeTopMaxWidth = 1800.dp
+    val chromeBottomMaxWidth = 1760.dp
+    val chromeHorizontalMargin = 24.dp
+    val chromeTopMargin = 14.dp
+    val chromeBottomMargin = 18.dp
+    val pageHorizontalMargin = 22.dp
+    val pageVerticalMargin = 14.dp
+    val compactControlsBreakpoint = 1040.dp
+    val narrowHeaderBreakpoint = 980.dp
     val pageSeamWidth = 2.dp
 
     const val AUTO_HIDE_DELAY_MILLIS = 2_800L
@@ -104,15 +111,15 @@ internal object RoninReaderMetrics {
 internal object RoninMangaMetrics {
     const val COVER_ASPECT_RATIO = 0.70f
 
-    val coverCompactWidth = 70.dp
-    val coverCompactHeight = 100.dp
-    val coverGridWidth = 142.dp
-    val coverGridHeight = 203.dp
-    val gridCellMinWidth = 152.dp
-    val continueCardWidth = 164.dp
-    val coverDetailWidth = 170.dp
-    val coverDetailHeight = 245.dp
+    val coverCompactWidth = 84.dp
+    val coverCompactHeight = 120.dp
+    val coverGridWidth = 180.dp
+    val coverGridHeight = 257.dp
+    val gridCellMinWidth = 188.dp
+    val continueCardWidth = 190.dp
+    val coverDetailWidth = 190.dp
+    val coverDetailHeight = 272.dp
 
-    val controlHeight = 40.dp
-    val denseCardMetadataGap = 4.dp
+    val controlHeight = 44.dp
+    val denseCardMetadataGap = 6.dp
 }

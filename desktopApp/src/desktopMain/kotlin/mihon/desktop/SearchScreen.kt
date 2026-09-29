@@ -331,7 +331,7 @@ private fun SearchResults(
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Column(modifier.fillMaxWidth()) {
+    Column(modifier.fillMaxSize()) {
         Row(
             modifier = Modifier.fillMaxWidth().padding(
                 top = RoninSpacing.small,

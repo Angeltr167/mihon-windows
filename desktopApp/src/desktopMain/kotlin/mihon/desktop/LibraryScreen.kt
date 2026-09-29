@@ -99,7 +99,7 @@ internal fun LibraryScreen(
     onOpenManga: (Long, String?) -> Unit,
 ) {
     var shelfFilter by remember { mutableStateOf(LibraryShelfFilter.ALL) }
-    var sortMode by remember { mutableStateOf(LibrarySortMode.RECENTLY_ADDED) }
+    var sortMode by remember { mutableStateOf(LibrarySortMode.RECENTLY_UPDATED) }
     var viewMode by remember { mutableStateOf(LibraryViewMode.GRID) }
     var inspectedMangaId by remember { mutableStateOf<Long?>(null) }
 
@@ -162,10 +162,6 @@ internal fun LibraryScreen(
     }
     val inspectedManga = remember(visibleLibrary, inspectedMangaId) {
         visibleLibrary.firstOrNull { it._id == inspectedMangaId } ?: visibleLibrary.firstOrNull()
-    }
-    val recentlyUpdated = remember(visibleLibrary) {
-        visibleLibrary.filter { (it.last_update ?: 0L) > 0L }
-            .sortedByDescending { it.last_update }.take(8)
     }
     val selectedCategoryName = remember(categories, selectedCategory) {
         categories.firstOrNull { it.id == selectedCategory }?.name?.ifBlank { "Uncategorized" }
@@ -266,27 +262,6 @@ internal fun LibraryScreen(
                                     }
                                 }
 
-                                if (recentlyUpdated.isNotEmpty() && sortMode != LibrarySortMode.RECENTLY_UPDATED) {
-                                    LibrarySectionLabel("Recently updated", "${recentlyUpdated.size} titles")
-                                    LazyRow(
-                                        modifier = Modifier.fillMaxWidth().padding(bottom = RoninSpacing.large),
-                                        horizontalArrangement = Arrangement.spacedBy(RoninLayout.gridGap),
-                                    ) {
-                                        items(recentlyUpdated, key = Mangas::_id) { manga ->
-                                            Box(Modifier.width(RoninMangaMetrics.continueCardWidth)) {
-                                                LibraryGridCard(
-                                                    manga = manga,
-                                                    source = sourceById[manga.source],
-                                                    chapter = recentChapters[manga._id],
-                                                    onOpenManga = { id, url ->
-                                                        inspectedMangaId = id
-                                                        onOpenManga(id, url)
-                                                    },
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
                                 LibrarySectionLabel(
                                     title =
                                     selectedCategoryName

@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
@@ -66,13 +67,14 @@ internal fun DesktopNavigation(
                 ),
             ),
     ) {
+        RoninAtmosphere(Modifier.fillMaxSize())
         Column(
             Modifier.fillMaxWidth()
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(
                     horizontal = if (compact) RoninSpacing.xSmall else RoninSpacing.medium,
-                    vertical = RoninSpacing.medium,
+                    vertical = RoninSpacing.large,
                 ),
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
         ) {

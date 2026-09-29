@@ -10,43 +10,43 @@ internal object RoninTypeScale {
     val branding = TextStyle(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 22.sp,
-        lineHeight = 26.sp,
+        fontSize = 24.sp,
+        lineHeight = 29.sp,
     )
 
     val displayHeading = TextStyle(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Medium,
-        fontSize = 36.sp,
-        lineHeight = 42.sp,
+        fontSize = 44.sp,
+        lineHeight = 52.sp,
     )
 
     val screenHeading = TextStyle(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Medium,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
+        fontSize = 32.sp,
+        lineHeight = 39.sp,
     )
 
     val sectionHeading = TextStyle(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Medium,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
+        fontSize = 22.sp,
+        lineHeight = 28.sp,
     )
 
     val cardHeading = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 15.sp,
-        lineHeight = 20.sp,
+        fontSize = 16.sp,
+        lineHeight = 21.sp,
     )
 
     val body = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 14.sp,
-        lineHeight = 20.sp,
+        fontSize = 15.sp,
+        lineHeight = 22.sp,
     )
 
     val metadata = TextStyle(
@@ -66,17 +66,17 @@ internal object RoninTypeScale {
     val caption = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 11.sp,
-        lineHeight = 14.sp,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
     )
 }
 
 internal fun roninMaterialTypography(base: Typography): Typography = base.copy(
-    displayLarge = RoninTypeScale.displayHeading.copy(fontSize = 44.sp, lineHeight = 50.sp),
+    displayLarge = RoninTypeScale.displayHeading.copy(fontSize = 48.sp, lineHeight = 56.sp),
     displayMedium = RoninTypeScale.displayHeading,
     displaySmall = RoninTypeScale.screenHeading.copy(fontSize = 32.sp, lineHeight = 38.sp),
     headlineLarge = RoninTypeScale.screenHeading,
-    headlineMedium = RoninTypeScale.sectionHeading.copy(fontSize = 24.sp, lineHeight = 30.sp),
+    headlineMedium = RoninTypeScale.sectionHeading.copy(fontSize = 26.sp, lineHeight = 32.sp),
     headlineSmall = RoninTypeScale.sectionHeading,
     titleLarge = RoninTypeScale.sectionHeading,
     titleMedium = RoninTypeScale.cardHeading,
@@ -84,7 +84,7 @@ internal fun roninMaterialTypography(base: Typography): Typography = base.copy(
     bodyLarge = RoninTypeScale.body.copy(fontSize = 16.sp, lineHeight = 23.sp),
     bodyMedium = RoninTypeScale.body,
     bodySmall = RoninTypeScale.metadata,
-    labelLarge = RoninTypeScale.label.copy(fontSize = 13.sp, lineHeight = 18.sp),
-    labelMedium = RoninTypeScale.label,
+    labelLarge = RoninTypeScale.label.copy(fontSize = 14.sp, lineHeight = 19.sp),
+    labelMedium = RoninTypeScale.label.copy(fontSize = 13.sp, lineHeight = 17.sp),
     labelSmall = RoninTypeScale.caption.copy(fontWeight = FontWeight.Medium),
 )

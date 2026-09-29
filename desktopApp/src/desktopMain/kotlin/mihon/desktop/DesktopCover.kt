@@ -16,7 +16,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -26,6 +25,7 @@ import eu.kanade.tachiyomi.source.online.HttpSource
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import mihon.desktop.design.RoninColors
 import okhttp3.Request
 import java.net.URI
 import java.nio.file.Files
@@ -41,10 +41,10 @@ fun DesktopCover(
 ) {
     if (url.isNullOrBlank()) {
         Box(
-            modifier.background(Color(0xFF182125)),
+            modifier.background(RoninColors.secondarySurface),
             contentAlignment = Alignment.Center,
         ) {
-            Text("No cover", style = MaterialTheme.typography.labelSmall, color = MihonPalette.muted)
+            Text("No cover", style = MaterialTheme.typography.labelSmall, color = RoninColors.textMuted)
         }
         return
     }
@@ -60,17 +60,17 @@ fun DesktopCover(
             bitmap = image,
             contentDescription = "Manga cover",
             contentScale = contentScale,
-            modifier = modifier.background(Color(0xFF080D10)),
+            modifier = modifier.background(RoninColors.appBackground),
         )
     } ?: run {
         Box(
-            modifier.background(Color(0xFF182125)),
+            modifier.background(RoninColors.secondarySurface),
             contentAlignment = Alignment.Center,
         ) {
             Text(
                 if (bitmap == null) "Loading cover…" else "Cover unavailable",
                 style = MaterialTheme.typography.labelSmall,
-                color = MihonPalette.muted,
+                color = RoninColors.textMuted,
             )
         }
     }

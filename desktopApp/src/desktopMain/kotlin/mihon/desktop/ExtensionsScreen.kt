@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -129,6 +130,7 @@ internal fun ExtensionsScreen(
                             desktop = installedDesktopExtensions,
                             busyPackage = busyPackage,
                             busyLabel = busyLabel,
+                            onDiscover = { onSelectSection(1) },
                             onAction = onSuwayomiAction,
                         )
                         1 -> DiscoverExtensions(
@@ -216,9 +218,9 @@ private fun ExtensionOperationsPanel(
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
-                Text("Extension engine", style = MaterialTheme.typography.titleMedium)
+                Text("Extension engine", style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "Live state from Ronin's configured extension engines.",
+                    "Live state from Ronin’s configured extension engine.",
                     color = RoninColors.textMuted,
                     style = MaterialTheme.typography.bodySmall,
                 )
@@ -235,14 +237,28 @@ private fun ExtensionOperationsPanel(
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
                 DirectoryLabel("Installed", installedCount.toString())
                 DirectoryLabel("Updates", updateCount.toString())
-                DirectoryLabel("Repository entries", repositoryCount.toString())
             }
             if (busyLabel != null) {
                 RoninBadge(busyLabel, accent = true)
             }
+            androidx.compose.material3.HorizontalDivider(color = RoninColors.borderSubtle)
+            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
+                Text("Repository management", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    "$repositoryCount repository entries are currently loaded.",
+                    color = RoninColors.textSecondary,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+                Text(
+                    "Manage package sources and local signing fingerprints.",
+                    color = RoninColors.textMuted,
+                    style = MaterialTheme.typography.bodySmall,
+                )
+            }
             RoninSecondaryButton(
-                label = "Repository & local trust",
+                label = "Open repositories",
                 onClick = onOpenRepository,
+                modifier = Modifier.fillMaxWidth(),
             )
         }
     }
@@ -254,16 +270,35 @@ private fun InstalledExtensions(
     desktop: List<InstalledExtension>,
     busyPackage: String?,
     busyLabel: String?,
+    onDiscover: () -> Unit,
     onAction: (SuwayomiExtension, ExtensionAction) -> Unit,
 ) {
     var pendingRemoval by remember { mutableStateOf<String?>(null) }
     val total = suwayomi.size + desktop.size
 
     if (total == 0) {
-        RoninEmptyState(
-            title = "No extensions installed",
-            detail = "Use Discover for community sources or Repository for signed Desktop packages.",
-        )
+        RoninPanel(Modifier.fillMaxSize()) {
+            BoxWithConstraints(Modifier.fillMaxSize().padding(RoninSpacing.xLarge)) {
+                Column(
+                    modifier = Modifier.align(Alignment.Center).widthIn(max = 560.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
+                ) {
+                    Text("Installed extensions", style = MaterialTheme.typography.headlineMedium)
+                    Text(
+                        "No extensions installed",
+                        color = RoninColors.textPrimary,
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                    Text(
+                        "Discover community sources or load a signed Desktop package repository when you need one.",
+                        color = RoninColors.textSecondary,
+                        style = MaterialTheme.typography.bodyLarge,
+                    )
+                    RoninButton("Explore catalog", onDiscover)
+                }
+            }
+        }
         return
     }
 
@@ -725,7 +760,7 @@ private fun ExtensionRow(
         ),
     ) {
         BoxWithConstraints(
-            Modifier.fillMaxWidth().padding(horizontal = RoninSpacing.medium, vertical = RoninSpacing.small),
+            Modifier.fillMaxWidth().padding(horizontal = RoninSpacing.large, vertical = RoninSpacing.medium),
         ) {
             val narrow = maxWidth < 560.dp
             val identity: @Composable (Modifier) -> Unit = { modifier ->
