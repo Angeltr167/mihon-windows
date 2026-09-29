@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -110,19 +109,17 @@ private fun DownloadActions(
     FlowRow(horizontalArrangement = Arrangement.End) {
         when (download.status) {
             DesktopDownloadStatus.PENDING, DesktopDownloadStatus.RUNNING -> {
-                TextButton(onClick = onPause) { Text("Pause") }
+                RoninInlineAction("Pause", onPause)
             }
             DesktopDownloadStatus.PAUSED, DesktopDownloadStatus.FAILED -> {
-                TextButton(onClick = onResume) {
-                    Text(if (download.status == DesktopDownloadStatus.FAILED) "Retry" else "Resume")
-                }
+                RoninInlineAction(if (download.status == DesktopDownloadStatus.FAILED) "Retry" else "Resume", onResume)
             }
             DesktopDownloadStatus.COMPLETED -> {
-                TextButton(onClick = onRead) { Text("Read") }
+                RoninInlineAction("Read", onRead)
             }
         }
         if (download.status != DesktopDownloadStatus.COMPLETED) {
-            TextButton(onClick = onCancel) { Text("Cancel") }
+            RoninInlineAction("Cancel", onCancel)
         }
     }
 }

@@ -7,7 +7,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Surface
@@ -49,7 +51,7 @@ internal fun DesktopSettingsNavigation(
     modifier: Modifier = Modifier,
 ) {
     Column(
-        modifier = modifier.padding(RoninSpacing.small),
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(RoninSpacing.small),
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
     ) {
         Text(

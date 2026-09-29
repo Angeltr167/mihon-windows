@@ -16,7 +16,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -34,6 +36,7 @@ import mihon.core.extension.desktop.DesktopRepositoryEntry
 import mihon.core.extension.desktop.InstalledExtension
 import mihon.desktop.design.RoninBorders
 import mihon.desktop.design.RoninColors
+import mihon.desktop.design.RoninLayout
 import mihon.desktop.design.RoninRadius
 import mihon.desktop.design.RoninSpacing
 
@@ -91,7 +94,8 @@ internal fun ExtensionsScreen(
     Column(Modifier.fillMaxSize()) {
         RoninSectionHeader(
             title = "Extensions",
-            subtitle = "Manage source packages through Ronin's existing Desktop and local extension engines.",
+            pageHeading = true,
+            subtitle = "Install sources, manage updates, and configure repositories.",
             trailing = {
                 RoninBadge(
                     label = if (engineRunning) "Engine ready" else "Engine offline",
@@ -116,7 +120,7 @@ internal fun ExtensionsScreen(
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
             val section = selectedSection.coerceIn(0, 3)
-            val showOperationsPanel = maxWidth >= 1180.dp
+            val showOperationsPanel = maxWidth >= RoninLayout.rightPanelBreakpoint
             val sectionContent: @Composable (Modifier) -> Unit = { modifier ->
                 Box(modifier) {
                     when (section) {
@@ -185,7 +189,7 @@ internal fun ExtensionsScreen(
                         repositoryCount = availableDesktopExtensions.size,
                         busyLabel = busyLabel,
                         onOpenRepository = { onSelectSection(3) },
-                        modifier = Modifier.width(292.dp).fillMaxHeight(),
+                        modifier = Modifier.width(RoninLayout.rightPanelWidth).fillMaxHeight(),
                     )
                 }
             } else {
@@ -208,11 +212,11 @@ private fun ExtensionOperationsPanel(
 ) {
     RoninPanel(modifier) {
         Column(
-            Modifier.fillMaxSize().padding(RoninSpacing.medium),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(RoninSpacing.medium),
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
-                Text("Extension operations", style = MaterialTheme.typography.titleMedium)
+                Text("Extension engine", style = MaterialTheme.typography.titleMedium)
                 Text(
                     "Live state from Ronin's configured extension engines.",
                     color = RoninColors.textMuted,
@@ -715,10 +719,15 @@ private fun ExtensionRow(
             .hoverable(interactionSource),
         shape = RoundedCornerShape(RoninRadius.card),
         color = if (hovered) RoninColors.hoverSurface else RoninColors.elevatedSurface,
-        border = BorderStroke(RoninBorders.hairline, if (hovered) RoninColors.accentCoral else RoninColors.border),
+        border = BorderStroke(
+            RoninBorders.hairline,
+            if (hovered) RoninColors.accentCoral else RoninColors.borderSubtle,
+        ),
     ) {
-        BoxWithConstraints(Modifier.fillMaxWidth().padding(RoninSpacing.medium)) {
-            val narrow = maxWidth < 760.dp
+        BoxWithConstraints(
+            Modifier.fillMaxWidth().padding(horizontal = RoninSpacing.medium, vertical = RoninSpacing.small),
+        ) {
+            val narrow = maxWidth < 560.dp
             val identity: @Composable (Modifier) -> Unit = { modifier ->
                 Column(
                     modifier = modifier,

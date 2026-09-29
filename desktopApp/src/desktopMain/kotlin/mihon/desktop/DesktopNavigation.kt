@@ -21,6 +21,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -31,6 +32,7 @@ import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninLayout
 import mihon.desktop.design.RoninRadius
 import mihon.desktop.design.RoninSpacing
+import mihon.desktop.design.RoninTypeScale
 import tachiyomi.i18n.MR
 
 internal enum class Screen(val title: StringResource) {
@@ -54,7 +56,15 @@ internal fun DesktopNavigation(
     Box(
         Modifier.width(if (compact) RoninLayout.sidebarCompact else RoninLayout.sidebarExpanded)
             .fillMaxHeight()
-            .background(RoninColors.sidebarSurface),
+            .background(
+                Brush.verticalGradient(
+                    listOf(
+                        RoninColors.sidebarSurface,
+                        RoninColors.sidebarSurface,
+                        RoninColors.selectedSurface.copy(alpha = 0.45f),
+                    ),
+                ),
+            ),
     ) {
         Column(
             Modifier.fillMaxWidth()
@@ -133,7 +143,7 @@ private fun RoninNavigationBrand(compact: Boolean) {
                 Text(
                     "RONIN",
                     color = RoninColors.textPrimary,
-                    style = MaterialTheme.typography.titleMedium,
+                    style = RoninTypeScale.branding,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.6.sp,
                 )

@@ -21,7 +21,9 @@ import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.MaterialTheme
@@ -95,7 +97,8 @@ internal fun SearchScreen(
     ) {
         RoninSectionHeader(
             title = "Search",
-            subtitle = "Search one installed source with the source's real catalog and pagination",
+            pageHeading = true,
+            subtitle = "Discover manga from your installed sources",
             trailing = {
                 RoninTextButton(
                     label = if (showLinkTools) "Hide link tools" else "Open manga link…",
@@ -113,64 +116,35 @@ internal fun SearchScreen(
             )
         }
 
-        RoninPanel(Modifier.fillMaxWidth()) {
-            BoxWithConstraints(Modifier.fillMaxWidth().padding(RoninSpacing.medium)) {
-                val narrow = maxWidth < 760.dp
-                if (narrow) {
-                    Column(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                    ) {
-                        SearchSourcePicker(
-                            sources = sources,
-                            selectedSource = selectedSource,
-                            expanded = sourceMenuExpanded,
-                            onExpandedChange = { sourceMenuExpanded = it },
-                            onSelectSource = onSelectSource,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        RoninSearchField(
-                            value = query,
-                            onValueChange = onQueryChange,
-                            placeholder = "Search manga…",
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        RoninButton(
-                            label = if (loading) "Searching…" else "Search",
-                            onClick = onSearch,
-                            enabled = selectedSource != null && !loading,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                } else {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        SearchSourcePicker(
-                            sources = sources,
-                            selectedSource = selectedSource,
-                            expanded = sourceMenuExpanded,
-                            onExpandedChange = { sourceMenuExpanded = it },
-                            onSelectSource = onSelectSource,
-                            modifier = Modifier.widthIn(min = 190.dp, max = 280.dp),
-                        )
-                        RoninSearchField(
-                            value = query,
-                            onValueChange = onQueryChange,
-                            placeholder = "Search manga…",
-                            modifier = Modifier.weight(1f),
-                        )
-                        RoninButton(
-                            label = if (loading) "Searching…" else "Search",
-                            onClick = onSearch,
-                            enabled = selectedSource != null && !loading,
-                            modifier = Modifier.width(112.dp),
-                        )
-                    }
-                }
+        Column(
+            Modifier.fillMaxWidth().padding(bottom = RoninSpacing.small),
+            verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+        ) {
+            Row(
+                Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RoninSearchField(
+                    value = query,
+                    onValueChange = onQueryChange,
+                    placeholder = "Search manga…",
+                    modifier = Modifier.weight(1f),
+                )
+                RoninButton(
+                    label = if (loading) "Searching…" else "Search",
+                    onClick = onSearch,
+                    enabled = selectedSource != null && !loading,
+                )
             }
+            SearchSourcePicker(
+                sources = sources,
+                selectedSource = selectedSource,
+                expanded = sourceMenuExpanded,
+                onExpandedChange = { sourceMenuExpanded = it },
+                onSelectSource = onSelectSource,
+                modifier = Modifier.widthIn(max = 320.dp),
+            )
         }
 
         when {
@@ -366,7 +340,7 @@ private fun SearchResults(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
                 Text(
                     if (activeQuery.isBlank()) "Source browse" else "Results for “$activeQuery”",
                     style = MaterialTheme.typography.titleLarge,
@@ -390,7 +364,7 @@ private fun SearchResults(
         }
 
         BoxWithConstraints(Modifier.fillMaxSize()) {
-            if (maxWidth >= 1180.dp) {
+            if (maxWidth >= RoninLayout.rightPanelBreakpoint) {
                 Row(
                     modifier = Modifier.fillMaxSize(),
                     horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
@@ -414,7 +388,7 @@ private fun SearchResults(
                         resultCount = results.size,
                         manga = inspectedManga,
                         onOpenManga = inspectedManga?.let { manga -> { onOpenManga(manga) } },
-                        modifier = Modifier.width(280.dp),
+                        modifier = Modifier.width(RoninLayout.rightPanelWidth),
                     )
                 }
             } else {
@@ -444,10 +418,9 @@ private fun SearchContextPanel(
 ) {
     RoninPanel(modifier) {
         Column(
-            modifier = Modifier.fillMaxWidth().padding(RoninSpacing.medium),
+            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(RoninSpacing.medium),
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
-            Text("Inspector", style = MaterialTheme.typography.titleLarge)
             if (manga != null) {
                 RoninCover(Modifier.fillMaxWidth()) {
                     DesktopCover(
@@ -524,7 +497,7 @@ internal fun RoninMangaResultsGrid(
     modifier: Modifier = Modifier,
 ) {
     LazyVerticalGrid(
-        columns = GridCells.Adaptive(minSize = 174.dp),
+        columns = GridCells.Adaptive(minSize = RoninMangaMetrics.gridCellMinWidth),
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(RoninLayout.gridGap),
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.large),
@@ -595,7 +568,7 @@ internal fun RoninSourceMangaCard(
         color = if (hovered) RoninColors.hoverSurface else RoninColors.elevatedSurface,
         border = BorderStroke(
             RoninBorders.hairline,
-            if (hovered) RoninColors.accentCoral.copy(alpha = 0.42f) else RoninColors.border,
+            if (hovered) RoninColors.accentCoral.copy(alpha = 0.42f) else RoninColors.borderSubtle,
         ),
     ) {
         Column(Modifier.fillMaxWidth().padding(RoninSpacing.small)) {

@@ -27,6 +27,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -70,7 +71,7 @@ internal fun RoninPanel(
         modifier = modifier,
         shape = RoundedCornerShape(RoninRadius.panel),
         color = RoninColors.elevatedSurface,
-        border = BorderStroke(RoninBorders.hairline, RoninColors.border),
+        border = BorderStroke(RoninBorders.hairline, RoninColors.borderSubtle),
         content = content,
     )
 }
@@ -81,12 +82,20 @@ internal fun RoninSectionHeader(
     subtitle: String? = null,
     trailing: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
+    pageHeading: Boolean = false,
 ) {
     BoxWithConstraints(modifier.fillMaxWidth().padding(bottom = RoninSpacing.medium)) {
         val narrow = maxWidth < 720.dp
-        val label: @Composable () -> Unit = {
-            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
-                Text(title, style = MaterialTheme.typography.headlineSmall)
+        val label: @Composable (Modifier) -> Unit = { labelModifier ->
+            Column(labelModifier, verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
+                Text(
+                    title,
+                    style = if (pageHeading) {
+                        MaterialTheme.typography.displayMedium
+                    } else {
+                        MaterialTheme.typography.headlineSmall
+                    },
+                )
                 subtitle?.let {
                     Text(
                         it,
@@ -99,7 +108,7 @@ internal fun RoninSectionHeader(
 
         if (narrow) {
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium)) {
-                label()
+                label(Modifier.fillMaxWidth())
                 trailing?.invoke()
             }
         } else {
@@ -108,7 +117,7 @@ internal fun RoninSectionHeader(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top,
             ) {
-                label()
+                label(Modifier.weight(1f).padding(end = RoninSpacing.medium))
                 trailing?.invoke()
             }
         }
@@ -134,7 +143,7 @@ internal fun RoninButton(
             disabledContentColor = RoninColors.textDisabled,
         ),
     ) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
+        Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -151,8 +160,9 @@ internal fun RoninSecondaryButton(
         modifier = modifier.height(RoninMangaMetrics.controlHeight),
         shape = RoundedCornerShape(RoninRadius.control),
         border = BorderStroke(RoninBorders.hairline, RoninColors.border),
+        colors = ButtonDefaults.outlinedButtonColors(contentColor = RoninColors.textPrimary),
     ) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
+        Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -169,7 +179,7 @@ internal fun RoninTextButton(
         modifier = modifier.height(RoninMangaMetrics.controlHeight),
         shape = RoundedCornerShape(RoninRadius.control),
     ) {
-        Text(label, style = MaterialTheme.typography.labelLarge)
+        Text(label, style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -235,6 +245,12 @@ internal fun RoninSearchField(
         },
         leadingIcon = leadingIcon,
         shape = RoundedCornerShape(RoninRadius.control),
+        colors = OutlinedTextFieldDefaults.colors(
+            focusedContainerColor = RoninColors.elevatedSurface,
+            unfocusedContainerColor = RoninColors.elevatedSurface,
+            unfocusedBorderColor = RoninColors.borderSubtle,
+            focusedBorderColor = RoninColors.accentCoral,
+        ),
     )
 }
 
@@ -249,7 +265,9 @@ internal fun RoninChip(
 ) {
     val highlighted = selected || accent
     val interactiveModifier = if (onClick != null) {
-        modifier.clickable(role = role, onClick = onClick)
+        modifier.clip(RoundedCornerShape(RoninRadius.pill))
+            .semantics { this.selected = selected }
+            .clickable(role = role, onClick = onClick)
     } else {
         modifier
     }
@@ -258,7 +276,7 @@ internal fun RoninChip(
         modifier = interactiveModifier,
         shape = RoundedCornerShape(RoninRadius.pill),
         color = when {
-            selected -> RoninColors.accentCoral.copy(alpha = 0.14f)
+            selected -> RoninColors.accentCoral
             accent -> RoninColors.accentCoral.copy(alpha = 0.12f)
             else -> RoninColors.secondarySurface
         },
@@ -270,11 +288,15 @@ internal fun RoninChip(
         Text(
             label,
             modifier = Modifier.padding(
-                horizontal = if (selected) RoninSpacing.medium else RoninSpacing.small,
-                vertical = if (selected) RoninSpacing.small else RoninSpacing.xSmall,
+                horizontal = if (onClick != null) RoninSpacing.medium else RoninSpacing.small,
+                vertical = if (onClick != null) RoninSpacing.small else RoninSpacing.xSmall,
             ),
-            color = if (highlighted) RoninColors.accentCoral else RoninColors.textSecondary,
-            style = if (selected) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelSmall,
+            color = when {
+                selected -> RoninColors.appBackground
+                accent -> RoninColors.accentCoral
+                else -> RoninColors.textSecondary
+            },
+            style = if (onClick != null) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelSmall,
         )
     }
 }

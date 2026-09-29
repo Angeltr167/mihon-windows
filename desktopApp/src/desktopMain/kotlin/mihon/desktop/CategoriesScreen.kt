@@ -87,6 +87,7 @@ internal fun CategoriesScreen(
     Column(Modifier.fillMaxSize()) {
         RoninSectionHeader(
             title = "Categories",
+            pageHeading = true,
             subtitle = "$customCount custom categories · $uncategorizedCount uncategorized manga",
         )
 

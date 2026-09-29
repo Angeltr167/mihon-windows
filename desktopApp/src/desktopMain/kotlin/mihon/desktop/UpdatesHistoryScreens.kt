@@ -10,10 +10,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.source.Source
 import mihon.desktop.design.RoninColors
+import mihon.desktop.design.RoninLayout
 import mihon.desktop.design.RoninSpacing
 import tachiyomi.data.Chapters
 import tachiyomi.data.Mangas
@@ -77,6 +81,7 @@ internal fun RoninUpdatesScreen(
     ) {
         RoninSectionHeader(
             title = "Updates",
+            pageHeading = true,
             subtitle = "New chapters from manga in your library",
             trailing = {
                 RoninButton(
@@ -214,6 +219,7 @@ internal fun RoninHistoryScreen(
     ) {
         RoninSectionHeader(
             title = "Reading history",
+            pageHeading = true,
             subtitle = "Recent chapters and saved reading positions",
             trailing = {
                 RoninSearchField(
@@ -306,7 +312,7 @@ private fun RoninResponsiveFeedLayout(
     feed: @Composable () -> Unit,
 ) {
     BoxWithConstraints(modifier.fillMaxWidth()) {
-        if (maxWidth >= 1080.dp) {
+        if (maxWidth >= RoninLayout.rightPanelBreakpoint) {
             Row(
                 Modifier.fillMaxSize(),
                 horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
@@ -315,7 +321,7 @@ private fun RoninResponsiveFeedLayout(
                     feed()
                 }
                 Box(
-                    Modifier.width(290.dp).fillMaxSize(),
+                    Modifier.width(RoninLayout.rightPanelWidth).fillMaxSize(),
                     contentAlignment = Alignment.TopCenter,
                 ) {
                     summary()
@@ -323,7 +329,11 @@ private fun RoninResponsiveFeedLayout(
             }
         } else {
             Column(Modifier.fillMaxSize()) {
-                summary()
+                Box(
+                    Modifier.heightIn(max = RoninLayout.compactSummaryMaxHeight).verticalScroll(rememberScrollState()),
+                ) {
+                    summary()
+                }
                 Spacer(Modifier.height(RoninSpacing.medium))
                 Box(Modifier.weight(1f).fillMaxWidth()) {
                     feed()

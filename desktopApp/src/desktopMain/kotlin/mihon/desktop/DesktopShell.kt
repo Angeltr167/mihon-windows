@@ -1993,14 +1993,20 @@ fun DesktopShell(
                                 DesktopSettingsNavigation(
                                     selected = settingsSection,
                                     onSelect = { settingsSection = it },
-                                    modifier = Modifier.width(if (compactNavigation) 152.dp else 196.dp).fillMaxHeight()
+                                    modifier = Modifier.width(
+                                        if (compactNavigation) 152.dp else RoninLayout.settingsNavigationWidth,
+                                    ).fillMaxHeight()
                                         .background(RoninColors.elevatedSurface, RoundedCornerShape(RoninRadius.panel)),
                                 )
                                 Column(
                                     Modifier.weight(1f).fillMaxHeight().verticalScroll(rememberScrollState()),
                                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                                 ) {
-                                    RoninSectionHeader(settingsSection.title, settingsSection.description)
+                                    RoninSectionHeader(
+                                        "Settings",
+                                        "${settingsSection.title} · ${settingsSection.description}",
+                                        pageHeading = true,
+                                    )
                                     when (settingsSection) {
                                         DesktopSettingsSection.GENERAL -> RoninPanel(Modifier.fillMaxWidth()) {
                                             Column(
@@ -2031,14 +2037,19 @@ fun DesktopShell(
                                                             "Matching manga records are updated.",
                                                         color = RoninColors.textMuted,
                                                     )
-                                                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                                                    FlowRow(
+                                                        horizontalArrangement = Arrangement.spacedBy(
+                                                            RoninSpacing.small,
+                                                        ),
+                                                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                                                    ) {
                                                         OutlinedTextField(
                                                             backupPath,
                                                             { backupPath = it },
                                                             label = { Text("Android backup (.tachibk)") },
                                                             modifier = Modifier.weight(1f),
                                                         )
-                                                        TextButton(onClick = {
+                                                        RoninTextButton(onClick = {
                                                             graph.fileDialogService.chooseOpenFile(
                                                                 OpenFileRequest(
                                                                     "Import Mihon Android backup",
@@ -2108,13 +2119,13 @@ fun DesktopShell(
                                                 style = MaterialTheme.typography.titleMedium,
                                             )
                                             if (aniListLoggedIn) {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     session.aniListTracker.logout()
                                                     aniListLoggedIn = false
                                                     message = "AniList signed out"
                                                 }) { Text("Sign out of AniList") }
                                             } else {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     if (!graph.browserService.open(DesktopAniListTracker.AUTH_URL)) {
                                                         notice.error("Could not open AniList in the browser")
                                                     }
@@ -2126,7 +2137,7 @@ fun DesktopShell(
                                                     label = { Text("Paste AniList redirect URL") },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                 )
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     val callback = aniListCallback
                                                     aniListCallback = ""
                                                     scope.launch {
@@ -2150,7 +2161,7 @@ fun DesktopShell(
                                                 style = MaterialTheme.typography.titleMedium,
                                             )
                                             if (mangaUpdatesLoggedIn) {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     session.mangaUpdatesTracker.logout()
                                                     mangaUpdatesLoggedIn = false
                                                     message = "MangaUpdates signed out"
@@ -2167,7 +2178,7 @@ fun DesktopShell(
                                                     label = { Text("MangaUpdates password") },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                 )
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     val username = mangaUpdatesUsername
                                                     val password = mangaUpdatesPassword
                                                     mangaUpdatesPassword = ""
@@ -2192,7 +2203,7 @@ fun DesktopShell(
                                                 style = MaterialTheme.typography.titleMedium,
                                             )
                                             if (kitsuLoggedIn) {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     session.kitsuTracker.logout()
                                                     kitsuLoggedIn = false
                                                     message = "Kitsu signed out"
@@ -2209,7 +2220,7 @@ fun DesktopShell(
                                                     label = { Text("Kitsu password") },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                 )
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     val username = kitsuUsername
                                                     val password = kitsuPassword
                                                     kitsuPassword = ""
@@ -2230,13 +2241,13 @@ fun DesktopShell(
                                                 style = MaterialTheme.typography.titleMedium,
                                             )
                                             if (malLoggedIn) {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     session.myAnimeListTracker.logout()
                                                     malLoggedIn = false
                                                     message = "MyAnimeList signed out"
                                                 }) { Text("Sign out of MyAnimeList") }
                                             } else {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     runCatching {
                                                         val url = session.myAnimeListTracker.beginLogin()
                                                         check(graph.browserService.open(url))
@@ -2251,7 +2262,7 @@ fun DesktopShell(
                                                     label = { Text("Paste MyAnimeList redirect URL") },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                 )
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     val callback = malCallback
                                                     malCallback = ""
                                                     scope.launch {
@@ -2273,13 +2284,13 @@ fun DesktopShell(
                                                 style = MaterialTheme.typography.titleMedium,
                                             )
                                             if (shikimoriLoggedIn) {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     session.shikimoriTracker.logout()
                                                     shikimoriLoggedIn = false
                                                     message = "Shikimori signed out"
                                                 }) { Text("Sign out of Shikimori") }
                                             } else {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     runCatching {
                                                         val authorizationUrl = session.shikimoriTracker.beginLogin()
                                                         check(graph.browserService.open(authorizationUrl))
@@ -2294,7 +2305,7 @@ fun DesktopShell(
                                                     label = { Text("Paste Shikimori redirect URL") },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                 )
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     val callback = shikimoriCallback
                                                     shikimoriCallback = ""
                                                     scope.launch {
@@ -2316,13 +2327,13 @@ fun DesktopShell(
                                                 style = MaterialTheme.typography.titleMedium,
                                             )
                                             if (hikkaLoggedIn) {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     session.hikkaTracker.logout()
                                                     hikkaLoggedIn = false
                                                     message = "Hikka signed out"
                                                 }) { Text("Sign out of Hikka") }
                                             } else {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     runCatching {
                                                         val authorizationUrl = session.hikkaTracker.beginLogin()
                                                         check(graph.browserService.open(authorizationUrl))
@@ -2335,7 +2346,7 @@ fun DesktopShell(
                                                     label = { Text("Paste Hikka redirect URL") },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                 )
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     val callback = hikkaCallback
                                                     hikkaCallback = ""
                                                     scope.launch {
@@ -2355,13 +2366,13 @@ fun DesktopShell(
                                                 style = MaterialTheme.typography.titleMedium,
                                             )
                                             if (bangumiLoggedIn) {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     session.bangumiTracker.logout()
                                                     bangumiLoggedIn = false
                                                     message = "Bangumi signed out"
                                                 }) { Text("Sign out of Bangumi") }
                                             } else {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     runCatching {
                                                         val authorizationUrl = session.bangumiTracker.beginLogin()
                                                         check(graph.browserService.open(authorizationUrl))
@@ -2374,7 +2385,7 @@ fun DesktopShell(
                                                     label = { Text("Paste Bangumi redirect URL") },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                 )
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     val callback = bangumiCallback
                                                     bangumiCallback = ""
                                                     scope.launch {
@@ -2396,13 +2407,13 @@ fun DesktopShell(
                                                 style = MaterialTheme.typography.titleMedium,
                                             )
                                             if (mangaBakaLoggedIn) {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     session.mangaBakaTracker.logout()
                                                     mangaBakaLoggedIn = false
                                                     message = "MangaBaka signed out"
                                                 }) { Text("Sign out of MangaBaka") }
                                             } else {
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     runCatching {
                                                         val authorizationUrl = session.mangaBakaTracker.beginLogin()
                                                         check(graph.browserService.open(authorizationUrl))
@@ -2417,7 +2428,7 @@ fun DesktopShell(
                                                     label = { Text("Paste MangaBaka redirect URL") },
                                                     visualTransformation = PasswordVisualTransformation(),
                                                 )
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     val callback = mangaBakaCallback
                                                     mangaBakaCallback = ""
                                                     scope.launch {
@@ -2443,7 +2454,7 @@ fun DesktopShell(
                                                     "Library and downloads",
                                                     style = MaterialTheme.typography.titleMedium,
                                                 )
-                                                TextButton(onClick = {
+                                                RoninTextButton(onClick = {
                                                     val intervals = DesktopLibraryUpdateScheduler.INTERVALS
                                                     val nextIndex =
                                                         (intervals.indexOf(updateInterval) + 1) % intervals.size
@@ -2477,7 +2488,7 @@ fun DesktopShell(
                                                         "and resume from the queue.",
                                                     color = RoninColors.textMuted,
                                                 )
-                                                TextButton(onClick = { navigateToScreen(Screen.DOWNLOADS) }) {
+                                                RoninTextButton(onClick = { navigateToScreen(Screen.DOWNLOADS) }) {
                                                     Text("Open downloads")
                                                 }
                                             }
@@ -2502,7 +2513,7 @@ fun DesktopShell(
                                                     System.getProperty("os.name")
                                                         .startsWith("Windows", ignoreCase = true)
                                                 ) {
-                                                    TextButton(onClick = {
+                                                    RoninTextButton(onClick = {
                                                         runCatching {
                                                             if (mihonProtocolRegistered) {
                                                                 protocolRegistrar.unregisterMihonProtocol()
@@ -2539,7 +2550,7 @@ fun DesktopShell(
                                                         "decision; it does not verify a publisher identity.",
                                                     color = RoninColors.textMuted,
                                                 )
-                                                TextButton(onClick = { navigateToScreen(Screen.EXTENSIONS) }) {
+                                                RoninTextButton(onClick = { navigateToScreen(Screen.EXTENSIONS) }) {
                                                     Text("Manage extensions")
                                                 }
                                             }
@@ -2551,9 +2562,13 @@ fun DesktopShell(
                         screen == Screen.DOWNLOADS -> {
                             RoninSectionHeader(
                                 title = "Downloads",
+                                pageHeading = true,
                                 subtitle = "${downloads.size} chapters in the persisted queue",
                                 trailing = {
-                                    Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
+                                    FlowRow(
+                                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+                                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+                                    ) {
                                         RoninTextButton(
                                             onClick = { session.downloads.clearFinished() },
                                             enabled = downloads.any { it.status == DesktopDownloadStatus.COMPLETED },

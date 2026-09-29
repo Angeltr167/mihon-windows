@@ -1,6 +1,8 @@
 package mihon.desktop.design
 
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
 
@@ -47,6 +49,13 @@ internal fun RoninDesktopTheme(content: @Composable () -> Unit) {
             inversePrimary = RoninColors.appBackground,
         ),
         typography = roninMaterialTypography(baseTypography),
+        shapes = Shapes(
+            extraSmall = RoundedCornerShape(RoninRadius.control),
+            small = RoundedCornerShape(RoninRadius.control),
+            medium = RoundedCornerShape(RoninRadius.card),
+            large = RoundedCornerShape(RoninRadius.panel),
+            extraLarge = RoundedCornerShape(RoninRadius.panel),
+        ),
         content = content,
     )
 }

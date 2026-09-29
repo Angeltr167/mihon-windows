@@ -141,6 +141,7 @@ private fun SourceDirectory(
     ) {
         RoninSectionHeader(
             title = "Sources",
+            pageHeading = true,
             subtitle = "${sources.size} installed source variants available to browse",
             trailing = {
                 RoninSearchField(

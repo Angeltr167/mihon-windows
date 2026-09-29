@@ -63,7 +63,7 @@ internal object RoninBorders {
 }
 
 internal object RoninLayout {
-    val sidebarExpanded = 220.dp
+    val sidebarExpanded = 196.dp
     val sidebarCompact = 64.dp
     val sidebarCompactBreakpoint = 900.dp
 
@@ -71,8 +71,13 @@ internal object RoninLayout {
     val gutterDesktop = 24.dp
     val gutterWide = 40.dp
     val contentMaxWidth = 1680.dp
-    val rightPanelWidth = 326.dp
-    val rightPanelBreakpoint = 1320.dp
+    val rightPanelWidth = 280.dp
+
+    // Measured inside the content area, after navigation and page gutters.
+    val rightPanelBreakpoint = 1080.dp
+    val settingsNavigationWidth = 176.dp
+    val compactSummaryMaxHeight = 180.dp
+    val libraryControlsMaxHeight = 160.dp
     val wideContentBreakpoint = 1600.dp
 
     val gridGap = 16.dp
@@ -103,6 +108,8 @@ internal object RoninMangaMetrics {
     val coverCompactHeight = 100.dp
     val coverGridWidth = 142.dp
     val coverGridHeight = 203.dp
+    val gridCellMinWidth = 152.dp
+    val continueCardWidth = 164.dp
     val coverDetailWidth = 170.dp
     val coverDetailHeight = 245.dp
 

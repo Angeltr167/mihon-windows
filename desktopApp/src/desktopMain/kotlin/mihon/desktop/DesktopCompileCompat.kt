@@ -1,9 +1,12 @@
 package mihon.desktop
 
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import mihon.desktop.design.RoninMangaMetrics
 
 // Compatibility names for DesktopShell. The visual-fidelity pass moved the
 // canonical tokens into mihon.desktop.design; keep unqualified shell usages
@@ -13,7 +16,7 @@ internal val RoninSpacing = mihon.desktop.design.RoninSpacing
 internal val RoninRadius = mihon.desktop.design.RoninRadius
 internal val RoninLayout = mihon.desktop.design.RoninLayout
 
-// Content-lambda variant retained for the two download toolbar actions.
+// Content-lambda variant for settings and download toolbar actions.
 @Composable
 internal fun RoninTextButton(
     onClick: () -> Unit,
@@ -24,7 +27,8 @@ internal fun RoninTextButton(
     androidx.compose.material3.TextButton(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier,
+        modifier = modifier.height(RoninMangaMetrics.controlHeight),
+        shape = RoundedCornerShape(RoninRadius.control),
         content = { content() },
     )
 }
