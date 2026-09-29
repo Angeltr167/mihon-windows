@@ -167,78 +167,79 @@ internal fun LibraryScreen(
         categories.firstOrNull { it.id == selectedCategory }?.name?.ifBlank { "Uncategorized" }
     }
 
-    Column(Modifier.fillMaxSize()) {
-        RoninSectionHeader(
-            title = "Library",
-            pageHeading = true,
-            subtitle = when {
-                selectedCategoryName != null -> "${visibleLibrary.size} manga in $selectedCategoryName"
-                search.isNotBlank() -> "${visibleLibrary.size} matching manga"
-                else -> "${library.size} manga on this device"
-            },
-            trailing = {
-                RoninSearchField(
-                    value = search,
-                    onValueChange = onSearchChange,
-                    placeholder = "Search your library…",
-                    modifier = Modifier.widthIn(min = 280.dp, max = 420.dp),
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val showInspector = maxWidth >= RoninLayout.rightPanelBreakpoint && inspectedManga != null
+        Column(
+            Modifier.fillMaxSize().padding(
+                end = if (showInspector) RoninLayout.rightPanelWidth + RoninSpacing.large else 0.dp,
+            ),
+        ) {
+            RoninSectionHeader(
+                title = "Library",
+                pageHeading = true,
+                subtitle = when {
+                    selectedCategoryName != null -> "${visibleLibrary.size} manga in $selectedCategoryName"
+                    search.isNotBlank() -> "${visibleLibrary.size} matching manga"
+                    else -> "${library.size} manga on this device"
+                },
+                trailing = {
+                    RoninSearchField(
+                        value = search,
+                        onValueChange = onSearchChange,
+                        placeholder = "Search your library…",
+                        modifier = Modifier.widthIn(min = 280.dp, max = 420.dp),
+                    )
+                },
+            )
+
+            LibraryControlPanel(
+                categories = categories,
+                selectedCategory = selectedCategory,
+                onSelectCategory = onSelectCategory,
+                shelfFilter = shelfFilter,
+                onShelfFilterChange = { shelfFilter = it },
+                sortMode = sortMode,
+                onSortModeChange = { sortMode = it },
+                viewMode = viewMode,
+                onViewModeChange = { viewMode = it },
+            )
+
+            if (error != null && !loading && library.isNotEmpty()) {
+                RoninErrorState(
+                    title = "Library refresh failed",
+                    detail = error,
+                    modifier = Modifier.padding(bottom = RoninSpacing.large),
                 )
-            },
-        )
+            }
 
-        LibraryControlPanel(
-            categories = categories,
-            selectedCategory = selectedCategory,
-            onSelectCategory = onSelectCategory,
-            shelfFilter = shelfFilter,
-            onShelfFilterChange = { shelfFilter = it },
-            sortMode = sortMode,
-            onSortModeChange = { sortMode = it },
-            viewMode = viewMode,
-            onViewModeChange = { viewMode = it },
-        )
+            when {
+                loading -> RoninLoadingState(
+                    title = "Loading library…",
+                    detail = "Reading your saved manga and progress.",
+                    modifier = Modifier.padding(top = RoninSpacing.large),
+                )
 
-        if (error != null && !loading && library.isNotEmpty()) {
-            RoninErrorState(
-                title = "Library refresh failed",
-                detail = error,
-                modifier = Modifier.padding(bottom = RoninSpacing.large),
-            )
-        }
+                error != null && library.isEmpty() -> RoninErrorState(
+                    title = "Could not load library",
+                    detail = error,
+                    modifier = Modifier.padding(top = RoninSpacing.large),
+                )
 
-        when {
-            loading -> RoninLoadingState(
-                title = "Loading library…",
-                detail = "Reading your saved manga and progress.",
-                modifier = Modifier.padding(top = RoninSpacing.large),
-            )
+                library.isEmpty() -> RoninEmptyState(
+                    title = "Your library is empty",
+                    detail = "Browse an installed source and add a manga to start reading.",
+                    modifier = Modifier.padding(top = RoninSpacing.large),
+                )
 
-            error != null && library.isEmpty() -> RoninErrorState(
-                title = "Could not load library",
-                detail = error,
-                modifier = Modifier.padding(top = RoninSpacing.large),
-            )
+                visibleLibrary.isEmpty() -> RoninEmptyState(
+                    title = "No manga found",
+                    detail = "Change the search, shelf, category, or sort controls.",
+                    modifier = Modifier.padding(top = RoninSpacing.large),
+                )
 
-            library.isEmpty() -> RoninEmptyState(
-                title = "Your library is empty",
-                detail = "Browse an installed source and add a manga to start reading.",
-                modifier = Modifier.padding(top = RoninSpacing.large),
-            )
-
-            visibleLibrary.isEmpty() -> RoninEmptyState(
-                title = "No manga found",
-                detail = "Change the search, shelf, category, or sort controls.",
-                modifier = Modifier.padding(top = RoninSpacing.large),
-            )
-
-            else -> {
-                BoxWithConstraints(Modifier.weight(1f).fillMaxWidth()) {
-                    val showInspector = maxWidth >= RoninLayout.rightPanelBreakpoint
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.large),
-                    ) {
-                        Box(Modifier.weight(1f).fillMaxHeight()) {
+                else -> {
+                    Box(Modifier.weight(1f).fillMaxWidth()) {
+                        Box(Modifier.fillMaxSize()) {
                             val shelves: @Composable () -> Unit = {
                                 if (visibleContinueReading.isNotEmpty()) {
                                     LibrarySectionLabel(
@@ -317,18 +318,18 @@ internal fun LibraryScreen(
                                 }
                             }
                         }
-                        if (showInspector && inspectedManga != null) {
-                            LibraryInspector(
-                                manga = inspectedManga,
-                                source = sourceById[inspectedManga.source],
-                                chapter = recentChapters[inspectedManga._id],
-                                onOpenManga = onOpenManga,
-                                modifier = Modifier.width(RoninLayout.rightPanelWidth),
-                            )
-                        }
                     }
                 }
             }
+        }
+        if (showInspector && inspectedManga != null) {
+            LibraryInspector(
+                manga = inspectedManga,
+                source = sourceById[inspectedManga.source],
+                chapter = recentChapters[inspectedManga._id],
+                onOpenManga = onOpenManga,
+                modifier = Modifier.align(Alignment.TopEnd).width(RoninLayout.rightPanelWidth),
+            )
         }
     }
 }

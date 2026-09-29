@@ -17,8 +17,8 @@ internal object RoninTypeScale {
     val displayHeading = TextStyle(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Medium,
-        fontSize = 44.sp,
-        lineHeight = 52.sp,
+        fontSize = 52.sp,
+        lineHeight = 60.sp,
     )
 
     val screenHeading = TextStyle(
@@ -31,22 +31,22 @@ internal object RoninTypeScale {
     val sectionHeading = TextStyle(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Medium,
-        fontSize = 22.sp,
-        lineHeight = 28.sp,
+        fontSize = 25.sp,
+        lineHeight = 31.sp,
     )
 
     val cardHeading = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 16.sp,
-        lineHeight = 21.sp,
+        fontSize = 17.sp,
+        lineHeight = 23.sp,
     )
 
     val body = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 15.sp,
-        lineHeight = 22.sp,
+        fontSize = 16.sp,
+        lineHeight = 23.sp,
     )
 
     val metadata = TextStyle(

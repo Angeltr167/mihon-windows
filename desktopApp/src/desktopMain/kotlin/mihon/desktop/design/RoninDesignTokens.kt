@@ -10,12 +10,12 @@ import androidx.compose.ui.unit.dp
  * introducing one-off colors, dimensions, radii, or layout constants.
  */
 internal object RoninColors {
-    val appBackground = Color(0xFF0A0E0F)
-    val elevatedSurface = Color(0xFF111718)
-    val secondarySurface = Color(0xFF171E1E)
+    val appBackground = Color(0xFF090E11)
+    val elevatedSurface = Color(0xE70F171A)
+    val secondarySurface = Color(0xE8192225)
     val selectedSurface = Color(0xFF2A201D)
     val hoverSurface = Color(0xFF202626)
-    val sidebarSurface = Color(0xFF0D1213)
+    val sidebarSurface = Color(0xFF0B1215)
 
     val border = Color(0xFF383D3B)
     val borderSubtle = Color(0xFF282E2D)
@@ -32,12 +32,6 @@ internal object RoninColors {
     val accentSage = Color(0xFFB8C7A5)
     val accentSageHover = Color(0xFFC9D5B9)
     val accentGold = Color(0xFFC7A66A)
-
-    // Low-contrast layers for Ronin's original, code-drawn night landscape.
-    val atmosphereMoon = Color(0xFFD9CCAA)
-    val atmosphereFar = Color(0xFF253532)
-    val atmosphereMid = Color(0xFF192622)
-    val atmosphereNear = Color(0xFF101817)
 
     val success = Color(0xFFAFC39D)
     val warning = Color(0xFFD7B276)
@@ -69,19 +63,19 @@ internal object RoninBorders {
 }
 
 internal object RoninLayout {
-    val sidebarExpanded = 248.dp
+    val sidebarExpanded = 308.dp
     val sidebarCompact = 68.dp
     val sidebarCompactBreakpoint = 960.dp
 
     val gutterCompact = 12.dp
     val gutterDesktop = 28.dp
-    val gutterWide = 44.dp
-    val contentMaxWidth = 1800.dp
-    val rightPanelWidth = 304.dp
+    val gutterWide = 32.dp
+    val contentMaxWidth = 2100.dp
+    val rightPanelWidth = 340.dp
 
     // Measured inside the content area, after navigation and page gutters.
     val rightPanelBreakpoint = 1120.dp
-    val settingsNavigationWidth = 220.dp
+    val settingsNavigationWidth = 248.dp
     val compactSummaryMaxHeight = 180.dp
     val libraryControlsMaxHeight = 160.dp
     val settingsPanelMinHeight = 220.dp

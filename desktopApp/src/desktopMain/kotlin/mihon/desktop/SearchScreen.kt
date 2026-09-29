@@ -91,110 +91,125 @@ internal fun SearchScreen(
         }
     }
 
-    Column(
-        modifier = Modifier.fillMaxSize(),
-        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-    ) {
-        RoninSectionHeader(
-            title = "Search",
-            pageHeading = true,
-            subtitle = "Discover manga from your installed sources",
-            trailing = {
-                RoninTextButton(
-                    label = if (showLinkTools) "Hide link tools" else "Open manga link…",
-                    onClick = onToggleLinkTools,
-                )
-            },
-        )
-
-        if (showLinkTools) {
-            SearchLinkTools(
-                link = link,
-                onLinkChange = onLinkChange,
-                onOpenLink = onOpenLink,
-                onPasteLink = onPasteLink,
-            )
-        }
-
+    BoxWithConstraints(Modifier.fillMaxSize()) {
+        val showInspector =
+            maxWidth >= RoninLayout.rightPanelBreakpoint && selectedSource != null && results.isNotEmpty()
         Column(
-            Modifier.fillMaxWidth().padding(bottom = RoninSpacing.small),
+            modifier = Modifier.fillMaxSize().padding(
+                end = if (showInspector) RoninLayout.rightPanelWidth + RoninSpacing.large else 0.dp,
+            ),
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
         ) {
-            Row(
-                Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RoninSearchField(
-                    value = query,
-                    onValueChange = onQueryChange,
-                    placeholder = "Search manga…",
-                    modifier = Modifier.weight(1f),
-                )
-                RoninButton(
-                    label = if (loading) "Searching…" else "Search",
-                    onClick = onSearch,
-                    enabled = selectedSource != null && !loading,
+            RoninSectionHeader(
+                title = "Search",
+                pageHeading = true,
+                subtitle = "Discover manga from your installed sources",
+                trailing = {
+                    RoninTextButton(
+                        label = if (showLinkTools) "Hide link tools" else "Open manga link…",
+                        onClick = onToggleLinkTools,
+                    )
+                },
+            )
+
+            if (showLinkTools) {
+                SearchLinkTools(
+                    link = link,
+                    onLinkChange = onLinkChange,
+                    onOpenLink = onOpenLink,
+                    onPasteLink = onPasteLink,
                 )
             }
-            SearchSourcePicker(
-                sources = sources,
-                selectedSource = selectedSource,
-                expanded = sourceMenuExpanded,
-                onExpandedChange = { sourceMenuExpanded = it },
-                onSelectSource = onSelectSource,
-                modifier = Modifier.widthIn(max = 320.dp),
-            )
-        }
 
-        when {
-            selectedSource == null -> RoninEmptyState(
-                title = "Choose a source",
-                detail = "Select an installed source above. Ronin will keep the search scoped to that source.",
-                modifier = Modifier.padding(top = RoninSpacing.small),
-            )
-
-            loading && results.isEmpty() -> RoninLoadingState(
-                title = if (activeQuery.isBlank()) "Loading source" else "Searching source",
-                detail = selectedSource.roninSourceDisplayName(),
-                modifier = Modifier.padding(top = RoninSpacing.small),
-            )
-
-            error != null && results.isEmpty() -> Column(
+            Column(
+                Modifier.fillMaxWidth().padding(bottom = RoninSpacing.small),
                 verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
             ) {
-                RoninErrorState(
-                    title = "Search failed",
-                    detail = error,
-                )
-                RoninSecondaryButton(
-                    label = "Retry",
-                    onClick = onSearch,
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    RoninSearchField(
+                        value = query,
+                        onValueChange = onQueryChange,
+                        placeholder = "Search manga…",
+                        modifier = Modifier.weight(1f),
+                    )
+                    RoninButton(
+                        label = if (loading) "Searching…" else "Search",
+                        onClick = onSearch,
+                        enabled = selectedSource != null && !loading,
+                    )
+                }
+                SearchSourcePicker(
+                    sources = sources,
+                    selectedSource = selectedSource,
+                    expanded = sourceMenuExpanded,
+                    onExpandedChange = { sourceMenuExpanded = it },
+                    onSelectSource = onSelectSource,
+                    modifier = Modifier.widthIn(max = 320.dp),
                 )
             }
 
-            results.isEmpty() -> RoninEmptyState(
-                title = if (activeQuery.isBlank()) "Nothing to show yet" else "No manga found",
-                detail = if (activeQuery.isBlank()) {
-                    "Search this source to find a title."
-                } else {
-                    "No results for “$activeQuery” in ${selectedSource.name}."
-                },
-                modifier = Modifier.padding(top = RoninSpacing.small),
-            )
+            when {
+                selectedSource == null -> RoninEmptyState(
+                    title = "Choose a source",
+                    detail = "Select an installed source above. Ronin will keep the search scoped to that source.",
+                    modifier = Modifier.padding(top = RoninSpacing.small),
+                )
 
-            else -> SearchResults(
+                loading && results.isEmpty() -> RoninLoadingState(
+                    title = if (activeQuery.isBlank()) "Loading source" else "Searching source",
+                    detail = selectedSource.roninSourceDisplayName(),
+                    modifier = Modifier.padding(top = RoninSpacing.small),
+                )
+
+                error != null && results.isEmpty() -> Column(
+                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                ) {
+                    RoninErrorState(
+                        title = "Search failed",
+                        detail = error,
+                    )
+                    RoninSecondaryButton(
+                        label = "Retry",
+                        onClick = onSearch,
+                    )
+                }
+
+                results.isEmpty() -> RoninEmptyState(
+                    title = if (activeQuery.isBlank()) "Nothing to show yet" else "No manga found",
+                    detail = if (activeQuery.isBlank()) {
+                        "Search this source to find a title."
+                    } else {
+                        "No results for “$activeQuery” in ${selectedSource.name}."
+                    },
+                    modifier = Modifier.padding(top = RoninSpacing.small),
+                )
+
+                else -> SearchResults(
+                    source = selectedSource,
+                    results = results,
+                    activeQuery = activeQuery,
+                    loading = loading,
+                    error = error,
+                    hasNext = hasNext,
+                    onOpenManga = onOpenManga,
+                    onInspectManga = { inspectedManga = it },
+                    onLoadMore = onLoadMore,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+        if (showInspector && selectedSource != null) {
+            SearchContextPanel(
                 source = selectedSource,
-                results = results,
                 activeQuery = activeQuery,
-                loading = loading,
-                error = error,
-                hasNext = hasNext,
-                onOpenManga = onOpenManga,
-                inspectedManga = inspectedManga,
-                onInspectManga = { inspectedManga = it },
-                onLoadMore = onLoadMore,
-                modifier = Modifier.weight(1f),
+                resultCount = results.size,
+                manga = inspectedManga,
+                onOpenManga = inspectedManga?.let { manga -> { onOpenManga(manga) } },
+                modifier = Modifier.align(Alignment.TopEnd).width(RoninLayout.rightPanelWidth),
             )
         }
     }
@@ -326,7 +341,6 @@ private fun SearchResults(
     error: String?,
     hasNext: Boolean,
     onOpenManga: (SManga) -> Unit,
-    inspectedManga: SManga?,
     onInspectManga: (SManga) -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
@@ -363,47 +377,19 @@ private fun SearchResults(
             }
         }
 
-        BoxWithConstraints(Modifier.fillMaxSize()) {
-            if (maxWidth >= RoninLayout.rightPanelBreakpoint) {
-                Row(
-                    modifier = Modifier.fillMaxSize(),
-                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
-                ) {
-                    RoninMangaResultsGrid(
-                        results = results,
-                        source = source,
-                        loading = loading,
-                        error = error,
-                        hasNext = hasNext,
-                        onOpenManga = { manga ->
-                            onInspectManga(manga)
-                            onOpenManga(manga)
-                        },
-                        onLoadMore = onLoadMore,
-                        modifier = Modifier.weight(1f),
-                    )
-                    SearchContextPanel(
-                        source = source,
-                        activeQuery = activeQuery,
-                        resultCount = results.size,
-                        manga = inspectedManga,
-                        onOpenManga = inspectedManga?.let { manga -> { onOpenManga(manga) } },
-                        modifier = Modifier.width(RoninLayout.rightPanelWidth),
-                    )
-                }
-            } else {
-                RoninMangaResultsGrid(
-                    results = results,
-                    source = source,
-                    loading = loading,
-                    error = error,
-                    hasNext = hasNext,
-                    onOpenManga = onOpenManga,
-                    onLoadMore = onLoadMore,
-                    modifier = Modifier.fillMaxSize(),
-                )
-            }
-        }
+        RoninMangaResultsGrid(
+            results = results,
+            source = source,
+            loading = loading,
+            error = error,
+            hasNext = hasNext,
+            onOpenManga = { manga ->
+                onInspectManga(manga)
+                onOpenManga(manga)
+            },
+            onLoadMore = onLoadMore,
+            modifier = Modifier.fillMaxSize(),
+        )
     }
 }
 

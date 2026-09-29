@@ -1,7 +1,7 @@
 package mihon.desktop
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,16 +17,32 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.toComposeImageBitmap
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import mihon.desktop.design.RoninBorders
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninLayout
 import mihon.desktop.design.RoninSpacing
+import org.jetbrains.skia.Image as SkiaImage
+
+@Composable
+internal fun RoninWindowSurface(
+    modifier: Modifier = Modifier,
+    readerMode: Boolean,
+    content: @Composable () -> Unit,
+) {
+    Surface(modifier = modifier, color = RoninColors.appBackground) {
+        Box(Modifier.fillMaxSize()) {
+            if (!readerMode) RoninAtmosphere(Modifier.fillMaxSize())
+            content()
+        }
+    }
+}
 
 /**
  * Global desktop content frame for Ronin.
@@ -46,16 +62,13 @@ internal fun RowScope.RoninMainContent(
         modifier = modifier.background(
             Brush.verticalGradient(
                 colors = listOf(
-                    RoninColors.appBackground,
-                    RoninColors.elevatedSurface.copy(alpha = 0.72f),
-                    RoninColors.appBackground,
+                    RoninColors.appBackground.copy(alpha = 0.10f),
+                    RoninColors.appBackground.copy(alpha = 0.15f),
+                    RoninColors.appBackground.copy(alpha = 0.22f),
                 ),
             ),
         ),
     ) {
-        if (!readerMode) {
-            RoninAtmosphere(Modifier.fillMaxSize())
-        }
         val showRightPanel =
             !readerMode && rightPanel != null && maxWidth >= RoninLayout.rightPanelBreakpoint
         val horizontalGutter = when {
@@ -106,91 +119,37 @@ internal fun RowScope.RoninMainContent(
     }
 }
 
-/** Original low-contrast landscape shapes used as Ronin's desktop atmosphere. */
+/** Original landscape artwork shared by the shell and reader. */
 @Composable
 internal fun RoninAtmosphere(
     modifier: Modifier = Modifier,
 ) {
-    Canvas(modifier) {
-        val width = size.width
-        val height = size.height
-        val shortSide = size.minDimension
-
-        drawCircle(
-            color = RoninColors.atmosphereMoon.copy(alpha = 0.28f),
-            radius = shortSide * 0.038f,
-            center = Offset(width * 0.88f, height * 0.15f),
-        )
-        drawCircle(
-            color = RoninColors.atmosphereMoon.copy(alpha = 0.10f),
-            radius = shortSide * 0.052f,
-            center = Offset(width * 0.88f, height * 0.15f),
-        )
-
-        val farRidge = Path().apply {
-            moveTo(0f, height * 0.77f)
-            cubicTo(width * 0.14f, height * 0.65f, width * 0.22f, height * 0.78f, width * 0.34f, height * 0.70f)
-            cubicTo(width * 0.49f, height * 0.59f, width * 0.54f, height * 0.72f, width * 0.67f, height * 0.65f)
-            cubicTo(width * 0.79f, height * 0.59f, width * 0.86f, height * 0.72f, width, height * 0.61f)
-            lineTo(width, height)
-            lineTo(0f, height)
-            close()
+    val landscape = remember {
+        runCatching {
+            requireNotNull(RoninColors::class.java.getResourceAsStream("/ronin/night-landscape.png"))
+                .use { SkiaImage.makeFromEncoded(it.readBytes()).toComposeImageBitmap() }
+        }.getOrNull()
+    }
+    Box(modifier.background(RoninColors.appBackground)) {
+        if (landscape != null) {
+            Image(
+                bitmap = landscape,
+                contentDescription = null,
+                modifier = Modifier.fillMaxSize(),
+                contentScale = ContentScale.Crop,
+                alignment = Alignment.Center,
+                alpha = 0.92f,
+            )
         }
-        drawPath(farRidge, RoninColors.atmosphereFar.copy(alpha = 0.48f))
-
-        val middleRidge = Path().apply {
-            moveTo(0f, height * 0.87f)
-            cubicTo(width * 0.16f, height * 0.78f, width * 0.24f, height * 0.88f, width * 0.42f, height * 0.79f)
-            cubicTo(width * 0.58f, height * 0.70f, width * 0.72f, height * 0.83f, width, height * 0.74f)
-            lineTo(width, height)
-            lineTo(0f, height)
-            close()
-        }
-        drawPath(middleRidge, RoninColors.atmosphereMid.copy(alpha = 0.56f))
-
-        val nearRidge = Path().apply {
-            moveTo(0f, height * 0.93f)
-            cubicTo(width * 0.21f, height * 0.85f, width * 0.35f, height * 0.97f, width * 0.56f, height * 0.88f)
-            cubicTo(width * 0.72f, height * 0.82f, width * 0.85f, height * 0.94f, width, height * 0.86f)
-            lineTo(width, height)
-            lineTo(0f, height)
-            close()
-        }
-        drawPath(nearRidge, RoninColors.atmosphereNear.copy(alpha = 0.70f))
-
-        val toriiX = width * 0.80f
-        val toriiBase = height * 0.90f
-        val toriiHeight = height * 0.10f
-        val toriiColor = RoninColors.accentCoral.copy(alpha = 0.18f)
-        drawLine(
-            toriiColor,
-            Offset(toriiX - toriiHeight * 0.42f, toriiBase),
-            Offset(
-                toriiX - toriiHeight * 0.42f,
-                toriiBase - toriiHeight,
+        Box(
+            Modifier.fillMaxSize().background(
+                Brush.verticalGradient(
+                    listOf(
+                        RoninColors.appBackground.copy(alpha = 0.26f),
+                        RoninColors.appBackground.copy(alpha = 0.17f),
+                    ),
+                ),
             ),
-            strokeWidth = 2.dp.toPx(),
-        )
-        drawLine(
-            toriiColor,
-            Offset(toriiX + toriiHeight * 0.42f, toriiBase),
-            Offset(
-                toriiX + toriiHeight * 0.42f,
-                toriiBase - toriiHeight,
-            ),
-            strokeWidth = 2.dp.toPx(),
-        )
-        drawLine(
-            toriiColor,
-            Offset(toriiX - toriiHeight * 0.64f, toriiBase - toriiHeight),
-            Offset(toriiX + toriiHeight * 0.64f, toriiBase - toriiHeight),
-            strokeWidth = 3.dp.toPx(),
-        )
-        drawLine(
-            toriiColor,
-            Offset(toriiX - toriiHeight * 0.50f, toriiBase - toriiHeight * 0.76f),
-            Offset(toriiX + toriiHeight * 0.50f, toriiBase - toriiHeight * 0.76f),
-            strokeWidth = 2.dp.toPx(),
         )
     }
 }

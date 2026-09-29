@@ -60,14 +60,13 @@ internal fun DesktopNavigation(
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        RoninColors.sidebarSurface,
-                        RoninColors.sidebarSurface,
-                        RoninColors.selectedSurface.copy(alpha = 0.45f),
+                        RoninColors.sidebarSurface.copy(alpha = 0.88f),
+                        RoninColors.sidebarSurface.copy(alpha = 0.80f),
+                        RoninColors.sidebarSurface.copy(alpha = 0.48f),
                     ),
                 ),
             ),
     ) {
-        RoninAtmosphere(Modifier.fillMaxSize())
         Column(
             Modifier.fillMaxWidth()
                 .fillMaxHeight()

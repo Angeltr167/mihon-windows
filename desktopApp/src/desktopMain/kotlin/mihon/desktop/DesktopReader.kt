@@ -681,6 +681,7 @@ internal fun DesktopReader(
                 true
             }.focusRequester(focusRequester).focusable(),
     ) {
+        RoninAtmosphere(Modifier.fillMaxSize())
         when {
             loadState is ReaderPageLoadState.Failed -> Box(
                 Modifier.fillMaxSize().padding(RoninReaderMetrics.chromeHorizontalMargin),

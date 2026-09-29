@@ -609,11 +609,11 @@ fun DesktopShell(
     val density = LocalDensity.current
     var compactNavigation by remember { mutableStateOf(false) }
     RoninDesktopTheme {
-        Surface(
+        RoninWindowSurface(
             modifier = Modifier.fillMaxSize().onSizeChanged { size ->
                 compactNavigation = with(density) { size.width.toDp() < RoninLayout.sidebarCompactBreakpoint }
             },
-            color = RoninColors.appBackground,
+            readerMode = readerTarget != null,
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().onPreviewKeyEvent { event ->
