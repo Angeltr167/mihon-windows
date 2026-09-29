@@ -1,5 +1,6 @@
 package mihon.desktop
 
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.WindowPlacement
@@ -59,6 +60,10 @@ fun main(args: Array<String>) {
                 state = state,
             ) {
                 window.minimumSize = Dimension(800, 560)
+                DisposableEffect(window) {
+                    configureRoninWindow(window)
+                    onDispose { }
+                }
                 DesktopShell(
                     graph,
                     initialLink = args.singleOrNull(),

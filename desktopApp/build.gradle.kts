@@ -37,6 +37,7 @@ kotlin {
                 implementation(libs.okhttp.core)
                 implementation(libs.kotlinx.serialization.json)
                 implementation(libs.kotlinx.serialization.protobuf)
+                implementation("net.java.dev.jna:jna:5.18.1")
                 implementation("dev.icerock.moko:resources-compose:0.26.4")
             }
         }
@@ -69,6 +70,7 @@ compose.desktop {
             includeAllModules = true
 
             windows {
+                iconFile.set(project.file("src/desktopMain/resources/ronin/ronin-mark.ico"))
                 packageVersion = windowsVersion
                 msiPackageVersion = windowsVersion
                 exePackageVersion = windowsVersion

@@ -21,18 +21,21 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
@@ -250,7 +253,7 @@ internal data class ReaderTarget(
     val selectedChapterUrl: String,
 )
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun DesktopReader(
     session: DesktopSession,
@@ -682,6 +685,7 @@ internal fun DesktopReader(
             }.focusRequester(focusRequester).focusable(),
     ) {
         RoninAtmosphere(Modifier.fillMaxSize())
+        Box(Modifier.fillMaxSize().background(RoninColors.appBackground.copy(alpha = 0.46f)))
         when {
             loadState is ReaderPageLoadState.Failed -> Box(
                 Modifier.fillMaxSize().padding(RoninReaderMetrics.chromeHorizontalMargin),
@@ -748,7 +752,7 @@ internal fun DesktopReader(
                         sliderTargetPage = null
                     }
                 }
-                BoxWithConstraints(Modifier.fillMaxSize()) {
+                BoxWithConstraints(Modifier.fillMaxSize().padding(top = 66.dp, bottom = 84.dp)) {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -780,7 +784,7 @@ internal fun DesktopReader(
                 }
                 BoxWithConstraints(
                     Modifier.fillMaxSize()
-                        .background(RoninColors.appBackground)
+                        .padding(top = 66.dp, bottom = 84.dp)
                         .pointerInput(pageIndex, mode) {
                             detectTapGestures { offset ->
                                 if (offset.x < size.width / 3) {
@@ -804,7 +808,7 @@ internal fun DesktopReader(
                 ) {
                     val availableWidth = maxWidth
                     val availableHeight = maxHeight
-                    Box(Modifier.fillMaxSize().background(RoninColors.appBackground)) {
+                    Box(Modifier.fillMaxSize()) {
                         val isSpread = pair.size == 2
                         val pageRatios = safeReaderRatios(
                             decodedPages?.map { it.width.toFloat() / it.height },
@@ -898,17 +902,13 @@ internal fun DesktopReader(
         AnimatedVisibility(
             visible = controlsVisible,
             modifier = Modifier.align(Alignment.TopCenter)
-                .widthIn(max = RoninReaderMetrics.chromeTopMaxWidth)
-                .fillMaxWidth()
-                .padding(
-                    horizontal = RoninReaderMetrics.chromeHorizontalMargin,
-                    vertical = RoninReaderMetrics.chromeTopMargin,
-                ),
+                .fillMaxWidth(),
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
         ) {
-            RoninPanel(
+            Box(
                 Modifier.fillMaxWidth()
+                    .background(RoninColors.appBackground.copy(alpha = 0.88f))
                     .onPointerEvent(PointerEventType.Enter) {
                         controlsHovered = true
                         controlsVisible = true
@@ -922,38 +922,28 @@ internal fun DesktopReader(
                     val narrowHeader = maxWidth < RoninReaderMetrics.narrowHeaderBreakpoint
                     Row(
                         Modifier.fillMaxWidth().padding(
-                            horizontal = RoninSpacing.medium,
-                            vertical = RoninSpacing.small,
+                            horizontal = RoninSpacing.large,
+                            vertical = RoninSpacing.xSmall,
                         ),
-                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                        horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        RoninTextButton(label = "← Back", onClick = onClose)
-                        Column(Modifier.weight(1f)) {
-                            if (!narrowHeader) {
-                                Text(
-                                    target.manga.title,
-                                    style = MaterialTheme.typography.titleLarge,
-                                    maxLines = 1,
-                                    overflow = TextOverflow.Ellipsis,
-                                )
-                            }
+                        RoninBrandMark(Modifier.size(30.dp))
+                        if (!narrowHeader) {
+                            Text("RONIN", style = MaterialTheme.typography.titleSmall)
+                        }
+                        RoninTextButton(label = "←", onClick = onClose)
+                        Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                             Text(
-                                chapters[chapterIndex].name,
-                                color = if (narrowHeader) RoninColors.textPrimary else RoninColors.textMuted,
-                                style = if (narrowHeader) {
-                                    MaterialTheme.typography.titleSmall
+                                if (narrowHeader) {
+                                    chapters[chapterIndex].name
                                 } else {
-                                    MaterialTheme.typography.bodySmall
+                                    "${target.manga.title}  ›  ${chapters[chapterIndex].name}"
                                 },
+                                color = RoninColors.textPrimary,
+                                style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
-                            )
-                        }
-                        if (!narrowHeader) {
-                            RoninBadge(
-                                label = readingModeLabel(mode),
-                                accent = mode == ReadingMode.DOUBLE_LTR || mode == ReadingMode.DOUBLE_RTL,
                             )
                         }
                         Text(
@@ -963,11 +953,11 @@ internal fun DesktopReader(
                                 (viewedReaderPageIndex(mode, pageIndex, pages.size) + 1).toString() +
                                     " / " + pages.size
                             },
-                            color = RoninColors.accentSage,
+                            color = RoninColors.textPrimary,
                             style = MaterialTheme.typography.labelLarge,
                         )
                         RoninTextButton(
-                            label = if (narrowHeader) "⛶" else "Fullscreen",
+                            label = "⛶",
                             onClick = onToggleFullscreen,
                         )
                     }
@@ -1004,7 +994,7 @@ internal fun DesktopReader(
             enter = fadeIn(tween(150)),
             exit = fadeOut(tween(150)),
         ) {
-            Column(
+            BoxWithConstraints(
                 modifier = Modifier
                     .onPointerEvent(PointerEventType.Enter) {
                         controlsHovered = true
@@ -1014,172 +1004,192 @@ internal fun DesktopReader(
                         controlsHovered = false
                         interactionVersion++
                     },
-                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
-                Slider(
-                    value = (sliderTargetPage ?: pageIndex).toFloat(),
-                    onValueChange = { value ->
-                        if (pages.isNotEmpty()) {
-                            sliderDragging = true
-                            val destination = normalizeReaderPageIndex(
-                                mode,
-                                value.roundToInt().coerceIn(pages.indices),
-                                pages.size,
-                            )
-                            sliderTargetPage = destination
-                            navigateTo(destination)
-                        }
-                    },
-                    onValueChangeFinished = {
-                        if (mode != ReadingMode.VERTICAL && mode != ReadingMode.WEBTOON) {
-                            sliderTargetPage = null
-                        }
-                        sliderDragging = false
-                    },
-                    enabled = pages.isNotEmpty(),
-                    valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
-                    modifier = Modifier.fillMaxWidth().padding(horizontal = RoninSpacing.small),
-                    colors = SliderDefaults.colors(
-                        thumbColor = RoninColors.accentSage,
-                        activeTrackColor = RoninColors.accentSage,
-                        inactiveTrackColor = RoninColors.border,
-                    ),
-                )
-                RoninPanel(Modifier.fillMaxWidth()) {
-                    BoxWithConstraints(Modifier.fillMaxWidth()) {
-                        val compactControls = maxWidth < RoninReaderMetrics.compactControlsBreakpoint
-                        FlowRow(
-                            Modifier.fillMaxWidth().padding(
-                                horizontal = RoninSpacing.large,
-                                vertical = RoninSpacing.small,
-                            ),
-                            horizontalArrangement = if (compactControls) {
-                                Arrangement.spacedBy(RoninSpacing.small, Alignment.CenterHorizontally)
-                            } else {
-                                Arrangement.SpaceBetween
-                            },
-                            verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                        ) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
-                                RoninTextButton(
-                                    label = if (compactControls) "‹ Ch." else "‹ Chapter",
-                                    onClick = ::previousChapter,
-                                    enabled = chapterIndex > 0,
+                val progressControl: @Composable (Modifier) -> Unit = { progressModifier ->
+                    Slider(
+                        value = (sliderTargetPage ?: pageIndex).toFloat(),
+                        onValueChange = { value ->
+                            if (pages.isNotEmpty()) {
+                                sliderDragging = true
+                                val destination = normalizeReaderPageIndex(
+                                    mode,
+                                    value.roundToInt().coerceIn(pages.indices),
+                                    pages.size,
                                 )
-                                RoninSecondaryButton(
-                                    label = if (compactControls) "‹" else "‹ Page",
-                                    onClick = ::previous,
-                                    enabled = boundaryState.canPrevious,
-                                )
-                                RoninSecondaryButton(
-                                    label = if (compactControls) "›" else "Page ›",
-                                    onClick = ::next,
-                                    enabled = boundaryState.canNext,
-                                )
-                                RoninTextButton(
-                                    label = if (compactControls) "Ch. ›" else "Chapter ›",
-                                    onClick = ::nextChapter,
-                                    enabled = chapterIndex < chapters.lastIndex,
-                                )
+                                sliderTargetPage = destination
+                                navigateTo(destination)
                             }
-                            Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
-                                Box {
+                        },
+                        onValueChangeFinished = {
+                            if (mode != ReadingMode.VERTICAL && mode != ReadingMode.WEBTOON) {
+                                sliderTargetPage = null
+                            }
+                            sliderDragging = false
+                        },
+                        enabled = pages.isNotEmpty(),
+                        valueRange = 0f..pages.lastIndex.coerceAtLeast(1).toFloat(),
+                        modifier = progressModifier.padding(horizontal = RoninSpacing.small),
+                        colors = SliderDefaults.colors(
+                            thumbColor = RoninColors.accentSage,
+                            activeTrackColor = RoninColors.accentSage,
+                            inactiveTrackColor = RoninColors.border,
+                        ),
+                        thumb = {
+                            Box(Modifier.size(12.dp).background(RoninColors.accentSage, CircleShape))
+                        },
+                    )
+                }
+                val controlStrip: @Composable (Modifier) -> Unit = { stripModifier ->
+                    RoninPanel(stripModifier) {
+                        BoxWithConstraints(Modifier.fillMaxWidth()) {
+                            val compactControls = maxWidth < RoninReaderMetrics.compactControlsBreakpoint
+                            FlowRow(
+                                Modifier.fillMaxWidth().padding(
+                                    horizontal = RoninSpacing.large,
+                                    vertical = RoninSpacing.small,
+                                ),
+                                horizontalArrangement = if (compactControls) {
+                                    Arrangement.spacedBy(RoninSpacing.small, Alignment.CenterHorizontally)
+                                } else {
+                                    Arrangement.SpaceBetween
+                                },
+                                verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                            ) {
+                                Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
                                     RoninTextButton(
-                                        label = readingModeLabel(mode),
-                                        onClick = { showModeMenu = true },
+                                        label = if (compactControls) "‹ Ch." else "‹ Chapter",
+                                        onClick = ::previousChapter,
+                                        enabled = chapterIndex > 0,
                                     )
-                                    DropdownMenu(
-                                        expanded = showModeMenu,
-                                        onDismissRequest = { showModeMenu = false },
-                                    ) {
-                                        ReadingMode.entries.forEach { option ->
-                                            DropdownMenuItem(
-                                                text = { Text(readingModeLabel(option)) },
-                                                onClick = {
-                                                    if (pages.isNotEmpty()) {
-                                                        val currentPage =
-                                                            viewedReaderPageIndex(mode, pageIndex, pages.size)
-                                                        mode = option
-                                                        pageIndex =
-                                                            normalizeReaderPageIndex(mode, currentPage, pages.size)
-                                                    } else {
-                                                        mode = option
-                                                    }
-                                                    graph.keyValueStore.putString("desktop.reader.mode", mode.name)
-                                                    showModeMenu = false
-                                                },
-                                            )
-                                        }
-                                    }
-                                }
-                                Box {
+                                    RoninSecondaryButton(
+                                        label = if (compactControls) "‹" else "‹ Page",
+                                        onClick = ::previous,
+                                        enabled = boundaryState.canPrevious,
+                                    )
+                                    RoninSecondaryButton(
+                                        label = if (compactControls) "›" else "Page ›",
+                                        onClick = ::next,
+                                        enabled = boundaryState.canNext,
+                                    )
                                     RoninTextButton(
-                                        label = fitModeLabel(fit),
-                                        onClick = { showFitMenu = true },
+                                        label = if (compactControls) "Ch. ›" else "Chapter ›",
+                                        onClick = ::nextChapter,
+                                        enabled = chapterIndex < chapters.lastIndex,
                                     )
-                                    DropdownMenu(
-                                        expanded = showFitMenu,
-                                        onDismissRequest = { showFitMenu = false },
-                                    ) {
-                                        FitMode.entries.forEach { option ->
-                                            DropdownMenuItem(
-                                                text = { Text(fitModeLabel(option)) },
-                                                onClick = {
-                                                    fit = option
-                                                    graph.keyValueStore.putString("desktop.reader.fit", fit.name)
-                                                    showFitMenu = false
-                                                },
-                                            )
-                                        }
-                                    }
                                 }
-                                RoninBadge(label = (zoom * 100).roundToInt().toString() + "%")
-                                Box {
-                                    RoninTextButton(label = "More…", onClick = { showMore = true })
-                                    DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
-                                        ReaderMoreActions(
-                                            onClose = {
-                                                showMore = false
-                                                onClose()
-                                            },
-                                            zoom = zoom,
-                                            onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
-                                            onZoomReset = { zoom = 1f },
-                                            onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
-                                            onAppearance = {
-                                                showMore = false
-                                                showAppearance = true
-                                            },
-                                            onFullscreen = {
-                                                showMore = false
-                                                onToggleFullscreen()
-                                            },
-                                            onShortcuts = {
-                                                showMore = false
-                                                showShortcuts = true
-                                            },
-                                            onSave = {
-                                                showMore = false
-                                                saveCurrentPage()
-                                            },
-                                            canSave = pages.isNotEmpty(),
-                                            onOpenSaved = savedPage?.let { path ->
-                                                {
-                                                    showMore = false
-                                                    graph.externalOpenService.openPath(path.toString())
-                                                }
-                                            },
-                                            onBookmark = {
-                                                showMore = false
-                                                toggleChapterBookmark()
-                                            },
-                                            canBookmark = chapterId != null,
-                                            bookmarkLabel = bookmarkLabel,
+                                Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
+                                    Box {
+                                        RoninTextButton(
+                                            label = readingModeLabel(mode),
+                                            onClick = { showModeMenu = true },
                                         )
+                                        DropdownMenu(
+                                            expanded = showModeMenu,
+                                            onDismissRequest = { showModeMenu = false },
+                                        ) {
+                                            ReadingMode.entries.forEach { option ->
+                                                DropdownMenuItem(
+                                                    text = { Text(readingModeLabel(option)) },
+                                                    onClick = {
+                                                        if (pages.isNotEmpty()) {
+                                                            val currentPage =
+                                                                viewedReaderPageIndex(mode, pageIndex, pages.size)
+                                                            mode = option
+                                                            pageIndex =
+                                                                normalizeReaderPageIndex(mode, currentPage, pages.size)
+                                                        } else {
+                                                            mode = option
+                                                        }
+                                                        graph.keyValueStore.putString("desktop.reader.mode", mode.name)
+                                                        showModeMenu = false
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                    Box {
+                                        RoninTextButton(
+                                            label = fitModeLabel(fit),
+                                            onClick = { showFitMenu = true },
+                                        )
+                                        DropdownMenu(
+                                            expanded = showFitMenu,
+                                            onDismissRequest = { showFitMenu = false },
+                                        ) {
+                                            FitMode.entries.forEach { option ->
+                                                DropdownMenuItem(
+                                                    text = { Text(fitModeLabel(option)) },
+                                                    onClick = {
+                                                        fit = option
+                                                        graph.keyValueStore.putString("desktop.reader.fit", fit.name)
+                                                        showFitMenu = false
+                                                    },
+                                                )
+                                            }
+                                        }
+                                    }
+                                    RoninBadge(label = (zoom * 100).roundToInt().toString() + "%")
+                                    Box {
+                                        RoninTextButton(label = "More…", onClick = { showMore = true })
+                                        DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
+                                            ReaderMoreActions(
+                                                onClose = {
+                                                    showMore = false
+                                                    onClose()
+                                                },
+                                                zoom = zoom,
+                                                onZoomOut = { zoom = (zoom - 0.25f).coerceAtLeast(0.5f) },
+                                                onZoomReset = { zoom = 1f },
+                                                onZoomIn = { zoom = (zoom + 0.25f).coerceAtMost(4f) },
+                                                onAppearance = {
+                                                    showMore = false
+                                                    showAppearance = true
+                                                },
+                                                onFullscreen = {
+                                                    showMore = false
+                                                    onToggleFullscreen()
+                                                },
+                                                onShortcuts = {
+                                                    showMore = false
+                                                    showShortcuts = true
+                                                },
+                                                onSave = {
+                                                    showMore = false
+                                                    saveCurrentPage()
+                                                },
+                                                canSave = pages.isNotEmpty(),
+                                                onOpenSaved = savedPage?.let { path ->
+                                                    {
+                                                        showMore = false
+                                                        graph.externalOpenService.openPath(path.toString())
+                                                    }
+                                                },
+                                                onBookmark = {
+                                                    showMore = false
+                                                    toggleChapterBookmark()
+                                                },
+                                                canBookmark = chapterId != null,
+                                                bookmarkLabel = bookmarkLabel,
+                                            )
+                                        }
                                     }
                                 }
                             }
                         }
+                    }
+                }
+                if (maxWidth >= 1500.dp) {
+                    Row(
+                        Modifier.fillMaxWidth().background(RoninColors.appBackground.copy(alpha = 0.82f)),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        progressControl(Modifier.weight(1f))
+                        controlStrip(Modifier.width(900.dp))
+                    }
+                } else {
+                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                        progressControl(Modifier.fillMaxWidth())
+                        controlStrip(Modifier.fillMaxWidth())
                     }
                 }
             }

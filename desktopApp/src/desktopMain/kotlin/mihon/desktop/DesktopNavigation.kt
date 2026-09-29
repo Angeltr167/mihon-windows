@@ -123,21 +123,7 @@ private fun RoninNavigationBrand(compact: Boolean) {
         horizontalArrangement = if (compact) Arrangement.Center else Arrangement.spacedBy(RoninSpacing.small),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Surface(
-            modifier = Modifier.size(36.dp),
-            shape = RoundedCornerShape(RoninRadius.control),
-            color = RoninColors.selectedSurface,
-            border = BorderStroke(RoninBorders.hairline, RoninColors.accentCoral.copy(alpha = 0.45f)),
-        ) {
-            Box(contentAlignment = Alignment.Center) {
-                Text(
-                    "R",
-                    color = RoninColors.accentCoral,
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-        }
+        RoninBrandMark(Modifier.size(38.dp))
 
         if (!compact) {
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
