@@ -38,28 +38,44 @@ fun DesktopCover(
     source: Source?,
     modifier: Modifier = Modifier.width(90.dp).height(130.dp),
     contentScale: ContentScale = ContentScale.Fit,
+    mangaUrl: String? = null,
+    sourceId: Long? = source?.id,
 ) {
-    if (url.isNullOrBlank()) {
+    val uiLanguage = LocalRoninLanguage.current
+    val revision = LocalRoninCoverRevision.current
+    val covers = LocalRoninCovers.current
+    val custom = if (sourceId != null && mangaUrl != null) covers?.cover(sourceId, mangaUrl) else null
+    val effectiveUrl = custom ?: url
+    val scale = if (custom != null && sourceId != null && mangaUrl != null) {
+        if (covers?.useFit(sourceId, mangaUrl) == true) ContentScale.Fit else ContentScale.Crop
+    } else {
+        contentScale
+    }
+    if (effectiveUrl.isNullOrBlank()) {
         Box(
             modifier.background(RoninColors.secondarySurface),
             contentAlignment = Alignment.Center,
         ) {
-            Text("No cover", style = MaterialTheme.typography.labelSmall, color = RoninColors.textMuted)
+            Text(
+                roninCopy("No cover", "Sin portada", uiLanguage),
+                style = MaterialTheme.typography.labelSmall,
+                color = RoninColors.textMuted,
+            )
         }
         return
     }
-    var bitmap by remember(url, source) { mutableStateOf<Result<ImageBitmap>?>(null) }
-    LaunchedEffect(url, source) {
+    var bitmap by remember(effectiveUrl, source, revision) { mutableStateOf<Result<ImageBitmap>?>(null) }
+    LaunchedEffect(effectiveUrl, source, revision) {
         bitmap = null
-        val loaded = runCatching { loadCover(url, source) }
+        val loaded = runCatching { loadCover(effectiveUrl, if (custom != null) null else source) }
         loaded.exceptionOrNull()?.let { if (it is CancellationException) throw it }
         bitmap = loaded
     }
     bitmap?.getOrNull()?.let { image ->
         Image(
             bitmap = image,
-            contentDescription = "Manga cover",
-            contentScale = contentScale,
+            contentDescription = roninText("Manga cover", "Portada del manga"),
+            contentScale = scale,
             modifier = modifier.background(RoninColors.appBackground),
         )
     } ?: run {
@@ -68,7 +84,11 @@ fun DesktopCover(
             contentAlignment = Alignment.Center,
         ) {
             Text(
-                if (bitmap == null) "Loading cover…" else "Cover unavailable",
+                if (bitmap == null) {
+                    roninText("Loading cover…", "Cargando portada…")
+                } else {
+                    roninText("Cover unavailable", "Portada no disponible")
+                },
                 style = MaterialTheme.typography.labelSmall,
                 color = RoninColors.textMuted,
             )

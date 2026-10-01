@@ -1,5 +1,7 @@
 package mihon.desktop
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -20,17 +22,24 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.PlainTooltip
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TooltipBox
+import androidx.compose.material3.TooltipDefaults
+import androidx.compose.material3.rememberTooltipState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -42,6 +51,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.type
 import androidx.compose.ui.input.pointer.PointerEventType
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.onPointerEvent
@@ -51,10 +65,9 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.window.Popup
 import mihon.desktop.design.RoninBorders
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninLayout
@@ -83,15 +96,21 @@ internal fun RoninSectionHeader(
     trailing: (@Composable () -> Unit)? = null,
     modifier: Modifier = Modifier,
     pageHeading: Boolean = false,
+    compactBreakpoint: androidx.compose.ui.unit.Dp = 860.dp,
 ) {
     BoxWithConstraints(modifier.fillMaxWidth().padding(bottom = RoninSpacing.medium)) {
-        val narrow = maxWidth < 720.dp
+        val narrow = maxWidth < compactBreakpoint
+        val compactHeading = maxWidth < 760.dp
         val label: @Composable (Modifier) -> Unit = { labelModifier ->
             Column(labelModifier, verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
                 Text(
                     title,
                     style = if (pageHeading) {
-                        MaterialTheme.typography.displayMedium
+                        if (compactHeading) {
+                            MaterialTheme.typography.headlineLarge
+                        } else {
+                            MaterialTheme.typography.displayMedium
+                        }
                     } else {
                         MaterialTheme.typography.headlineSmall
                     },
@@ -228,13 +247,23 @@ internal fun RoninSearchField(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
     leadingIcon: (@Composable () -> Unit)? = null,
+    onSearch: (() -> Unit)? = null,
 ) {
     OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = modifier,
+        modifier = modifier.onPreviewKeyEvent {
+            if (onSearch != null && it.key == Key.Enter && it.type == KeyEventType.KeyDown) {
+                onSearch()
+                true
+            } else {
+                false
+            }
+        },
         enabled = enabled,
         singleLine = true,
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { onSearch?.invoke() }),
         textStyle = MaterialTheme.typography.bodyMedium,
         placeholder = {
             Text(
@@ -416,8 +445,30 @@ internal fun RoninMangaCard(
 }
 
 @Composable
+internal fun RoninChapterTableHeader() {
+    BoxWithConstraints(Modifier.fillMaxWidth()) {
+        if (maxWidth >= 760.dp) {
+            Row(
+                Modifier.fillMaxWidth().background(RoninColors.elevatedSurface)
+                    .padding(horizontal = RoninSpacing.medium, vertical = RoninSpacing.small),
+                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
+            ) {
+                Text("#", Modifier.width(36.dp), color = RoninColors.textMuted)
+                Text(roninText("Chapter", "Capítulo"), Modifier.weight(1f), color = RoninColors.textSecondary)
+                Text(roninText("Date", "Fecha"), Modifier.width(132.dp), color = RoninColors.textSecondary)
+                Text(roninText("State", "Estado"), Modifier.width(132.dp), color = RoninColors.textSecondary)
+                Box(Modifier.width(140.dp))
+            }
+        }
+    }
+}
+
+@Composable
 internal fun RoninChapterRow(
     title: String,
+    number: String = "",
+    date: String? = null,
+    inProgress: Boolean = false,
     subtitle: String? = null,
     read: Boolean? = null,
     bookmarked: Boolean = false,
@@ -427,6 +478,16 @@ internal fun RoninChapterRow(
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
+    val rowColor by animateColorAsState(
+        if (hovered) {
+            RoninColors.hoverSurface
+        } else if (inProgress) {
+            RoninColors.elevatedSurface
+        } else {
+            Color.Transparent
+        },
+        animationSpec = tween(120),
+    )
     val rowModifier = if (onClick != null) {
         modifier
             .pointerHoverIcon(PointerIcon.Hand)
@@ -442,10 +503,10 @@ internal fun RoninChapterRow(
     Surface(
         modifier = rowModifier.fillMaxWidth(),
         shape = RoundedCornerShape(RoninRadius.control),
-        color = if (hovered) RoninColors.hoverSurface else Color.Transparent,
+        color = rowColor,
     ) {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
-            val compact = maxWidth < 760.dp && trailing != null
+            val compact = maxWidth < 760.dp
             val copy: @Composable (Modifier) -> Unit = { copyModifier ->
                 Column(
                     copyModifier,
@@ -471,11 +532,21 @@ internal fun RoninChapterRow(
                                 overflow = TextOverflow.Ellipsis,
                             )
                         }
-                        if (read == true) {
-                            RoninBadge(label = "Read")
+                        if (compact && date != null) Text(date, color = RoninColors.textMuted)
+                        if (compact && read != null) {
+                            RoninBadge(
+                                label = if (read) {
+                                    roninText("Read", "Leído")
+                                } else if (inProgress) {
+                                    roninText("In progress", "En progreso")
+                                } else {
+                                    roninText("Unread", "No leído")
+                                },
+                                accent = inProgress,
+                            )
                         }
                         if (bookmarked) {
-                            RoninBadge(label = "Bookmarked", accent = true)
+                            RoninBadge(label = roninText("Bookmarked", "Marcado"), accent = true)
                         }
                     }
                 }
@@ -499,8 +570,27 @@ internal fun RoninChapterRow(
                     horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    Text(number, Modifier.width(36.dp), color = RoninColors.textMuted)
                     copy(Modifier.weight(1f))
-                    trailing?.invoke()
+                    Text(
+                        date ?: "—",
+                        Modifier.width(132.dp),
+                        color = RoninColors.textMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Text(
+                        if (read == true) {
+                            roninText("✓ Read", "✓ Leído")
+                        } else if (inProgress) {
+                            roninText("◉ In progress", "◉ En progreso")
+                        } else {
+                            roninText("○ Unread", "○ No leído")
+                        },
+                        Modifier.width(132.dp),
+                        color = if (read == true || inProgress) RoninColors.accentSage else RoninColors.textMuted,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                    Box(Modifier.width(140.dp)) { trailing?.invoke() }
                 }
             }
         }
@@ -641,98 +731,84 @@ private fun RoninStatePanel(
     }
 }
 
-@OptIn(ExperimentalComposeUiApi::class)
+@OptIn(ExperimentalComposeUiApi::class, ExperimentalMaterial3Api::class)
 @Composable
 internal fun RoninSidebarItem(
     title: String,
     selected: Boolean,
     compact: Boolean,
+    dense: Boolean = false,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     icon: @Composable (Color) -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
-    var tooltipVisible by remember(title) { mutableStateOf(false) }
-
-    Box(modifier.fillMaxWidth()) {
-        Surface(
-            modifier = Modifier.fillMaxWidth()
-                .semantics {
-                    this.selected = selected
-                    contentDescription = title
-                }
-                .onPointerEvent(PointerEventType.Enter) { tooltipVisible = true }
-                .onPointerEvent(PointerEventType.Exit) { tooltipVisible = false }
-                .onFocusChanged { tooltipVisible = it.isFocused }
-                .pointerHoverIcon(PointerIcon.Hand)
-                .clickable(
-                    interactionSource = interactionSource,
-                    indication = null,
-                    role = Role.Tab,
-                ) { onClick() },
-            shape = RoundedCornerShape(RoninRadius.control),
-            color = when {
-                selected -> RoninColors.selectedSurface
-                hovered -> RoninColors.hoverSurface
-                else -> Color.Transparent
-            },
-            border = if (selected) {
-                BorderStroke(RoninBorders.hairline, RoninColors.accentCoral.copy(alpha = 0.34f))
-            } else {
-                null
-            },
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(
-                    horizontal = if (compact) RoninSpacing.small else RoninSpacing.medium,
-                    vertical = 10.dp,
-                ),
-                horizontalArrangement = if (compact) {
-                    Arrangement.Center
-                } else {
-                    Arrangement.spacedBy(RoninSpacing.small)
+    TooltipBox(
+        positionProvider = TooltipDefaults.rememberPlainTooltipPositionProvider(),
+        tooltip = { PlainTooltip { Text(title) } },
+        state = rememberTooltipState(),
+        focusable = false,
+        enableUserInput = compact,
+        modifier = modifier.fillMaxWidth(),
+    ) {
+        Box(Modifier.fillMaxWidth()) {
+            Surface(
+                modifier = Modifier.fillMaxWidth()
+                    .semantics {
+                        this.selected = selected
+                        contentDescription = title
+                    }
+                    .pointerHoverIcon(PointerIcon.Hand)
+                    .clickable(
+                        interactionSource = interactionSource,
+                        indication = null,
+                        role = Role.Tab,
+                    ) { onClick() },
+                shape = RoundedCornerShape(RoninRadius.control),
+                color = when {
+                    selected -> RoninColors.selectedSurface
+                    hovered -> RoninColors.hoverSurface
+                    else -> Color.Transparent
                 },
-                verticalAlignment = Alignment.CenterVertically,
+                border = if (selected) {
+                    BorderStroke(RoninBorders.hairline, RoninColors.accentCoral.copy(alpha = 0.34f))
+                } else {
+                    null
+                },
             ) {
-                icon(if (selected) RoninColors.accentCoral else RoninColors.textSecondary)
-                if (!compact) {
-                    Text(
-                        title,
-                        color = if (selected) RoninColors.accentCoral else RoninColors.textPrimary,
-                        style = MaterialTheme.typography.labelLarge,
-                    )
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(
+                        horizontal = if (compact) RoninSpacing.small else RoninSpacing.medium,
+                        vertical = if (dense) 6.dp else 10.dp,
+                    ),
+                    horizontalArrangement = if (compact) {
+                        Arrangement.Center
+                    } else {
+                        Arrangement.spacedBy(RoninSpacing.small)
+                    },
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    icon(if (selected) RoninColors.accentCoral else RoninColors.textSecondary)
+                    if (!compact) {
+                        Text(
+                            title,
+                            color = if (selected) RoninColors.accentCoral else RoninColors.textPrimary,
+                            style = MaterialTheme.typography.labelLarge,
+                        )
+                    }
                 }
             }
-        }
 
-        if (selected) {
-            Box(
-                Modifier.align(Alignment.CenterStart)
-                    .width(2.dp)
-                    .height(28.dp)
-                    .background(
-                        RoninColors.accentCoral,
-                        RoundedCornerShape(RoninRadius.control),
-                    ),
-            )
-        }
-    }
-
-    if (compact && tooltipVisible) {
-        Popup(alignment = Alignment.CenterEnd, offset = IntOffset(12, 0)) {
-            Surface(
-                shape = RoundedCornerShape(RoninRadius.control),
-                color = RoninColors.secondarySurface,
-                border = BorderStroke(RoninBorders.hairline, RoninColors.border),
-            ) {
-                Text(
-                    title,
-                    Modifier.padding(
-                        horizontal = RoninSpacing.medium,
-                        vertical = RoninSpacing.small,
-                    ),
-                    color = RoninColors.textPrimary,
+            if (selected) {
+                Box(
+                    Modifier.align(Alignment.CenterStart)
+                        .width(2.dp)
+                        .height(28.dp)
+                        .background(
+                            RoninColors.accentCoral,
+                            RoundedCornerShape(RoninRadius.control),
+                        ),
                 )
             }
         }

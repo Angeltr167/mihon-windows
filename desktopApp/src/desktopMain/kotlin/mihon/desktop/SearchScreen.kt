@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -37,6 +39,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
@@ -46,6 +49,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import eu.kanade.tachiyomi.source.Source
 import eu.kanade.tachiyomi.source.model.SManga
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import mihon.desktop.design.RoninBorders
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninLayout
@@ -54,8 +60,15 @@ import mihon.desktop.design.RoninRadius
 import mihon.desktop.design.RoninSpacing
 import tachiyomi.source.local.desktop.DesktopLocalSource
 
+@Composable
 internal fun Source.roninSourceDisplayName(): String =
-    if (this is DesktopLocalSource || lang == "localsourcelang") name else "$name · ${lang.uppercase()}"
+    if (this is DesktopLocalSource ||
+        lang == "localsourcelang"
+    ) {
+        localizedSourceName(this, LocalRoninLanguage.current)
+    } else {
+        "$name · ${lang.uppercase()}"
+    }
 
 internal fun Source.roninSourceLanguage(): String =
     if (this is DesktopLocalSource || lang == "localsourcelang") "LOCAL" else lang.uppercase()
@@ -80,10 +93,14 @@ internal fun SearchScreen(
     onSelectSource: (Source) -> Unit,
     onSearch: () -> Unit,
     onOpenManga: (SManga) -> Unit,
+    libraryUrls: Set<String>,
+    onAddToLibrary: (SManga) -> Unit,
     onLoadMore: () -> Unit,
 ) {
     var sourceMenuExpanded by remember { mutableStateOf(false) }
+    var inspectorOpen by remember { mutableStateOf(true) }
     var inspectedManga by remember { mutableStateOf<SManga?>(null) }
+    var previewManga by remember(selectedSource?.id, inspectedManga?.url) { mutableStateOf<SManga?>(null) }
 
     LaunchedEffect(results) {
         if (inspectedManga == null || results.none { it.url == inspectedManga?.url }) {
@@ -92,8 +109,27 @@ internal fun SearchScreen(
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
+        val inspectorFits = maxWidth >= RoninLayout.rightPanelBreakpoint
         val showInspector =
-            maxWidth >= RoninLayout.rightPanelBreakpoint && selectedSource != null && results.isNotEmpty()
+            maxWidth >= RoninLayout.rightPanelBreakpoint && inspectorOpen && selectedSource != null &&
+                results.isNotEmpty()
+        LaunchedEffect(selectedSource?.id, inspectedManga?.url, showInspector) {
+            val selected = inspectedManga
+            val previewSource = selectedSource
+            if (showInspector && selected != null && previewSource != null) {
+                val copy = selected.copy()
+                try {
+                    previewManga = withContext(Dispatchers.IO) {
+                        previewSource.getMangaUpdate(copy, emptyList(), true, false).manga
+                    }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (_: Exception) {
+                    // A failed metadata preview must never hide usable search results.
+                    previewManga = selected
+                }
+            }
+        }
         Column(
             modifier = Modifier.fillMaxSize().padding(
                 end = if (showInspector) RoninLayout.rightPanelWidth + RoninSpacing.large else 0.dp,
@@ -101,14 +137,24 @@ internal fun SearchScreen(
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
         ) {
             RoninSectionHeader(
-                title = "Search",
+                title = roninText("Search", "Buscar"),
                 pageHeading = true,
-                subtitle = "Discover manga from your installed sources",
+                compactBreakpoint = 580.dp,
+                subtitle = roninText("Find your next read", "Encuentra tu próxima lectura"),
                 trailing = {
-                    RoninTextButton(
-                        label = if (showLinkTools) "Hide link tools" else "Open manga link…",
-                        onClick = onToggleLinkTools,
-                    )
+                    FlowRow(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
+                        if (!inspectorOpen && results.isNotEmpty() && inspectorFits) {
+                            RoninTextButton(roninText("Show details", "Ver detalles"), { inspectorOpen = true })
+                        }
+                        RoninTextButton(
+                            label = if (showLinkTools) {
+                                roninText("Hide link tools", "Ocultar enlace")
+                            } else {
+                                roninText("Open manga link…", "Abrir enlace de manga…")
+                            },
+                            onClick = onToggleLinkTools,
+                        )
+                    }
                 },
             )
 
@@ -133,11 +179,13 @@ internal fun SearchScreen(
                     RoninSearchField(
                         value = query,
                         onValueChange = onQueryChange,
-                        placeholder = "Search manga…",
+                        placeholder = roninText("Search manga…", "Buscar manga…"),
                         modifier = Modifier.weight(1f),
+                        leadingIcon = { DesktopNavigationIcon(Screen.SEARCH.ordinal, RoninColors.textMuted) },
+                        onSearch = { if (selectedSource != null && !loading) onSearch() },
                     )
                     RoninButton(
-                        label = if (loading) "Searching…" else "Search",
+                        label = if (loading) roninText("Searching…", "Buscando…") else roninText("Search", "Buscar"),
                         onClick = onSearch,
                         enabled = selectedSource != null && !loading,
                     )
@@ -154,8 +202,11 @@ internal fun SearchScreen(
 
             when {
                 selectedSource == null -> RoninEmptyState(
-                    title = "Choose a source",
-                    detail = "Select an installed source above. Ronin will keep the search scoped to that source.",
+                    title = roninText("Choose a source", "Elige una fuente"),
+                    detail = roninText(
+                        "Select an installed source above. Search stays scoped to that source.",
+                        "Selecciona una fuente instalada para buscar en su catálogo.",
+                    ),
                     modifier = Modifier.padding(top = RoninSpacing.small),
                 )
 
@@ -196,7 +247,9 @@ internal fun SearchScreen(
                     error = error,
                     hasNext = hasNext,
                     onOpenManga = onOpenManga,
+                    inspectedUrl = inspectedManga?.url,
                     onInspectManga = { inspectedManga = it },
+                    inspectOnClick = showInspector,
                     onLoadMore = onLoadMore,
                     modifier = Modifier.weight(1f),
                 )
@@ -204,12 +257,13 @@ internal fun SearchScreen(
         }
         if (showInspector && selectedSource != null) {
             SearchContextPanel(
+                onClose = { inspectorOpen = false },
                 source = selectedSource,
-                activeQuery = activeQuery,
-                resultCount = results.size,
-                manga = inspectedManga,
+                manga = previewManga ?: inspectedManga,
+                inLibrary = inspectedManga?.url in libraryUrls,
+                onAddToLibrary = (previewManga ?: inspectedManga)?.let { manga -> { onAddToLibrary(manga) } },
                 onOpenManga = inspectedManga?.let { manga -> { onOpenManga(manga) } },
-                modifier = Modifier.align(Alignment.TopEnd).width(RoninLayout.rightPanelWidth),
+                modifier = Modifier.align(Alignment.TopEnd).width(RoninLayout.rightPanelWidth).fillMaxSize(),
             )
         }
     }
@@ -291,7 +345,7 @@ private fun SearchSourcePicker(
 ) {
     Box(modifier) {
         RoninSecondaryButton(
-            label = selectedSource?.roninSourceDisplayName() ?: "Choose source",
+            label = selectedSource?.roninSourceDisplayName() ?: roninText("Choose source", "Elegir fuente"),
             onClick = { onExpandedChange(true) },
             modifier = Modifier.fillMaxWidth(),
             enabled = sources.isNotEmpty(),
@@ -310,7 +364,7 @@ private fun SearchSourcePicker(
                         text = {
                             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
                                 Text(
-                                    source.name,
+                                    localizedSourceName(source, LocalRoninLanguage.current),
                                     style = MaterialTheme.typography.bodyMedium,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis,
@@ -342,50 +396,41 @@ private fun SearchResults(
     hasNext: Boolean,
     onOpenManga: (SManga) -> Unit,
     onInspectManga: (SManga) -> Unit,
+    inspectedUrl: String?,
+    inspectOnClick: Boolean,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(
-                top = RoninSpacing.small,
-                bottom = RoninSpacing.small,
-            ),
+            Modifier.fillMaxWidth().padding(bottom = RoninSpacing.small),
             horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
         ) {
-            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
-                Text(
-                    if (activeQuery.isBlank()) "Source browse" else "Results for “$activeQuery”",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-                Text(
-                    "${results.size} loaded",
-                    color = RoninColors.textMuted,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-                verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-            ) {
-                RoninBadge(source.roninSourceLanguage())
-                RoninBadge(
-                    label = if (source is DesktopLocalSource) "On device" else "Installed",
-                    accent = true,
-                )
-            }
+            Text(
+                source.roninSourceDisplayName(),
+                color = RoninColors.textMuted,
+                style = MaterialTheme.typography.bodySmall,
+                modifier = Modifier.weight(1f),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Text(
+                roninText("${results.size} results", "${results.size} resultados"),
+                color = RoninColors.textSecondary,
+                style = MaterialTheme.typography.bodySmall,
+            )
         }
 
         RoninMangaResultsGrid(
             results = results,
+            selectedUrl = if (inspectOnClick) inspectedUrl else null,
             source = source,
             loading = loading,
             error = error,
             hasNext = hasNext,
             onOpenManga = { manga ->
                 onInspectManga(manga)
-                onOpenManga(manga)
+                if (!inspectOnClick) onOpenManga(manga)
             },
             onLoadMore = onLoadMore,
             modifier = Modifier.fillMaxSize(),
@@ -395,25 +440,30 @@ private fun SearchResults(
 
 @Composable
 private fun SearchContextPanel(
+    onClose: () -> Unit,
     source: Source,
-    activeQuery: String,
-    resultCount: Int,
     manga: SManga?,
+    inLibrary: Boolean,
+    onAddToLibrary: (() -> Unit)?,
     onOpenManga: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     RoninPanel(modifier) {
         Column(
-            modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(RoninSpacing.medium),
+            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(RoninSpacing.large),
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                RoninInlineAction("×", onClose)
+            }
             if (manga != null) {
-                RoninCover(Modifier.fillMaxWidth()) {
+                RoninCover(Modifier.fillMaxWidth().aspectRatio(RoninMangaMetrics.COVER_ASPECT_RATIO)) {
                     DesktopCover(
                         manga.thumbnail_url,
                         source,
-                        Modifier.fillMaxWidth().aspectRatio(RoninMangaMetrics.COVER_ASPECT_RATIO),
+                        Modifier.fillMaxSize(),
                         contentScale = ContentScale.Crop,
+                        mangaUrl = manga.url,
                     )
                 }
                 Text(
@@ -422,51 +472,46 @@ private fun SearchContextPanel(
                     maxLines = 3,
                     overflow = TextOverflow.Ellipsis,
                 )
-                mangaStatusLabel(manga.status)?.let { status ->
-                    RoninBadge(label = status, accent = manga.status != SManga.UNKNOWN)
+                manga.author?.takeIf(String::isNotBlank)?.let {
+                    Text(it, color = RoninColors.textSecondary, style = MaterialTheme.typography.bodyMedium)
                 }
-                onOpenManga?.let {
-                    RoninButton("Open manga", it, Modifier.fillMaxWidth())
+                manga.genre?.takeIf(String::isNotBlank)?.let {
+                    Text(
+                        it,
+                        color = RoninColors.textSecondary,
+                        style = MaterialTheme.typography.bodySmall,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                    )
                 }
-            }
-            RoninStat(label = "Loaded", value = resultCount.toString())
-            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
+                manga.description?.takeIf(String::isNotBlank)?.let {
+                    Text(
+                        it,
+                        color = RoninColors.textSecondary,
+                        style = MaterialTheme.typography.bodyMedium,
+                        maxLines = 8,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+                onOpenManga?.let { RoninButton(roninText("View details", "Ver detalles"), it, Modifier.fillMaxWidth()) }
+                onAddToLibrary?.let {
+                    RoninSecondaryButton(
+                        if (inLibrary) {
+                            roninText("✓ In library", "✓ En biblioteca")
+                        } else {
+                            roninText("Add to library", "Añadir a biblioteca")
+                        },
+                        it,
+                        Modifier.fillMaxWidth(),
+                        enabled = !inLibrary,
+                    )
+                }
                 Text(
-                    "Source",
+                    source.roninSourceDisplayName(),
                     color = RoninColors.textMuted,
-                    style = MaterialTheme.typography.labelSmall,
-                )
-                Text(
-                    source.name,
-                    style = MaterialTheme.typography.bodyMedium,
-                    maxLines = 2,
-                    overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodySmall,
                 )
             }
-            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
-                Text(
-                    "Language",
-                    color = RoninColors.textMuted,
-                    style = MaterialTheme.typography.labelSmall,
-                )
-                Text(source.roninSourceLanguage(), style = MaterialTheme.typography.bodyMedium)
-            }
-            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
-                Text(
-                    "Mode",
-                    color = RoninColors.textMuted,
-                    style = MaterialTheme.typography.labelSmall,
-                )
-                Text(
-                    if (activeQuery.isBlank()) "Popular browse" else "Source search",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            Text(
-                "Results and pagination come directly from the selected installed source.",
-                color = RoninColors.textSecondary,
-                style = MaterialTheme.typography.bodySmall,
-            )
         }
     }
 }
@@ -481,6 +526,7 @@ internal fun RoninMangaResultsGrid(
     onOpenManga: (SManga) -> Unit,
     onLoadMore: () -> Unit,
     modifier: Modifier = Modifier,
+    selectedUrl: String? = null,
 ) {
     LazyVerticalGrid(
         columns = GridCells.Adaptive(minSize = RoninMangaMetrics.gridCellMinWidth),
@@ -493,6 +539,7 @@ internal fun RoninMangaResultsGrid(
                 manga = manga,
                 source = source,
                 onClick = { onOpenManga(manga) },
+                selected = manga.url == selectedUrl,
             )
         }
         if (loading || error != null || hasNext) {
@@ -535,10 +582,10 @@ internal fun RoninSourceMangaCard(
     source: Source,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
 ) {
     val interactionSource = remember(manga.url) { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
-    val status = mangaStatusLabel(manga.status)
 
     Surface(
         modifier = modifier
@@ -554,75 +601,44 @@ internal fun RoninSourceMangaCard(
         color = if (hovered) RoninColors.hoverSurface else RoninColors.elevatedSurface,
         border = BorderStroke(
             RoninBorders.hairline,
-            if (hovered) RoninColors.accentCoral.copy(alpha = 0.42f) else RoninColors.borderSubtle,
+            if (selected) {
+                RoninColors.accentCoral
+            } else if (hovered) {
+                RoninColors.accentCoral.copy(alpha = 0.42f)
+            } else {
+                RoninColors.borderSubtle
+            },
         ),
     ) {
-        Column(Modifier.fillMaxWidth().padding(RoninSpacing.small)) {
-            Box {
-                RoninCover(
-                    Modifier.fillMaxWidth().aspectRatio(RoninMangaMetrics.COVER_ASPECT_RATIO),
-                ) {
-                    DesktopCover(
-                        manga.thumbnail_url,
-                        source,
-                        Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
-                status?.let {
-                    RoninBadge(
-                        label = it,
-                        accent = manga.status == SManga.ONGOING,
-                        modifier = Modifier.align(Alignment.TopEnd).padding(RoninSpacing.small),
-                    )
-                }
+        Column(Modifier.fillMaxWidth()) {
+            RoninCover(Modifier.fillMaxWidth().aspectRatio(RoninMangaMetrics.COVER_ASPECT_RATIO)) {
+                DesktopCover(
+                    manga.thumbnail_url,
+                    source,
+                    Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    mangaUrl = manga.url,
+                )
             }
-            Text(
-                manga.title,
-                modifier = Modifier.fillMaxWidth().padding(top = RoninSpacing.small),
-                style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                source.name,
-                color = RoninColors.textSecondary,
-                style = MaterialTheme.typography.bodySmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            manga.author?.takeIf { it.isNotBlank() }?.let { author ->
+            Column(
+                Modifier.padding(RoninSpacing.small),
+                verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
+            ) {
                 Text(
-                    author,
-                    color = RoninColors.textMuted,
-                    style = MaterialTheme.typography.labelSmall,
+                    manga.title,
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    listOfNotNull(manga.author?.takeIf(String::isNotBlank), manga.genre?.takeIf(String::isNotBlank))
+                        .joinToString(" · ").ifBlank { source.name },
+                    color = RoninColors.textSecondary,
+                    style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = RoninSpacing.xSmall),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RoninBadge(source.roninSourceLanguage())
-                Text(
-                    "Details →",
-                    color = RoninColors.accentSage,
-                    style = MaterialTheme.typography.labelMedium,
-                )
-            }
         }
     }
-}
-
-private fun mangaStatusLabel(status: Int): String? = when (status) {
-    SManga.ONGOING -> "ONGOING"
-    SManga.COMPLETED -> "COMPLETE"
-    SManga.LICENSED -> "LICENSED"
-    SManga.PUBLISHING_FINISHED -> "FINISHED"
-    SManga.CANCELLED -> "CANCELLED"
-    SManga.ON_HIATUS -> "HIATUS"
-    else -> null
 }

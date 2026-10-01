@@ -10,9 +10,9 @@ import androidx.compose.ui.unit.dp
  * introducing one-off colors, dimensions, radii, or layout constants.
  */
 internal object RoninColors {
-    val appBackground = Color(0xFF090E11)
-    val elevatedSurface = Color(0xE70F171A)
-    val secondarySurface = Color(0xE8192225)
+    val appBackground = Color(0xFF090F12)
+    val elevatedSurface = Color(0xFF10171A)
+    val secondarySurface = Color(0xFF182024)
     val selectedSurface = Color(0xFF2A201D)
     val hoverSurface = Color(0xFF202626)
     val sidebarSurface = Color(0xFF0B1215)
@@ -63,25 +63,25 @@ internal object RoninBorders {
 }
 
 internal object RoninLayout {
-    val sidebarExpanded = 308.dp
+    val sidebarExpanded = 260.dp
     val sidebarCompact = 68.dp
-    val sidebarCompactBreakpoint = 960.dp
+    val sidebarCompactBreakpoint = 1040.dp
 
     val gutterCompact = 12.dp
-    val gutterDesktop = 28.dp
+    val gutterDesktop = 40.dp
     val gutterWide = 32.dp
-    val contentMaxWidth = 2100.dp
-    val rightPanelWidth = 340.dp
+    val contentMaxWidth = 1440.dp
+    val rightPanelWidth = 280.dp
 
     // Measured inside the content area, after navigation and page gutters.
-    val rightPanelBreakpoint = 1120.dp
-    val settingsNavigationWidth = 248.dp
+    val rightPanelBreakpoint = 1060.dp
+    val settingsNavigationWidth = 192.dp
     val compactSummaryMaxHeight = 180.dp
     val libraryControlsMaxHeight = 160.dp
     val settingsPanelMinHeight = 220.dp
     val wideContentBreakpoint = 1600.dp
 
-    val gridGap = 20.dp
+    val gridGap = 16.dp
     val listRowMinHeight = 64.dp
     val chapterRowMinHeight = 64.dp
 }
@@ -109,8 +109,8 @@ internal object RoninMangaMetrics {
     val coverCompactHeight = 120.dp
     val coverGridWidth = 180.dp
     val coverGridHeight = 257.dp
-    val gridCellMinWidth = 188.dp
-    val continueCardWidth = 190.dp
+    val gridCellMinWidth = 224.dp
+    val continueCardWidth = 350.dp
     val coverDetailWidth = 190.dp
     val coverDetailHeight = 272.dp
 

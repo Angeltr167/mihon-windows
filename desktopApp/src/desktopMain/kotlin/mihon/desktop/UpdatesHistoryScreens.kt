@@ -60,6 +60,7 @@ internal fun RoninUpdatesScreen(
     onDownload: (UpdatesView) -> Unit,
     onResumeDownload: (DesktopDownload) -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val libraryById = remember(library) { library.associateBy(Mangas::_id) }
     val sourcesById = remember(sources) { sources.associateBy(Source::id) }
     val downloadsByTarget = remember(downloads) {
@@ -71,8 +72,8 @@ internal fun RoninUpdatesScreen(
             )
         }
     }
-    val groups = remember(entries) {
-        entries.groupBy { desktopDateGroup(it.dateUpload) }.toList()
+    val groups = remember(entries, uiLanguage) {
+        entries.groupBy { desktopDateGroup(it.dateUpload, uiLanguage) }.toList()
     }
 
     Column(
@@ -80,12 +81,20 @@ internal fun RoninUpdatesScreen(
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
     ) {
         RoninSectionHeader(
-            title = "Updates",
+            title = Screen.UPDATES.localizedTitle(),
             pageHeading = true,
-            subtitle = "New chapters from manga in your library",
+            subtitle = roninText("New chapters from manga in your library", "Capítulos nuevos de tu biblioteca"),
             trailing = {
                 RoninButton(
-                    label = if (updateRunning) "Checking…" else "Check library",
+                    label = if (updateRunning) {
+                        roninCopy(
+                            "Checking…",
+                            "Comprobando…",
+                            uiLanguage,
+                        )
+                    } else {
+                        roninCopy("Check library", "Actualizar biblioteca", uiLanguage)
+                    },
                     onClick = onCheckUpdates,
                     enabled = !updateRunning,
                 )
@@ -105,26 +114,38 @@ internal fun RoninUpdatesScreen(
 
         when {
             loading -> RoninLoadingState(
-                title = "Loading updates",
-                detail = "Reading the current library update feed.",
+                title = roninCopy("Loading updates", "Cargando actualizaciones", uiLanguage),
+                detail = roninCopy(
+                    "Reading the current library update feed.",
+                    "Cargando los capítulos nuevos de tu biblioteca.",
+                    uiLanguage,
+                ),
             )
             error != null && entries.isEmpty() -> RoninStateWithRetry(
-                title = "Could not load updates",
+                title = roninCopy("Could not load updates", "No se pudieron cargar las actualizaciones", uiLanguage),
                 detail = error,
                 onRetry = onRetry,
             )
             updateRunning && entries.isEmpty() -> RoninLoadingState(
-                title = "Checking library",
-                detail = "New chapters will appear here as sources finish.",
+                title = roninCopy("Checking library", "Comprobando biblioteca", uiLanguage),
+                detail = roninCopy(
+                    "New chapters will appear here as sources finish.",
+                    "Los capítulos nuevos aparecerán al terminar de consultar las fuentes.",
+                    uiLanguage,
+                ),
             )
             entries.isEmpty() -> RoninEmptyState(
-                title = "No updates yet",
-                detail = "Check your library when sources are available to look for new chapters.",
+                title = roninCopy("No updates yet", "Todavía no hay actualizaciones", uiLanguage),
+                detail = roninCopy(
+                    "Check your library when sources are available to look for new chapters.",
+                    "Actualiza la biblioteca para buscar capítulos nuevos.",
+                    uiLanguage,
+                ),
             )
             else -> {
                 if (error != null) {
                     RoninErrorState(
-                        title = "Refresh failed",
+                        title = roninCopy("Refresh failed", "Falló la actualización", uiLanguage),
                         detail = error,
                     )
                 }
@@ -156,6 +177,7 @@ internal fun RoninUpdatesScreen(
                                     }
                                     DesktopUpdateCard(
                                         entry = entry,
+                                        mangaUrl = manga?.url,
                                         source = sourcesById[entry.source],
                                         download = download,
                                         onRead = { onRead(entry) },
@@ -188,6 +210,7 @@ internal fun RoninHistoryScreen(
     onRetry: () -> Unit,
     onResume: (History, Chapters?) -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val libraryById = remember(library) { library.associateBy(Mangas::_id) }
     val sourcesById = remember(sources) { sources.associateBy(Source::id) }
     val downloadsByTarget = remember(downloads) {
@@ -218,14 +241,17 @@ internal fun RoninHistoryScreen(
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
     ) {
         RoninSectionHeader(
-            title = "Reading history",
+            title = roninText("Reading history", "Historial de lectura"),
             pageHeading = true,
-            subtitle = "Recent chapters and saved reading positions",
+            subtitle = roninText(
+                "Recent chapters and saved reading positions",
+                "Capítulos recientes y progreso guardado",
+            ),
             trailing = {
                 RoninSearchField(
                     value = search,
                     onValueChange = onSearchChange,
-                    placeholder = "Search history",
+                    placeholder = roninCopy("Search history", "Buscar en el historial", uiLanguage),
                     modifier = Modifier.width(280.dp),
                 )
             },
@@ -233,26 +259,42 @@ internal fun RoninHistoryScreen(
 
         when {
             loading -> RoninLoadingState(
-                title = "Loading history",
-                detail = "Reading saved activity and progress.",
+                title = roninCopy("Loading history", "Cargando historial", uiLanguage),
+                detail = roninCopy(
+                    "Reading saved activity and progress.",
+                    "Cargando la actividad y el progreso guardados.",
+                    uiLanguage,
+                ),
             )
             error != null && entries.isEmpty() -> RoninStateWithRetry(
-                title = "Could not load history",
+                title = roninCopy("Could not load history", "No se pudo cargar el historial", uiLanguage),
                 detail = error,
                 onRetry = onRetry,
             )
             visibleHistory.isEmpty() -> RoninEmptyState(
-                title = if (search.isBlank()) "Nothing read yet" else "No history found",
-                detail = if (search.isBlank()) {
-                    "Your reading activity will appear here after you open a chapter."
+                title = if (search.isBlank()) {
+                    roninCopy(
+                        "Nothing read yet",
+                        "Aún no has leído capítulos",
+                        uiLanguage,
+                    )
                 } else {
-                    "Try a different manga title."
+                    roninCopy("No history found", "No se encontró historial", uiLanguage)
+                },
+                detail = if (search.isBlank()) {
+                    roninCopy(
+                        "Your reading activity will appear here after you open a chapter.",
+                        "Tu actividad aparecerá aquí después de abrir un capítulo.",
+                        uiLanguage,
+                    )
+                } else {
+                    roninCopy("Try a different manga title.", "Prueba otro título de manga.", uiLanguage)
                 },
             )
             else -> {
                 if (error != null) {
                     RoninErrorState(
-                        title = "Refresh failed",
+                        title = roninCopy("Refresh failed", "Falló la actualización", uiLanguage),
                         detail = error,
                     )
                 }
@@ -290,6 +332,7 @@ internal fun RoninHistoryScreen(
                                     }
                                     DesktopHistoryCard(
                                         entry = entry,
+                                        mangaUrl = manga?.url,
                                         chapter = chapter,
                                         source = sourcesById[entry.source],
                                         pageCount = pageCount,
@@ -347,7 +390,7 @@ private fun RoninResponsiveFeedLayout(
 private fun RoninFeedGroupHeader(title: String) {
     Column(Modifier.fillMaxWidth()) {
         Text(
-            title,
+            roninUiText(title),
             modifier = Modifier.padding(
                 start = RoninSpacing.medium,
                 top = RoninSpacing.medium,
@@ -363,6 +406,7 @@ private fun RoninFeedGroupHeader(title: String) {
 
 @Composable
 private fun UpdatesSummary(entries: List<UpdatesView>) {
+    val uiLanguage = LocalRoninLanguage.current
     val unread = remember(entries) { entries.count { !it.read } }
     val sourceCount = remember(entries) { entries.map(UpdatesView::source).distinct().size }
 
@@ -372,7 +416,7 @@ private fun UpdatesSummary(entries: List<UpdatesView>) {
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
             Text(
-                "Feed snapshot",
+                roninCopy("Feed snapshot", "Resumen de actualizaciones", uiLanguage),
                 style = MaterialTheme.typography.titleMedium,
             )
             Row(
@@ -380,24 +424,24 @@ private fun UpdatesSummary(entries: List<UpdatesView>) {
                 horizontalArrangement = Arrangement.spacedBy(RoninSpacing.large),
             ) {
                 RoninStat(
-                    label = "Shown",
+                    label = roninCopy("Shown", "Mostrados", uiLanguage),
                     value = entries.size.toString(),
                     modifier = Modifier.weight(1f),
                 )
                 RoninStat(
-                    label = "Unread",
+                    label = roninCopy("Unread", "Sin leer", uiLanguage),
                     value = unread.toString(),
                     modifier = Modifier.weight(1f),
                 )
                 RoninStat(
-                    label = "Sources",
+                    label = roninCopy("Sources", "Fuentes", uiLanguage),
                     value = sourceCount.toString(),
                     modifier = Modifier.weight(1f),
                 )
             }
             HorizontalDivider(color = RoninColors.borderSubtle)
             Text(
-                "Recent activity",
+                roninCopy("Recent activity", "Actividad reciente", uiLanguage),
                 color = RoninColors.textSecondary,
                 style = MaterialTheme.typography.labelLarge,
             )
@@ -405,7 +449,7 @@ private fun UpdatesSummary(entries: List<UpdatesView>) {
                 RecentActivityLine(
                     title = entry.mangaTitle,
                     detail = entry.chapterName,
-                    timestamp = compactTimestamp(entry.dateUpload),
+                    timestamp = compactTimestamp(entry.dateUpload, uiLanguage),
                 )
             }
         }
@@ -417,6 +461,7 @@ private fun HistorySummary(
     entries: List<History>,
     chapters: Map<Long, Chapters?>,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val finished = remember(entries, chapters) {
         entries.count { chapters[it.chapterId]?.read == true }
     }
@@ -427,7 +472,7 @@ private fun HistorySummary(
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
             Text(
-                "Reading activity",
+                roninCopy("Reading activity", "Actividad de lectura", uiLanguage),
                 style = MaterialTheme.typography.titleMedium,
             )
             Row(
@@ -435,27 +480,31 @@ private fun HistorySummary(
                 horizontalArrangement = Arrangement.spacedBy(RoninSpacing.large),
             ) {
                 RoninStat(
-                    label = "Titles shown",
+                    label = roninCopy("Titles shown", "Títulos mostrados", uiLanguage),
                     value = entries.size.toString(),
                     modifier = Modifier.weight(1f),
                 )
                 RoninStat(
-                    label = "Latest finished",
+                    label = roninCopy("Latest finished", "Últimos terminados", uiLanguage),
                     value = finished.toString(),
                     modifier = Modifier.weight(1f),
                 )
             }
             HorizontalDivider(color = RoninColors.borderSubtle)
             Text(
-                "Recent activity",
+                roninCopy("Recent activity", "Actividad reciente", uiLanguage),
                 color = RoninColors.textSecondary,
                 style = MaterialTheme.typography.labelLarge,
             )
             entries.take(3).forEach { entry ->
                 RecentActivityLine(
                     title = entry.title,
-                    detail = "Chapter ${entry.chapterNumber}",
-                    timestamp = compactTimestamp(entry.readAt?.time ?: 0L),
+                    detail = roninCopy(
+                        "Chapter ${entry.chapterNumber}",
+                        "Capítulo ${formatChapterNumber(entry.chapterNumber)}",
+                        uiLanguage,
+                    ),
+                    timestamp = compactTimestamp(entry.readAt?.time ?: 0L, uiLanguage),
                 )
             }
         }
@@ -497,6 +546,7 @@ private fun RoninStateWithRetry(
     detail: String,
     onRetry: () -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     Column(
         Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
@@ -507,7 +557,7 @@ private fun RoninStateWithRetry(
             detail = detail,
         )
         RoninSecondaryButton(
-            label = "Retry",
+            label = roninCopy("Retry", "Reintentar", uiLanguage),
             onClick = onRetry,
         )
     }
@@ -526,9 +576,9 @@ private fun historyGroup(epochMillis: Long): String {
     }
 }
 
-private fun compactTimestamp(epochMillis: Long): String {
-    if (epochMillis <= 0L) return "Date unavailable"
+private fun compactTimestamp(epochMillis: Long, languageTag: String): String {
+    if (epochMillis <= 0L) return localizeRoninLabel("Date unavailable", languageTag)
     return Instant.ofEpochMilli(epochMillis)
         .atZone(ZoneId.systemDefault())
-        .format(DateTimeFormatter.ofPattern("MMM d · HH:mm"))
+        .format(DateTimeFormatter.ofPattern("MMM d · HH:mm", java.util.Locale.forLanguageTag(languageTag)))
 }

@@ -50,6 +50,28 @@ internal enum class DesktopSettingsSection(val title: String, val description: S
 }
 
 @Composable
+internal fun DesktopSettingsSection.localizedTitle(): String = when (this) {
+    DesktopSettingsSection.GENERAL -> roninText("General", "General")
+    DesktopSettingsSection.LIBRARY -> roninText("Library", "Biblioteca")
+    DesktopSettingsSection.READER -> roninText("Reader", "Lector")
+    DesktopSettingsSection.DOWNLOADS -> roninText("Downloads", "Descargas")
+    DesktopSettingsSection.TRACKING -> roninText("Tracking", "Seguimiento")
+    DesktopSettingsSection.STORAGE -> roninText("Storage & Backup", "Almacenamiento y copias")
+    DesktopSettingsSection.ADVANCED -> roninText("Advanced", "Avanzado")
+}
+
+@Composable
+internal fun DesktopSettingsSection.localizedDescription(): String = when (this) {
+    DesktopSettingsSection.GENERAL -> roninText(description, "Idioma y preferencias de la aplicación")
+    DesktopSettingsSection.LIBRARY -> roninText(description, "Organización y actualización de la biblioteca")
+    DesktopSettingsSection.READER -> roninText(description, "Modo de lectura y ajuste de páginas")
+    DesktopSettingsSection.DOWNLOADS -> roninText(description, "Cola y capítulos descargados")
+    DesktopSettingsSection.TRACKING -> roninText(description, "Cuentas y vínculos de seguimiento")
+    DesktopSettingsSection.STORAGE -> roninText(description, "Copias locales y restauración")
+    DesktopSettingsSection.ADVANCED -> roninText(description, "Enlaces de Windows y confianza en extensiones")
+}
+
+@Composable
 internal fun DesktopSettingsNavigation(
     selected: DesktopSettingsSection,
     onSelect: (DesktopSettingsSection) -> Unit,
@@ -61,7 +83,7 @@ internal fun DesktopSettingsNavigation(
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
         ) {
             Text(
-                "PREFERENCES",
+                roninText("PREFERENCES", "PREFERENCIAS"),
                 modifier = Modifier.padding(horizontal = RoninSpacing.small, vertical = RoninSpacing.xSmall),
                 color = RoninColors.textMuted,
                 style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
@@ -91,12 +113,12 @@ internal fun DesktopSettingsNavigation(
                         verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro),
                     ) {
                         Text(
-                            section.title,
+                            section.localizedTitle(),
                             color = if (isSelected) RoninColors.accentCoral else RoninColors.textPrimary,
                             style = androidx.compose.material3.MaterialTheme.typography.labelLarge,
                         )
                         Text(
-                            section.description,
+                            section.localizedDescription(),
                             color = RoninColors.textMuted,
                             style = androidx.compose.material3.MaterialTheme.typography.labelSmall,
                             maxLines = 2,
@@ -131,9 +153,9 @@ internal fun DesktopSettingsOverview(
         ) {
             if (narrow) {
                 SettingsOverviewPanel(
-                    title = "Application & library",
+                    title = roninText("Application & library", "Aplicación y biblioteca"),
                     detail = applicationLibrarySummary(languageTag, mangaCount, updateIntervalHours),
-                    actionLabel = "Library preferences",
+                    actionLabel = roninText("Library preferences", "Preferencias de biblioteca"),
                     onAction = { onSelectSection(DesktopSettingsSection.LIBRARY) },
                 )
                 DesktopReaderDefaultsSettings(graph)
@@ -144,9 +166,9 @@ internal fun DesktopSettingsOverview(
                     verticalAlignment = Alignment.Top,
                 ) {
                     SettingsOverviewPanel(
-                        title = "Application & library",
+                        title = roninText("Application & library", "Aplicación y biblioteca"),
                         detail = applicationLibrarySummary(languageTag, mangaCount, updateIntervalHours),
-                        actionLabel = "Library preferences",
+                        actionLabel = roninText("Library preferences", "Preferencias de biblioteca"),
                         onAction = { onSelectSection(DesktopSettingsSection.LIBRARY) },
                         modifier = Modifier.weight(1f),
                     )
@@ -157,30 +179,30 @@ internal fun DesktopSettingsOverview(
             }
             if (narrow) {
                 SettingsOverviewPanel(
-                    title = "Downloads",
+                    title = roninText("Downloads", "Descargas"),
                     detail = downloadSummary(queuedDownloadCount, activeDownloadCount, failedDownloadCount),
-                    actionLabel = "Open download queue",
+                    actionLabel = roninText("Open download queue", "Abrir cola de descargas"),
                     onAction = onOpenDownloads,
                 )
                 SettingsOverviewPanel(
-                    title = "Tracking",
+                    title = roninText("Tracking", "Seguimiento"),
                     detail = trackerSummary(connectedTrackers),
-                    actionLabel = "Manage trackers",
+                    actionLabel = roninText("Manage trackers", "Administrar seguimiento"),
                     onAction = { onSelectSection(DesktopSettingsSection.TRACKING) },
                 )
                 SettingsOverviewPanel(
-                    title = "Storage & backup",
+                    title = roninText("Storage & backup", "Almacenamiento y copias"),
                     detail =
                     "Local library: ${graph.appDirectories.localLibrary}\n" +
                         "Database: ${graph.appDirectories.database}",
-                    actionLabel = "Storage preferences",
+                    actionLabel = roninText("Storage preferences", "Copias de seguridad"),
                     onAction = { onSelectSection(DesktopSettingsSection.STORAGE) },
                 )
                 SettingsOverviewPanel(
-                    title = "Windows links & extensions",
+                    title = roninText("Windows links & extensions", "Enlaces y extensiones"),
                     detail = "Browser links are ${if (protocolRegistered) "registered" else "not registered"}. " +
                         "$installedExtensionCount extensions installed. Local trust records a device decision.",
-                    actionLabel = "Advanced preferences",
+                    actionLabel = roninText("Advanced preferences", "Preferencias avanzadas"),
                     onAction = { onSelectSection(DesktopSettingsSection.ADVANCED) },
                 )
             } else {
@@ -190,16 +212,16 @@ internal fun DesktopSettingsOverview(
                     verticalAlignment = Alignment.Top,
                 ) {
                     SettingsOverviewPanel(
-                        title = "Downloads",
+                        title = roninText("Downloads", "Descargas"),
                         detail = downloadSummary(queuedDownloadCount, activeDownloadCount, failedDownloadCount),
-                        actionLabel = "Open download queue",
+                        actionLabel = roninText("Open download queue", "Abrir cola de descargas"),
                         onAction = onOpenDownloads,
                         modifier = Modifier.weight(1f),
                     )
                     SettingsOverviewPanel(
-                        title = "Tracking",
+                        title = roninText("Tracking", "Seguimiento"),
                         detail = trackerSummary(connectedTrackers),
-                        actionLabel = "Manage trackers",
+                        actionLabel = roninText("Manage trackers", "Administrar seguimiento"),
                         onAction = { onSelectSection(DesktopSettingsSection.TRACKING) },
                         modifier = Modifier.weight(1f),
                     )
@@ -210,19 +232,19 @@ internal fun DesktopSettingsOverview(
                     verticalAlignment = Alignment.Top,
                 ) {
                     SettingsOverviewPanel(
-                        title = "Storage & backup",
+                        title = roninText("Storage & backup", "Almacenamiento y copias"),
                         detail =
                         "Local library: ${graph.appDirectories.localLibrary}\n" +
                             "Database: ${graph.appDirectories.database}",
-                        actionLabel = "Storage preferences",
+                        actionLabel = roninText("Storage preferences", "Copias de seguridad"),
                         onAction = { onSelectSection(DesktopSettingsSection.STORAGE) },
                         modifier = Modifier.weight(1f),
                     )
                     SettingsOverviewPanel(
-                        title = "Windows links & extensions",
+                        title = roninText("Windows links & extensions", "Enlaces y extensiones"),
                         detail = "Browser links are ${if (protocolRegistered) "registered" else "not registered"}. " +
                             "$installedExtensionCount extensions installed. Local trust records a device decision.",
-                        actionLabel = "Advanced preferences",
+                        actionLabel = roninText("Advanced preferences", "Preferencias avanzadas"),
                         onAction = { onSelectSection(DesktopSettingsSection.ADVANCED) },
                         modifier = Modifier.weight(1f),
                     )
@@ -232,35 +254,38 @@ internal fun DesktopSettingsOverview(
     }
 }
 
-private fun applicationLibrarySummary(languageTag: String, mangaCount: Int, updateIntervalHours: Long): String =
-    buildString {
-        append("Language: ")
-        append(languageTag)
-        append("\n")
-        append(mangaCount)
-        append(" manga on this device\n")
-        append(
-            if (updateIntervalHours == 0L) {
-                "Scheduled updates are off"
-            } else {
-                "Updates run every $updateIntervalHours hours while Ronin is open"
-            },
+@Composable
+private fun applicationLibrarySummary(languageTag: String, mangaCount: Int, updateIntervalHours: Long): String {
+    val schedule = if (updateIntervalHours == 0L) {
+        roninText("Scheduled updates are off", "Actualizaciones programadas desactivadas")
+    } else {
+        roninText(
+            "Updates run every $updateIntervalHours hours while Ronin is open",
+            "Actualización cada $updateIntervalHours horas mientras Ronin esté abierto",
         )
     }
+    return roninText(
+        "Language: $languageTag\n$mangaCount manga on this device\n$schedule",
+        "Idioma: $languageTag\n$mangaCount manga en este equipo\n$schedule",
+    )
+}
 
+@Composable
 private fun downloadSummary(queuedDownloadCount: Int, activeDownloadCount: Int, failedDownloadCount: Int): String =
-    buildString {
-        append(queuedDownloadCount)
-        append(if (queuedDownloadCount == 1) " chapter in the persisted queue" else " chapters in the persisted queue")
-        append("\n")
-        append("$activeDownloadCount active · $failedDownloadCount failed")
-    }
+    roninText(
+        "$queuedDownloadCount chapters in the queue\n$activeDownloadCount active · $failedDownloadCount failed",
+        "$queuedDownloadCount capítulos en la cola\n$activeDownloadCount activos · $failedDownloadCount con errores",
+    )
 
+@Composable
 private fun trackerSummary(connectedTrackers: List<String>): String =
     if (connectedTrackers.isEmpty()) {
-        "No tracker accounts are currently signed in."
+        roninText("No tracker accounts are currently signed in.", "No hay cuentas de seguimiento conectadas.")
     } else {
-        "Signed in to ${connectedTrackers.joinToString(", ")}."
+        roninText(
+            "Signed in to ${connectedTrackers.joinToString(", ")}.",
+            "Conectado a ${connectedTrackers.joinToString(", ")}.",
+        )
     }
 
 @Composable
@@ -317,17 +342,23 @@ internal fun DesktopReaderDefaultsSettings(graph: DesktopPlatformGraph) {
             Modifier.fillMaxWidth().padding(RoninSpacing.large),
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
-            Text("Default reading mode", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
             Text(
-                "New chapters open with this mode. Change it at any time from the reader controls.",
+                roninText("Default reading mode", "Modo de lectura predeterminado"),
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                roninText(
+                    "New chapters open with this mode. Change it at any time from the reader controls.",
+                    "Los capítulos se abren con este modo. Puedes cambiarlo desde los controles del lector.",
+                ),
                 color = RoninColors.textMuted,
             )
             androidx.compose.foundation.layout.Box {
-                RoninTextButton(label = readingModeLabel(mode), onClick = { modeExpanded = true })
+                RoninTextButton(label = localizedReadingModeLabel(mode), onClick = { modeExpanded = true })
                 DropdownMenu(expanded = modeExpanded, onDismissRequest = { modeExpanded = false }) {
                     ReadingMode.entries.forEach { option ->
                         DropdownMenuItem(
-                            text = { Text(readingModeLabel(option)) },
+                            text = { Text(localizedReadingModeLabel(option)) },
                             onClick = {
                                 mode = option
                                 modeExpanded = false
@@ -338,17 +369,23 @@ internal fun DesktopReaderDefaultsSettings(graph: DesktopPlatformGraph) {
                 }
             }
             androidx.compose.material3.HorizontalDivider(color = RoninColors.borderSubtle)
-            Text("Default page fit", style = androidx.compose.material3.MaterialTheme.typography.titleMedium)
             Text(
-                "Width scrolls tall pages, height keeps the full page visible, and original avoids upscaling.",
+                roninText("Default page fit", "Ajuste de página predeterminado"),
+                style = androidx.compose.material3.MaterialTheme.typography.titleMedium,
+            )
+            Text(
+                roninText(
+                    "Width scrolls tall pages, height keeps the full page visible, and original avoids upscaling.",
+                    "Ancho permite desplazar páginas largas, alto muestra la página completa y original conserva su tamaño.",
+                ),
                 color = RoninColors.textMuted,
             )
             androidx.compose.foundation.layout.Box {
-                RoninTextButton(label = fitModeLabel(fit), onClick = { fitExpanded = true })
+                RoninTextButton(label = localizedFitModeLabel(fit), onClick = { fitExpanded = true })
                 DropdownMenu(expanded = fitExpanded, onDismissRequest = { fitExpanded = false }) {
                     FitMode.entries.forEach { option ->
                         DropdownMenuItem(
-                            text = { Text(fitModeLabel(option)) },
+                            text = { Text(localizedFitModeLabel(option)) },
                             onClick = {
                                 fit = option
                                 fitExpanded = false

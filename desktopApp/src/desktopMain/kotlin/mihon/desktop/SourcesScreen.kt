@@ -100,6 +100,7 @@ private fun SourceDirectory(
     onSearchChange: (String) -> Unit,
     onSelectSource: (Source) -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val languages = remember(sources) {
         sources.map { it.roninSourceLanguage() }.distinct().sorted()
     }
@@ -140,14 +141,18 @@ private fun SourceDirectory(
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
     ) {
         RoninSectionHeader(
-            title = "Sources",
+            title = Screen.SOURCES.localizedTitle(),
             pageHeading = true,
-            subtitle = "${sources.size} installed source variants available to browse",
+            subtitle = roninCopy(
+                "${sources.size} installed source variants available to browse",
+                "${sources.size} variantes de fuentes instaladas disponibles",
+                uiLanguage,
+            ),
             trailing = {
                 RoninSearchField(
                     value = search,
                     onValueChange = onSearchChange,
-                    placeholder = "Search sources…",
+                    placeholder = roninCopy("Search sources…", "Buscar fuentes…", uiLanguage),
                     modifier = Modifier.widthIn(min = 260.dp, max = 420.dp),
                 )
             },
@@ -160,7 +165,7 @@ private fun SourceDirectory(
                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                 ) {
                     Text(
-                        "Language",
+                        roninCopy("Language", "Idioma", uiLanguage),
                         color = RoninColors.textMuted,
                         style = MaterialTheme.typography.labelSmall,
                     )
@@ -169,7 +174,7 @@ private fun SourceDirectory(
                         verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                     ) {
                         RoninFilterPill(
-                            label = "All",
+                            label = roninCopy("All", "Todos", uiLanguage),
                             selected = selectedLanguage == null,
                             onClick = { selectedLanguage = null },
                         )
@@ -187,14 +192,22 @@ private fun SourceDirectory(
 
         when {
             sources.isEmpty() -> RoninEmptyState(
-                title = "No sources available",
-                detail = "Install an extension or use the local source, then return here to browse.",
+                title = roninCopy("No sources available", "No hay fuentes disponibles", uiLanguage),
+                detail = roninCopy(
+                    "Install an extension or use the local source, then return here to browse.",
+                    "Instala una extensión o utiliza la fuente local para explorar su catálogo.",
+                    uiLanguage,
+                ),
                 modifier = Modifier.padding(top = RoninSpacing.small),
             )
 
             groupedSources.isEmpty() -> RoninEmptyState(
-                title = "No sources found",
-                detail = "Change the source name or language filter.",
+                title = roninCopy("No sources found", "No se encontraron fuentes", uiLanguage),
+                detail = roninCopy(
+                    "Change the source name or language filter.",
+                    "Cambia el nombre de la fuente o el filtro de idioma.",
+                    uiLanguage,
+                ),
                 modifier = Modifier.padding(top = RoninSpacing.small),
             )
 
@@ -208,11 +221,15 @@ private fun SourceDirectory(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     Text(
-                        "Installed sources",
+                        roninCopy("Installed sources", "Fuentes instaladas", uiLanguage),
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        "${groupedSources.size} groups · ${visibleSources.size} variants",
+                        roninCopy(
+                            "${groupedSources.size} groups · ${visibleSources.size} variants",
+                            "${groupedSources.size} grupos · ${visibleSources.size} variantes",
+                            uiLanguage,
+                        ),
                         color = RoninColors.textMuted,
                         style = MaterialTheme.typography.labelMedium,
                     )
@@ -315,6 +332,7 @@ private fun SourceIdentity(
     variants: List<Source>,
     modifier: Modifier = Modifier,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
@@ -340,7 +358,7 @@ private fun SourceIdentity(
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
         ) {
             Text(
-                source.name,
+                localizedSourceName(source, uiLanguage),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.SemiBold,
                 maxLines = 1,
@@ -348,9 +366,21 @@ private fun SourceIdentity(
             )
             Text(
                 when {
-                    source is DesktopLocalSource -> "Local files on this device"
-                    variants.size == 1 -> "${source.roninSourceLanguage()} · Installed source"
-                    else -> "${variants.size} installed language variants"
+                    source is DesktopLocalSource -> roninCopy(
+                        "Local files on this device",
+                        "Archivos locales de este equipo",
+                        uiLanguage,
+                    )
+                    variants.size == 1 -> roninCopy(
+                        "${source.roninSourceLanguage()} · Installed source",
+                        "${source.roninSourceLanguage()} · Fuente instalada",
+                        uiLanguage,
+                    )
+                    else -> roninCopy(
+                        "${variants.size} installed language variants",
+                        "${variants.size} variantes de idioma instaladas",
+                        uiLanguage,
+                    )
                 },
                 color = RoninColors.textSecondary,
                 style = MaterialTheme.typography.bodySmall,
@@ -367,6 +397,7 @@ private fun SourceVariantActions(
     onSelectSource: (Source) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val primary = variants.preferredSourceVariant()
     FlowRow(
         modifier = modifier,
@@ -374,7 +405,15 @@ private fun SourceVariantActions(
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
     ) {
         RoninBadge(
-            label = if (primary is DesktopLocalSource) "On device" else "Installed",
+            label = if (primary is DesktopLocalSource) {
+                roninCopy(
+                    "On device",
+                    "En este equipo",
+                    uiLanguage,
+                )
+            } else {
+                roninCopy("Installed", "Instaladas", uiLanguage)
+            },
             accent = true,
         )
         when {
@@ -384,7 +423,7 @@ private fun SourceVariantActions(
                     label = primary.roninSourceLanguage(),
                     onClick = { onSelectSource(primary) },
                 )
-                RoninBadge("${variants.size} languages")
+                RoninBadge(roninCopy("${variants.size} languages", "${variants.size} idiomas", uiLanguage))
             }
             variants.size > 1 -> variants.forEach { variant ->
                 RoninChip(
@@ -395,7 +434,7 @@ private fun SourceVariantActions(
             else -> RoninBadge(primary.roninSourceLanguage())
         }
         Text(
-            "Browse →",
+            roninCopy("Browse →", "Explorar →", uiLanguage),
             color = RoninColors.accentSage,
             style = MaterialTheme.typography.labelMedium,
         )
@@ -421,20 +460,25 @@ private fun SourceBrowser(
     onOpenManga: (SManga) -> Unit,
     onLoadMore: () -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     Column(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
     ) {
         RoninSectionHeader(
-            title = source.name,
+            title = localizedSourceName(source, uiLanguage),
             subtitle = if (source is DesktopLocalSource) {
-                "Local · Manga stored on this device"
+                roninCopy("Local · Manga stored on this device", "Local · Manga guardado en este equipo", uiLanguage)
             } else {
-                "${source.roninSourceLanguage()} · Installed source"
+                roninCopy(
+                    "${source.roninSourceLanguage()} · Installed source",
+                    "${source.roninSourceLanguage()} · Fuente instalada",
+                    uiLanguage,
+                )
             },
             trailing = {
                 RoninTextButton(
-                    label = "← All sources",
+                    label = roninCopy("← All sources", "← Todas las fuentes", uiLanguage),
                     onClick = onBack,
                 )
             },
@@ -452,7 +496,15 @@ private fun SourceBrowser(
 
         when {
             loading && results.isEmpty() -> RoninLoadingState(
-                title = if (activeQuery.isBlank()) "Loading popular manga" else "Searching source",
+                title = if (activeQuery.isBlank()) {
+                    roninCopy(
+                        "Loading popular manga",
+                        "Cargando manga populares",
+                        uiLanguage,
+                    )
+                } else {
+                    roninCopy("Searching source", "Buscando en la fuente", uiLanguage)
+                },
                 detail = source.roninSourceDisplayName(),
                 modifier = Modifier.padding(top = RoninSpacing.small),
             )
@@ -461,21 +513,37 @@ private fun SourceBrowser(
                 verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
             ) {
                 RoninErrorState(
-                    title = "Source request failed",
+                    title = roninCopy("Source request failed", "Falló la consulta a la fuente", uiLanguage),
                     detail = error,
                 )
                 RoninSecondaryButton(
-                    label = "Retry",
+                    label = roninCopy("Retry", "Reintentar", uiLanguage),
                     onClick = onLoadMore,
                 )
             }
 
             results.isEmpty() -> RoninEmptyState(
-                title = if (activeQuery.isBlank()) "No manga to show" else "No manga found",
-                detail = if (activeQuery.isBlank()) {
-                    "This source did not return popular manga."
+                title = if (activeQuery.isBlank()) {
+                    roninCopy(
+                        "No manga to show",
+                        "No hay manga para mostrar",
+                        uiLanguage,
+                    )
                 } else {
-                    "No results for “$activeQuery” in ${source.name}."
+                    roninCopy("No manga found", "No se encontraron manga", uiLanguage)
+                },
+                detail = if (activeQuery.isBlank()) {
+                    roninCopy(
+                        "This source did not return popular manga.",
+                        "Esta fuente no devolvió manga populares.",
+                        uiLanguage,
+                    )
+                } else {
+                    roninCopy(
+                        "No results for “$activeQuery” in ${source.name}.",
+                        "No hay resultados para “$activeQuery” en ${source.name}.",
+                        uiLanguage,
+                    )
                 },
                 modifier = Modifier.padding(top = RoninSpacing.small),
             )
@@ -491,11 +559,23 @@ private fun SourceBrowser(
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
                         Text(
-                            if (activeQuery.isBlank()) "Popular" else "Results for “$activeQuery”",
+                            if (activeQuery.isBlank()) {
+                                roninCopy(
+                                    "Popular",
+                                    "Populares",
+                                    uiLanguage,
+                                )
+                            } else {
+                                roninCopy(
+                                    "Results for “$activeQuery”",
+                                    "Resultados de “$activeQuery”",
+                                    uiLanguage,
+                                )
+                            },
                             style = MaterialTheme.typography.titleLarge,
                         )
                         Text(
-                            "${results.size} manga loaded",
+                            roninCopy("${results.size} manga loaded", "${results.size} manga cargados", uiLanguage),
                             color = RoninColors.textMuted,
                             style = MaterialTheme.typography.labelMedium,
                         )
@@ -506,7 +586,15 @@ private fun SourceBrowser(
                     ) {
                         RoninBadge(source.roninSourceLanguage())
                         RoninBadge(
-                            label = if (source is DesktopLocalSource) "On device" else "Installed",
+                            label = if (source is DesktopLocalSource) {
+                                roninCopy(
+                                    "On device",
+                                    "En este equipo",
+                                    uiLanguage,
+                                )
+                            } else {
+                                roninCopy("Installed", "Instaladas", uiLanguage)
+                            },
                             accent = true,
                         )
                     }
@@ -536,6 +624,7 @@ private fun SourceBrowseControls(
     onBrowsePopular: () -> Unit,
     onSearch: () -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     RoninPanel(Modifier.fillMaxWidth()) {
         BoxWithConstraints(Modifier.fillMaxWidth().padding(RoninSpacing.medium)) {
             val narrow = maxWidth < 760.dp
@@ -549,7 +638,7 @@ private fun SourceBrowseControls(
                     RoninSearchField(
                         value = query,
                         onValueChange = onQueryChange,
-                        placeholder = "Search ${source.name}…",
+                        placeholder = roninCopy("Search ${source.name}…", "Buscar en ${source.name}…", uiLanguage),
                         modifier = Modifier.fillMaxWidth(),
                     )
                     Row(
@@ -557,13 +646,21 @@ private fun SourceBrowseControls(
                         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                     ) {
                         RoninButton(
-                            label = if (loading) "Searching…" else "Search",
+                            label = if (loading) {
+                                roninCopy(
+                                    "Searching…",
+                                    "Buscando…",
+                                    uiLanguage,
+                                )
+                            } else {
+                                roninCopy("Search", "Buscar", uiLanguage)
+                            },
                             onClick = onSearch,
                             enabled = !loading,
                             modifier = Modifier.weight(1f),
                         )
                         RoninSecondaryButton(
-                            label = "Popular",
+                            label = roninCopy("Popular", "Populares", uiLanguage),
                             onClick = onBrowsePopular,
                             enabled = !loading,
                             modifier = Modifier.weight(1f),
@@ -580,17 +677,25 @@ private fun SourceBrowseControls(
                     RoninSearchField(
                         value = query,
                         onValueChange = onQueryChange,
-                        placeholder = "Search ${source.name}…",
+                        placeholder = roninCopy("Search ${source.name}…", "Buscar en ${source.name}…", uiLanguage),
                         modifier = Modifier.weight(1f),
                     )
                     RoninButton(
-                        label = if (loading) "Searching…" else "Search",
+                        label = if (loading) {
+                            roninCopy(
+                                "Searching…",
+                                "Buscando…",
+                                uiLanguage,
+                            )
+                        } else {
+                            roninCopy("Search", "Buscar", uiLanguage)
+                        },
                         onClick = onSearch,
                         enabled = !loading,
                         modifier = Modifier.width(112.dp),
                     )
                     RoninSecondaryButton(
-                        label = "Popular",
+                        label = roninCopy("Popular", "Populares", uiLanguage),
                         onClick = onBrowsePopular,
                         enabled = !loading,
                     )
@@ -605,13 +710,22 @@ private fun SourceContextChips(
     source: Source,
     activeQuery: String,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
     ) {
         RoninBadge(source.roninSourceLanguage())
         RoninChip(
-            label = if (activeQuery.isBlank()) "Popular" else "Search",
+            label = if (activeQuery.isBlank()) {
+                roninCopy(
+                    "Popular",
+                    "Populares",
+                    uiLanguage,
+                )
+            } else {
+                roninCopy("Search", "Buscar", uiLanguage)
+            },
             selected = true,
         )
     }

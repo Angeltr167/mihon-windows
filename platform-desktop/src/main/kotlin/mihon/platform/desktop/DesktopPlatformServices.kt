@@ -21,6 +21,7 @@ import java.net.NetworkInterface
 import java.net.URI
 import java.util.Locale
 import javax.swing.JFileChooser
+import javax.swing.SwingUtilities
 import javax.swing.filechooser.FileNameExtensionFilter
 import kotlin.system.exitProcess
 
@@ -48,32 +49,43 @@ class DesktopFileDialogService : FileDialogService {
     override val supported: Boolean = true
 
     override fun chooseOpenFile(request: OpenFileRequest): String? = runCatching {
-        val chooser = JFileChooser(request.initialDirectory)
-        chooser.dialogTitle = request.title
-        chooser.fileSelectionMode = JFileChooser.FILES_ONLY
-        if (request.extensions.isNotEmpty()) {
-            chooser.fileFilter = FileNameExtensionFilter(
-                request.extensions.joinToString(", ") { "*.$it" },
-                *request.extensions.toTypedArray(),
-            )
-        }
-        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-            chooser.selectedFile.absolutePath
-        } else {
-            null
+        onSwingThread {
+            val chooser = JFileChooser(request.initialDirectory)
+            chooser.dialogTitle = request.title
+            chooser.fileSelectionMode = JFileChooser.FILES_ONLY
+            if (request.extensions.isNotEmpty()) {
+                chooser.fileFilter = FileNameExtensionFilter(
+                    request.extensions.joinToString(", ") { "*.$it" },
+                    *request.extensions.toTypedArray(),
+                )
+            }
+            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                chooser.selectedFile.absolutePath
+            } else {
+                null
+            }
         }
     }.getOrNull()
 
     override fun chooseDirectory(title: String, initialDirectory: String?): String? = runCatching {
-        val chooser = JFileChooser(initialDirectory)
-        chooser.dialogTitle = title
-        chooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
-        if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
-            chooser.selectedFile.absolutePath
-        } else {
-            null
+        onSwingThread {
+            val chooser = JFileChooser(initialDirectory)
+            chooser.dialogTitle = title
+            chooser.fileSelectionMode = JFileChooser.DIRECTORIES_ONLY
+            if (chooser.showOpenDialog(null) == JFileChooser.APPROVE_OPTION) {
+                chooser.selectedFile.absolutePath
+            } else {
+                null
+            }
         }
     }.getOrNull()
+
+    private fun <T> onSwingThread(block: () -> T): T {
+        if (SwingUtilities.isEventDispatchThread()) return block()
+        var result: Result<T>? = null
+        SwingUtilities.invokeAndWait { result = runCatching(block) }
+        return requireNotNull(result).getOrThrow()
+    }
 }
 
 class DesktopNotificationService : NotificationService {

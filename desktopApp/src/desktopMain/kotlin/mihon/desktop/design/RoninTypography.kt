@@ -8,7 +8,7 @@ import androidx.compose.ui.unit.sp
 
 internal object RoninTypeScale {
     val branding = TextStyle(
-        fontFamily = FontFamily.Serif,
+        fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
         fontSize = 24.sp,
         lineHeight = 29.sp,
@@ -17,8 +17,8 @@ internal object RoninTypeScale {
     val displayHeading = TextStyle(
         fontFamily = FontFamily.Serif,
         fontWeight = FontWeight.Medium,
-        fontSize = 52.sp,
-        lineHeight = 60.sp,
+        fontSize = 48.sp,
+        lineHeight = 56.sp,
     )
 
     val screenHeading = TextStyle(
@@ -38,8 +38,8 @@ internal object RoninTypeScale {
     val cardHeading = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 17.sp,
-        lineHeight = 23.sp,
+        fontSize = 16.sp,
+        lineHeight = 22.sp,
     )
 
     val body = TextStyle(
@@ -52,8 +52,8 @@ internal object RoninTypeScale {
     val metadata = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Normal,
-        fontSize = 12.sp,
-        lineHeight = 16.sp,
+        fontSize = 14.sp,
+        lineHeight = 20.sp,
     )
 
     val label = TextStyle(

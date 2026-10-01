@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
@@ -39,6 +40,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.PointerIcon
 import androidx.compose.ui.input.pointer.pointerHoverIcon
 import androidx.compose.ui.layout.ContentScale
@@ -63,7 +65,7 @@ private enum class LibraryShelfFilter(val label: String) {
     ALL("All"),
     READING("In progress"),
     NOT_STARTED("Not started"),
-    LAST_CHAPTER_FINISHED("Finished"),
+    LAST_CHAPTER_FINISHED("Last chapter finished"),
 }
 
 private enum class LibrarySortMode(val label: String) {
@@ -98,10 +100,10 @@ internal fun LibraryScreen(
     error: String?,
     onOpenManga: (Long, String?) -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     var shelfFilter by remember { mutableStateOf(LibraryShelfFilter.ALL) }
     var sortMode by remember { mutableStateOf(LibrarySortMode.RECENTLY_UPDATED) }
     var viewMode by remember { mutableStateOf(LibraryViewMode.GRID) }
-    var inspectedMangaId by remember { mutableStateOf<Long?>(null) }
 
     val sourceById = remember(sources) { sources.associateBy(Source::id) }
     val libraryById = remember(library) { library.associateBy(Mangas::_id) }
@@ -160,34 +162,44 @@ internal fun LibraryScreen(
             continueReading.filter { it.manga._id in visibleIds }.take(8)
         }
     }
-    val inspectedManga = remember(visibleLibrary, inspectedMangaId) {
-        visibleLibrary.firstOrNull { it._id == inspectedMangaId } ?: visibleLibrary.firstOrNull()
-    }
-    val selectedCategoryName = remember(categories, selectedCategory) {
-        categories.firstOrNull { it.id == selectedCategory }?.name?.ifBlank { "Uncategorized" }
+    val selectedCategoryName = remember(categories, selectedCategory, uiLanguage) {
+        categories.firstOrNull {
+            it.id == selectedCategory
+        }?.name?.ifBlank { roninCopy("Uncategorized", "Sin categoría", uiLanguage) }
     }
 
     BoxWithConstraints(Modifier.fillMaxSize()) {
-        val showInspector = maxWidth >= RoninLayout.rightPanelBreakpoint && inspectedManga != null
-        Column(
-            Modifier.fillMaxSize().padding(
-                end = if (showInspector) RoninLayout.rightPanelWidth + RoninSpacing.large else 0.dp,
-            ),
-        ) {
+        val continueWidth = if (maxWidth >= 1100.dp) {
+            (maxWidth - RoninSpacing.medium * 2) / 3
+        } else {
+            RoninMangaMetrics.continueCardWidth
+        }
+        Column(Modifier.fillMaxSize()) {
             RoninSectionHeader(
-                title = "Library",
+                title = roninText("Library", "Biblioteca"),
                 pageHeading = true,
                 subtitle = when {
-                    selectedCategoryName != null -> "${visibleLibrary.size} manga in $selectedCategoryName"
-                    search.isNotBlank() -> "${visibleLibrary.size} matching manga"
-                    else -> "${library.size} manga on this device"
+                    selectedCategoryName != null -> roninCopy(
+                        "${visibleLibrary.size} manga in $selectedCategoryName",
+                        "${visibleLibrary.size} manga en $selectedCategoryName",
+                        uiLanguage,
+                    )
+                    search.isNotBlank() -> roninCopy(
+                        "${visibleLibrary.size} matching manga",
+                        "${visibleLibrary.size} manga encontrados",
+                        uiLanguage,
+                    )
+                    else -> roninText(
+                        "${library.size} titles · Your collection",
+                        "${library.size} títulos · Tu colección",
+                    )
                 },
                 trailing = {
                     RoninSearchField(
                         value = search,
                         onValueChange = onSearchChange,
-                        placeholder = "Search your library…",
-                        modifier = Modifier.widthIn(min = 280.dp, max = 420.dp),
+                        placeholder = roninText("Search your library…", "Buscar en tu biblioteca…"),
+                        modifier = Modifier.widthIn(max = 420.dp).fillMaxWidth(),
                     )
                 },
             )
@@ -206,34 +218,46 @@ internal fun LibraryScreen(
 
             if (error != null && !loading && library.isNotEmpty()) {
                 RoninErrorState(
-                    title = "Library refresh failed",
+                    title = roninCopy("Library refresh failed", "Falló la actualización de biblioteca", uiLanguage),
                     detail = error,
                     modifier = Modifier.padding(bottom = RoninSpacing.large),
                 )
             }
 
             when {
-                loading -> RoninLoadingState(
-                    title = "Loading library…",
-                    detail = "Reading your saved manga and progress.",
+                loading && library.isEmpty() -> RoninLoadingState(
+                    title = roninCopy("Loading library…", "Cargando biblioteca…", uiLanguage),
+                    detail = roninCopy(
+                        "Reading your saved manga and progress.",
+                        "Cargando tus manga y el progreso guardado.",
+                        uiLanguage,
+                    ),
                     modifier = Modifier.padding(top = RoninSpacing.large),
                 )
 
                 error != null && library.isEmpty() -> RoninErrorState(
-                    title = "Could not load library",
+                    title = roninCopy("Could not load library", "No se pudo cargar la biblioteca", uiLanguage),
                     detail = error,
                     modifier = Modifier.padding(top = RoninSpacing.large),
                 )
 
                 library.isEmpty() -> RoninEmptyState(
-                    title = "Your library is empty",
-                    detail = "Browse an installed source and add a manga to start reading.",
+                    title = roninCopy("Your library is empty", "Tu biblioteca está vacía", uiLanguage),
+                    detail = roninCopy(
+                        "Browse an installed source and add a manga to start reading.",
+                        "Explora una fuente y añade un manga para empezar a leer.",
+                        uiLanguage,
+                    ),
                     modifier = Modifier.padding(top = RoninSpacing.large),
                 )
 
                 visibleLibrary.isEmpty() -> RoninEmptyState(
-                    title = "No manga found",
-                    detail = "Change the search, shelf, category, or sort controls.",
+                    title = roninCopy("No manga found", "No se encontraron manga", uiLanguage),
+                    detail = roninCopy(
+                        "Change the search, shelf, category, or sort controls.",
+                        "Cambia la búsqueda, el filtro, la categoría o el orden.",
+                        uiLanguage,
+                    ),
                     modifier = Modifier.padding(top = RoninSpacing.large),
                 )
 
@@ -243,8 +267,8 @@ internal fun LibraryScreen(
                             val shelves: @Composable () -> Unit = {
                                 if (visibleContinueReading.isNotEmpty()) {
                                     LibrarySectionLabel(
-                                        title = "Continue reading",
-                                        detail = "${visibleContinueReading.size} recent",
+                                        title = roninText("Continue reading", "Continuar leyendo"),
+                                        detail = "",
                                     )
                                     LazyRow(
                                         modifier = Modifier.fillMaxWidth().padding(bottom = RoninSpacing.large),
@@ -253,9 +277,9 @@ internal fun LibraryScreen(
                                         items(visibleContinueReading, key = { it.manga._id }) { item ->
                                             ContinueReadingCard(
                                                 item = item,
+                                                width = continueWidth,
                                                 source = sourceById[item.manga.source],
                                                 onOpenManga = { id, url ->
-                                                    inspectedMangaId = id
                                                     onOpenManga(id, url)
                                                 },
                                             )
@@ -264,16 +288,8 @@ internal fun LibraryScreen(
                                 }
 
                                 LibrarySectionLabel(
-                                    title =
-                                    selectedCategoryName
-                                        ?: if (sortMode ==
-                                            LibrarySortMode.RECENTLY_UPDATED
-                                        ) {
-                                            "Recently updated"
-                                        } else {
-                                            "Collection"
-                                        },
-                                    detail = "${visibleLibrary.size} titles · ${sortMode.label}",
+                                    title = selectedCategoryName ?: roninText("Your collection", "Tu colección"),
+                                    detail = "${visibleLibrary.size}",
                                 )
                             }
                             when (viewMode) {
@@ -292,7 +308,6 @@ internal fun LibraryScreen(
                                             source = sourceById[manga.source],
                                             chapter = recentChapters[manga._id],
                                             onOpenManga = { id, url ->
-                                                inspectedMangaId = id
                                                 onOpenManga(id, url)
                                             },
                                         )
@@ -310,7 +325,6 @@ internal fun LibraryScreen(
                                             source = sourceById[manga.source],
                                             chapter = recentChapters[manga._id],
                                             onOpenManga = { id, url ->
-                                                inspectedMangaId = id
                                                 onOpenManga(id, url)
                                             },
                                         )
@@ -321,57 +335,6 @@ internal fun LibraryScreen(
                     }
                 }
             }
-        }
-        if (showInspector && inspectedManga != null) {
-            LibraryInspector(
-                manga = inspectedManga,
-                source = sourceById[inspectedManga.source],
-                chapter = recentChapters[inspectedManga._id],
-                onOpenManga = onOpenManga,
-                modifier = Modifier.align(Alignment.TopEnd).width(RoninLayout.rightPanelWidth),
-            )
-        }
-    }
-}
-
-@Composable
-private fun LibraryInspector(
-    manga: Mangas,
-    source: Source?,
-    chapter: Chapters?,
-    onOpenManga: (Long, String?) -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    RoninPanel(modifier) {
-        Column(
-            Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(RoninSpacing.medium),
-            verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
-        ) {
-            RoninCover(Modifier.fillMaxWidth()) {
-                DesktopCover(
-                    manga.thumbnail_url,
-                    source,
-                    Modifier.fillMaxWidth().aspectRatio(RoninMangaMetrics.COVER_ASPECT_RATIO),
-                    contentScale = ContentScale.Crop,
-                )
-            }
-            Text(
-                manga.title,
-                style = MaterialTheme.typography.titleLarge,
-                maxLines = 3,
-                overflow = TextOverflow.Ellipsis,
-            )
-            source?.let { RoninBadge(it.roninSourceDisplayName()) }
-            Text(
-                chapterProgressLabel(chapter),
-                color = RoninColors.textSecondary,
-                style = MaterialTheme.typography.bodyMedium,
-            )
-            RoninButton(
-                label = "Open manga",
-                onClick = { onOpenManga(manga._id, manga.url) },
-                modifier = Modifier.fillMaxWidth(),
-            )
         }
     }
 }
@@ -388,50 +351,80 @@ private fun LibraryControlPanel(
     viewMode: LibraryViewMode,
     onViewModeChange: (LibraryViewMode) -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     var sortExpanded by remember { mutableStateOf(false) }
-    Column(
-        Modifier.fillMaxWidth().padding(bottom = RoninSpacing.medium)
-            .heightIn(max = RoninLayout.libraryControlsMaxHeight).verticalScroll(rememberScrollState()),
-        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-    ) {
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-            verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-        ) {
-            RoninFilterPill("All shelves", selectedCategory == null, { onSelectCategory(null) })
-            categories.forEach { category ->
-                RoninFilterPill(
-                    category.name.ifBlank { "Uncategorized" },
-                    selectedCategory == category.id,
-                    { onSelectCategory(category.id) },
-                )
+    var filtersExpanded by remember { mutableStateOf(false) }
+    BoxWithConstraints(Modifier.fillMaxWidth().padding(bottom = RoninSpacing.medium)) {
+        val narrow = maxWidth < 720.dp
+        val categoryTabs: @Composable (Modifier) -> Unit = { tabsModifier ->
+            LazyRow(
+                tabsModifier,
+                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+            ) {
+                item {
+                    RoninFilterPill(roninText("All", "Todos"), selectedCategory == null, { onSelectCategory(null) })
+                }
+                items(categories, key = { it.id }) { category ->
+                    RoninFilterPill(
+                        category.name.ifBlank { roninCopy("Uncategorized", "Sin categoría", uiLanguage) },
+                        selectedCategory == category.id,
+                        { onSelectCategory(category.id) },
+                    )
+                }
             }
         }
-        FlowRow(
-            horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-            verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-        ) {
-            LibraryShelfFilter.entries.forEach { filter ->
-                RoninFilterPill(filter.label, shelfFilter == filter, { onShelfFilterChange(filter) })
-            }
-            Box {
-                RoninSecondaryButton("Sort: ${sortMode.label}", { sortExpanded = true })
-                DropdownMenu(sortExpanded, { sortExpanded = false }) {
-                    LibrarySortMode.entries.forEach { mode ->
-                        DropdownMenuItem(
-                            text = { Text(mode.label) },
-                            onClick = {
-                                onSortModeChange(mode)
-                                sortExpanded = false
-                            },
-                        )
+        val actions: @Composable () -> Unit = {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+            ) {
+                Box {
+                    RoninSecondaryButton(
+                        roninText("Filter", "Filtrar") + if (shelfFilter != LibraryShelfFilter.ALL) " · 1" else "",
+                        { filtersExpanded = true },
+                    )
+                    DropdownMenu(filtersExpanded, { filtersExpanded = false }) {
+                        LibraryShelfFilter.entries.forEach { filter ->
+                            DropdownMenuItem(
+                                text = { Text(roninUiText(filter.label)) },
+                                onClick = {
+                                    onShelfFilterChange(filter)
+                                    filtersExpanded = false
+                                },
+                            )
+                        }
                     }
                 }
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
-                LibraryViewMode.entries.forEach { mode ->
-                    RoninFilterPill(mode.label, viewMode == mode, { onViewModeChange(mode) })
+                Box {
+                    RoninSecondaryButton(roninText("Sort", "Ordenar"), { sortExpanded = true })
+                    DropdownMenu(sortExpanded, { sortExpanded = false }) {
+                        LibrarySortMode.entries.forEach { mode ->
+                            DropdownMenuItem(
+                                text = { Text(roninUiText(mode.label)) },
+                                onClick = {
+                                    onSortModeChange(mode)
+                                    sortExpanded = false
+                                },
+                            )
+                        }
+                    }
                 }
+                RoninFilterPill("▦", viewMode == LibraryViewMode.GRID, { onViewModeChange(LibraryViewMode.GRID) })
+                RoninFilterPill("☰", viewMode == LibraryViewMode.LIST, { onViewModeChange(LibraryViewMode.LIST) })
+            }
+        }
+        if (narrow) {
+            Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
+                categoryTabs(Modifier.fillMaxWidth())
+                actions()
+            }
+        } else {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
+            ) {
+                categoryTabs(Modifier.weight(1f))
+                actions()
             }
         }
     }
@@ -463,38 +456,33 @@ private fun LibrarySectionLabel(
 @Composable
 private fun ContinueReadingCard(
     item: LibraryContinueItem,
+    width: androidx.compose.ui.unit.Dp,
     source: Source?,
     onOpenManga: (Long, String?) -> Unit,
 ) {
     val manga = item.manga
     val chapter = item.chapter
     LibraryInteractiveSurface(
-        modifier = Modifier.width(RoninMangaMetrics.continueCardWidth),
-        onClick = { onOpenManga(manga._id, null) },
+        modifier = Modifier.width(width),
+        onClick = { onOpenManga(manga._id, chapter.url) },
     ) {
-        Column(
-            Modifier.fillMaxWidth().padding(RoninSpacing.xSmall),
-            verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-        ) {
-            RoninCover(
-                Modifier.fillMaxWidth().aspectRatio(RoninMangaMetrics.COVER_ASPECT_RATIO),
-            ) {
-                DesktopCover(
-                    manga.thumbnail_url,
-                    source,
-                    Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop,
-                )
-            }
+        Row(Modifier.fillMaxWidth().height(148.dp)) {
+            DesktopCover(
+                manga.thumbnail_url,
+                source,
+                Modifier.width(if (width >= 390.dp) 168.dp else 116.dp).fillMaxHeight(),
+                contentScale = ContentScale.Crop,
+                mangaUrl = manga.url,
+                sourceId = manga.source,
+            )
             Column(
-                Modifier.fillMaxWidth(),
+                Modifier.weight(1f).padding(RoninSpacing.medium),
                 verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
             ) {
                 Text(
                     manga.title,
                     style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 2,
+                    maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
@@ -511,9 +499,10 @@ private fun ContinueReadingCard(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                RoninInlineAction(
-                    label = "Continue",
-                    onClick = { onOpenManga(manga._id, chapter.url) },
+                RoninButton(
+                    roninText("▶ Continue", "▶ Continuar"),
+                    { onOpenManga(manga._id, chapter.url) },
+                    Modifier.height(32.dp),
                 )
             }
         }
@@ -530,65 +519,40 @@ private fun LibraryGridCard(
     LibraryInteractiveSurface(
         modifier = Modifier.fillMaxWidth(),
         onClick = { onOpenManga(manga._id, null) },
+        framed = false,
     ) {
-        Column(Modifier.fillMaxWidth().padding(RoninSpacing.small)) {
-            Box {
-                RoninCover(
-                    Modifier.fillMaxWidth().aspectRatio(RoninMangaMetrics.COVER_ASPECT_RATIO),
-                ) {
-                    DesktopCover(
-                        manga.thumbnail_url,
-                        source,
-                        Modifier.fillMaxSize(),
-                        contentScale = ContentScale.Crop,
-                    )
-                }
-                RoninBadge(
-                    label = chapterBadge(chapter),
-                    accent = chapter?.read == false,
-                    modifier = Modifier.align(Alignment.TopEnd).padding(RoninSpacing.small),
+        Column(Modifier.fillMaxWidth()) {
+            RoninCover(Modifier.fillMaxWidth().aspectRatio(1.35f)) {
+                DesktopCover(
+                    manga.thumbnail_url,
+                    source,
+                    Modifier.fillMaxSize(),
+                    contentScale = ContentScale.Crop,
+                    mangaUrl = manga.url,
+                    sourceId = manga.source,
                 )
             }
-
             Text(
                 manga.title,
                 style = MaterialTheme.typography.titleMedium,
-                fontWeight = FontWeight.SemiBold,
-                maxLines = 2,
+                maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.fillMaxWidth().padding(top = RoninSpacing.small),
             )
             Text(
-                chapter?.name ?: source?.name ?: "Not started",
+                chapter?.name ?: source?.let { localizedSourceName(it, LocalRoninLanguage.current) }
+                    ?: roninText("Not started", "Sin comenzar"),
                 color = RoninColors.textSecondary,
                 style = MaterialTheme.typography.bodySmall,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
-            Text(
-                chapterProgressLabel(chapter),
-                color = if (chapter?.read == false) RoninColors.accentSage else RoninColors.textMuted,
-                style = MaterialTheme.typography.labelSmall,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.padding(top = RoninSpacing.xSmall),
-            )
-
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(top = RoninSpacing.xSmall),
-                horizontalArrangement = Arrangement.End,
-            ) {
-                if (chapter != null && !chapter.read) {
-                    RoninTextButton(
-                        label = "Continue",
-                        onClick = { onOpenManga(manga._id, chapter.url) },
-                    )
-                } else {
-                    RoninTextButton(
-                        label = "Details",
-                        onClick = { onOpenManga(manga._id, null) },
-                    )
-                }
+            if (chapter != null) {
+                if (chapter.read) RoninProgressBar(1f, Modifier.fillMaxWidth(0.78f).padding(top = RoninSpacing.small))
+                RoninInlineAction(
+                    roninText("Continue", "Continuar"),
+                    { onOpenManga(manga._id, chapter.url) },
+                )
             }
         }
     }
@@ -601,6 +565,7 @@ private fun LibraryListCard(
     chapter: Chapters?,
     onOpenManga: (Long, String?) -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     LibraryInteractiveSurface(
         modifier = Modifier.fillMaxWidth(),
         onClick = { onOpenManga(manga._id, null) },
@@ -619,6 +584,8 @@ private fun LibraryListCard(
                     source,
                     Modifier.fillMaxSize(),
                     contentScale = ContentScale.Crop,
+                    mangaUrl = manga.url,
+                    sourceId = manga.source,
                 )
             }
 
@@ -634,7 +601,7 @@ private fun LibraryListCard(
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
-                    chapter?.name ?: "Not started",
+                    chapter?.name ?: roninCopy("Not started", "Sin empezar", uiLanguage),
                     color = RoninColors.textSecondary,
                     style = MaterialTheme.typography.bodySmall,
                     maxLines = 1,
@@ -642,7 +609,7 @@ private fun LibraryListCard(
                 )
                 source?.let {
                     Text(
-                        it.name,
+                        localizedSourceName(it, LocalRoninLanguage.current),
                         color = RoninColors.textMuted,
                         style = MaterialTheme.typography.labelSmall,
                         maxLines = 1,
@@ -656,7 +623,7 @@ private fun LibraryListCard(
                 verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
             ) {
                 RoninBadge(
-                    label = chapterBadge(chapter),
+                    label = roninUiText(chapterBadge(chapter)),
                     accent = chapter?.read == false,
                 )
                 Text(
@@ -666,12 +633,12 @@ private fun LibraryListCard(
                 )
                 if (chapter != null && !chapter.read) {
                     RoninTextButton(
-                        label = "Continue",
+                        label = roninCopy("Continue", "Continuar", uiLanguage),
                         onClick = { onOpenManga(manga._id, chapter.url) },
                     )
                 } else {
                     RoninTextButton(
-                        label = "Details",
+                        label = roninCopy("Details", "Detalles", uiLanguage),
                         onClick = { onOpenManga(manga._id, null) },
                     )
                 }
@@ -684,6 +651,7 @@ private fun LibraryListCard(
 private fun LibraryInteractiveSurface(
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
+    framed: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val interactionSource = remember { MutableInteractionSource() }
@@ -699,11 +667,21 @@ private fun LibraryInteractiveSurface(
                 onClick = onClick,
             ),
         shape = RoundedCornerShape(RoninRadius.card),
-        color = if (hovered) RoninColors.hoverSurface else RoninColors.elevatedSurface,
-        border = BorderStroke(
-            RoninBorders.hairline,
-            if (hovered) RoninColors.accentCoral.copy(alpha = 0.42f) else RoninColors.borderSubtle,
-        ),
+        color = if (hovered) {
+            RoninColors.hoverSurface
+        } else if (framed) {
+            RoninColors.elevatedSurface
+        } else {
+            Color.Transparent
+        },
+        border = if (framed || hovered) {
+            BorderStroke(
+                RoninBorders.hairline,
+                if (hovered) RoninColors.accentCoral.copy(alpha = 0.42f) else RoninColors.borderSubtle,
+            )
+        } else {
+            null
+        },
         content = content,
     )
 }
@@ -715,9 +693,13 @@ private fun chapterBadge(chapter: Chapters?): String = when {
     else -> "READ"
 }
 
+@Composable
 private fun chapterProgressLabel(chapter: Chapters?): String = when {
-    chapter == null -> "Not started"
-    chapter.read -> "Last chapter finished"
-    chapter.last_page_read > 0L -> "Continue from page ${chapter.last_page_read + 1}"
-    else -> "Continue chapter"
+    chapter == null -> roninText("Not started", "Sin empezar")
+    chapter.read -> roninText("Last chapter finished", "Último capítulo terminado")
+    chapter.last_page_read > 0L -> roninText(
+        "Continue from page ${chapter.last_page_read + 1}",
+        "Continuar desde la página ${chapter.last_page_read + 1}",
+    )
+    else -> roninText("Continue chapter", "Continuar capítulo")
 }

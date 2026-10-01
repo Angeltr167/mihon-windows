@@ -51,6 +51,8 @@ class DesktopAppDirectoriesProvider(
     )
 
     private companion object {
+        // Historical profile name. Never rename for branding or append a release version:
+        // doing so would make existing libraries, history, settings and extensions disappear.
         const val APP_DIR_NAME = "Mihon"
     }
 }

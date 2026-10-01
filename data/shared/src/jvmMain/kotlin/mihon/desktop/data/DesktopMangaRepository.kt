@@ -7,7 +7,12 @@ import eu.kanade.tachiyomi.source.model.SManga
 import eu.kanade.tachiyomi.source.model.UpdateStrategy
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonObject
+import mihon.backup.shared.BackupCategory
+import mihon.backup.shared.BackupChapter
+import mihon.backup.shared.BackupHistory
 import mihon.backup.shared.BackupImportSummary
+import mihon.backup.shared.BackupManga
+import mihon.backup.shared.BackupTracking
 import mihon.backup.shared.MihonBackup
 import tachiyomi.data.Chapters
 import tachiyomi.data.History
@@ -249,6 +254,79 @@ class DesktopMangaRepository private constructor(
             database.categoriesQueries.updateOrder(target.order, current.id)
             database.categoriesQueries.updateOrder(current.order, target.id)
         }
+    }
+
+    /** Read one consistent library snapshot, including reading data outside favorites. */
+    fun exportBackup(): MihonBackup = database.transactionWithResult {
+        MihonBackup(
+            categories = categories().filter { it.id > 0 }.map {
+                BackupCategory(name = it.name, order = it.order, id = it.id, flags = it.flags)
+            },
+            manga = database.mangasQueries.getAllManga().executeAsList().map { manga ->
+                val chapters = chapters(manga._id)
+                val chapterUrls = chapters.associate { it._id to it.url }
+                BackupManga(
+                    source = manga.source,
+                    url = manga.url,
+                    title = manga.title,
+                    artist = manga.artist,
+                    author = manga.author,
+                    description = manga.description,
+                    genre = manga.genre.orEmpty(),
+                    status = manga.status.toInt(),
+                    thumbnailUrl = manga.thumbnail_url,
+                    dateAdded = manga.date_added,
+                    favorite = manga.favorite,
+                    chapterFlags = manga.chapter_flags.toInt(),
+                    viewerFlags = manga.viewer.toInt(),
+                    updateStrategy = manga.update_strategy.ordinal,
+                    lastModifiedAt = manga.last_modified_at,
+                    favoriteModifiedAt = manga.favorite_modified_at,
+                    version = manga.version,
+                    notes = manga.notes,
+                    initialized = manga.initialized,
+                    memo = manga.memo.toString().encodeToByteArray(),
+                    categories = mangaCategories(manga._id).filter { it > 0 },
+                    chapters = chapters.map {
+                        BackupChapter(
+                            url = it.url,
+                            name = it.name,
+                            scanlator = it.scanlator,
+                            read = it.read,
+                            bookmark = it.bookmark,
+                            lastPageRead = it.last_page_read,
+                            dateFetch = it.date_fetch,
+                            dateUpload = it.date_upload,
+                            chapterNumber = it.chapter_number.toFloat(),
+                            sourceOrder = it.source_order,
+                            lastModifiedAt = it.last_modified_at,
+                            version = it.version,
+                            memo = it.memo.toString().encodeToByteArray(),
+                        )
+                    },
+                    history = database.historyQueries.getHistoryByMangaId(manga._id).executeAsList().mapNotNull {
+                        val url = chapterUrls[it.chapter_id] ?: return@mapNotNull null
+                        BackupHistory(url, it.last_read?.time ?: 0, it.time_read)
+                    },
+                    tracking = tracks(manga._id).map {
+                        BackupTracking(
+                            syncId = it.sync_id.toInt(),
+                            libraryId = it.library_id ?: 0,
+                            mediaId = it.remote_id,
+                            trackingUrl = it.remote_url,
+                            title = it.title,
+                            lastChapterRead = it.last_chapter_read.toFloat(),
+                            totalChapters = it.total_chapters.toInt(),
+                            score = it.score.toFloat(),
+                            status = it.status.toInt(),
+                            startedReadingDate = it.start_date,
+                            finishedReadingDate = it.finish_date,
+                            private = it.private_,
+                        )
+                    },
+                )
+            },
+        )
     }
 
     /** Merge an Android protobuf backup into Mihon's existing schema. */

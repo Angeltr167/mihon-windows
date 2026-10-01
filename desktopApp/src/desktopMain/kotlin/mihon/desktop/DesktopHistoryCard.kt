@@ -42,7 +42,9 @@ internal fun DesktopHistoryCard(
     source: Source?,
     pageCount: Int?,
     onContinue: () -> Unit,
+    mangaUrl: String? = null,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val interactionSource = remember { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
     val canResume = chapter != null
@@ -55,19 +57,27 @@ internal fun DesktopHistoryCard(
         else -> null
     }
     val progressLabel = when {
-        chapter == null -> "Chapter data unavailable"
-        chapter.read -> "Chapter finished"
+        chapter == null -> roninCopy("Chapter data unavailable", "Datos del capítulo no disponibles", uiLanguage)
+        chapter.read -> roninCopy("Chapter finished", "Capítulo terminado", uiLanguage)
         normalizedPageCount != null ->
-            "Page ${(chapter.last_page_read + 1).coerceAtMost(normalizedPageCount.toLong())} of $normalizedPageCount"
-        else -> "Page ${chapter.last_page_read + 1}"
+            roninCopy(
+                "Page ${(chapter.last_page_read + 1).coerceAtMost(
+                    normalizedPageCount.toLong(),
+                )} of $normalizedPageCount",
+                "Página ${(chapter.last_page_read + 1).coerceAtMost(
+                    normalizedPageCount.toLong(),
+                )} de $normalizedPageCount",
+                uiLanguage,
+            )
+        else -> roninCopy("Page ${chapter.last_page_read + 1}", "Página ${chapter.last_page_read + 1}", uiLanguage)
     }
     val readAtLabel = entry.readAt?.time?.takeIf { it > 0L }?.let {
         Instant.ofEpochMilli(it)
             .atZone(ZoneId.systemDefault())
-            .format(DateTimeFormatter.ofPattern("MMM d · HH:mm"))
-    } ?: "Reading date unavailable"
+            .format(DateTimeFormatter.ofPattern("MMM d · HH:mm", java.util.Locale.forLanguageTag(uiLanguage)))
+    } ?: roninCopy("Reading date unavailable", "Fecha de lectura no disponible", uiLanguage)
     val sourceLabel = source?.let {
-        if (it.lang == "localsourcelang") it.name else "${it.name} · ${it.lang.uppercase()}"
+        "${localizedSourceName(it, uiLanguage)} · ${it.roninSourceLanguage()}"
     }
 
     Column(Modifier.fillMaxWidth()) {
@@ -105,6 +115,8 @@ internal fun DesktopHistoryCard(
                                 entry.thumbnailUrl,
                                 source,
                                 Modifier.fillMaxWidth().height(100.dp),
+                                mangaUrl = mangaUrl,
+                                sourceId = entry.source,
                             )
                         }
                         Column(
@@ -118,7 +130,12 @@ internal fun DesktopHistoryCard(
                                 overflow = TextOverflow.Ellipsis,
                             )
                             Text(
-                                chapter?.name ?: "Chapter ${entry.chapterNumber}",
+                                chapter?.name
+                                    ?: roninCopy(
+                                        "Chapter ${entry.chapterNumber}",
+                                        "Capítulo ${formatChapterNumber(entry.chapterNumber)}",
+                                        uiLanguage,
+                                    ),
                                 color = RoninColors.textSecondary,
                                 style = MaterialTheme.typography.bodyMedium,
                                 maxLines = 2,
@@ -162,7 +179,7 @@ internal fun DesktopHistoryCard(
                                     style = MaterialTheme.typography.bodySmall,
                                 )
                                 RoninButton(
-                                    label = "Resume",
+                                    label = roninCopy("Resume", "Continuar", uiLanguage),
                                     onClick = onContinue,
                                     enabled = canResume,
                                 )
@@ -175,7 +192,7 @@ internal fun DesktopHistoryCard(
                             horizontalArrangement = Arrangement.End,
                         ) {
                             RoninButton(
-                                label = "Resume",
+                                label = roninCopy("Resume", "Continuar", uiLanguage),
                                 onClick = onContinue,
                                 enabled = canResume,
                             )

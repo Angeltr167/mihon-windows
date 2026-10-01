@@ -10,6 +10,13 @@ import kotlinx.serialization.protobuf.ProtoNumber
 data class MihonBackup(
     @ProtoNumber(1) val manga: List<BackupManga>,
     @ProtoNumber(2) val categories: List<BackupCategory> = emptyList(),
+    @ProtoNumber(1000) val desktopPreferences: List<BackupDesktopPreference> = emptyList(),
+)
+
+@Serializable
+data class BackupDesktopPreference(
+    @ProtoNumber(1) val key: String,
+    @ProtoNumber(2) val value: String,
 )
 
 @Serializable

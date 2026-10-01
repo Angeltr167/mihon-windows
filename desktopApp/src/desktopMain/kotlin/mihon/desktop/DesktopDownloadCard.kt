@@ -31,6 +31,7 @@ internal fun DesktopDownloadCard(
     onCancel: () -> Unit,
     onRead: () -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     RoninPanel {
         BoxWithConstraints(Modifier.fillMaxWidth()) {
             val narrow = maxWidth < 520.dp
@@ -46,17 +47,19 @@ internal fun DesktopDownloadCard(
                         Modifier.width(
                             RoninMangaMetrics.coverCompactWidth,
                         ).height(RoninMangaMetrics.coverCompactHeight),
+                        mangaUrl = download.mangaUrl,
+                        sourceId = download.sourceId,
                     )
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall)) {
                         Text(download.mangaTitle, style = MaterialTheme.typography.titleMedium)
                         Text(download.chapterName, color = RoninColors.textMuted)
                         Text(
                             when (download.status) {
-                                DesktopDownloadStatus.PENDING -> "Queued"
-                                DesktopDownloadStatus.RUNNING -> "Downloading"
-                                DesktopDownloadStatus.PAUSED -> "Paused"
-                                DesktopDownloadStatus.FAILED -> "Failed"
-                                DesktopDownloadStatus.COMPLETED -> "Completed"
+                                DesktopDownloadStatus.PENDING -> roninCopy("Queued", "En cola", uiLanguage)
+                                DesktopDownloadStatus.RUNNING -> roninCopy("Downloading", "Descargando", uiLanguage)
+                                DesktopDownloadStatus.PAUSED -> roninCopy("Paused", "Pausadas", uiLanguage)
+                                DesktopDownloadStatus.FAILED -> roninCopy("Failed", "Con errores", uiLanguage)
+                                DesktopDownloadStatus.COMPLETED -> roninCopy("Completed", "Completadas", uiLanguage)
                             },
                             color = if (download.status == DesktopDownloadStatus.FAILED) {
                                 MaterialTheme.colorScheme.error
@@ -73,7 +76,11 @@ internal fun DesktopDownloadCard(
                                 trackColor = RoninColors.borderSubtle,
                             )
                             Text(
-                                "${download.pagesDone} / ${download.pageCount} pages",
+                                roninCopy(
+                                    "${download.pagesDone} / ${download.pageCount} pages",
+                                    "${download.pagesDone} / ${download.pageCount} páginas",
+                                    uiLanguage,
+                                ),
                                 color = RoninColors.textMuted,
                                 style = MaterialTheme.typography.bodySmall,
                             )
@@ -106,20 +113,30 @@ private fun DownloadActions(
     onCancel: () -> Unit,
     onRead: () -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     FlowRow(horizontalArrangement = Arrangement.End) {
         when (download.status) {
             DesktopDownloadStatus.PENDING, DesktopDownloadStatus.RUNNING -> {
-                RoninInlineAction("Pause", onPause)
+                RoninInlineAction(roninCopy("Pause", "Pausar", uiLanguage), onPause)
             }
             DesktopDownloadStatus.PAUSED, DesktopDownloadStatus.FAILED -> {
-                RoninInlineAction(if (download.status == DesktopDownloadStatus.FAILED) "Retry" else "Resume", onResume)
+                RoninInlineAction(
+                    if (download.status ==
+                        DesktopDownloadStatus.FAILED
+                    ) {
+                        roninCopy("Retry", "Reintentar", uiLanguage)
+                    } else {
+                        roninCopy("Resume", "Continuar", uiLanguage)
+                    },
+                    onResume,
+                )
             }
             DesktopDownloadStatus.COMPLETED -> {
-                RoninInlineAction("Read", onRead)
+                RoninInlineAction(roninCopy("Read", "Leer", uiLanguage), onRead)
             }
         }
         if (download.status != DesktopDownloadStatus.COMPLETED) {
-            RoninInlineAction("Cancel", onCancel)
+            RoninInlineAction(roninCopy("Cancel", "Cancelar", uiLanguage), onCancel)
         }
     }
 }

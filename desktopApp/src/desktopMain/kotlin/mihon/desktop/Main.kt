@@ -45,15 +45,24 @@ fun main(args: Array<String>) {
     DesktopSingleInstance(Path.of(graph.appDirectories.config)).use { instance ->
         if (!instance.startOrForward(args)) return
         application {
+            val rememberSize = graph.keyValueStore.getBoolean(DesktopPreferences.REMEMBER_SIZE, true)
             val state = rememberWindowState(
-                width = graph.keyValueStore.getLong("desktop.window.width", 1100).coerceIn(800, 3840).toInt().dp,
-                height = graph.keyValueStore.getLong("desktop.window.height", 750).coerceIn(560, 2160).toInt().dp,
-                placement = WindowPlacement.Maximized,
+                width = (if (rememberSize) graph.keyValueStore.getLong("desktop.window.width", 1100) else 1100)
+                    .coerceIn(800, 3840).toInt().dp,
+                height = (if (rememberSize) graph.keyValueStore.getLong("desktop.window.height", 750) else 750)
+                    .coerceIn(560, 2160).toInt().dp,
+                placement = if (graph.keyValueStore.getBoolean(DesktopPreferences.MAXIMIZED, true)) {
+                    WindowPlacement.Maximized
+                } else {
+                    WindowPlacement.Floating
+                },
             )
             Window(
                 onCloseRequest = {
-                    graph.keyValueStore.putLong("desktop.window.width", state.size.width.value.toLong())
-                    graph.keyValueStore.putLong("desktop.window.height", state.size.height.value.toLong())
+                    if (graph.keyValueStore.getBoolean(DesktopPreferences.REMEMBER_SIZE, true)) {
+                        graph.keyValueStore.putLong("desktop.window.width", state.size.width.value.toLong())
+                        graph.keyValueStore.putLong("desktop.window.height", state.size.height.value.toLong())
+                    }
                     exitApplication()
                 },
                 title = "Ronin",

@@ -139,7 +139,18 @@ fun DesktopShell(
     val focusRequester = remember { FocusRequester() }
     val protocolRegistrar = remember { WindowsProtocolRegistrar() }
     LaunchedEffect(focusRequester) { focusRequester.requestFocus() }
-    var screen by remember { mutableStateOf(Screen.LIBRARY) }
+    val preferences = remember(graph) { DesktopPreferences(graph.keyValueStore) }
+    var preferencesRevision by remember { mutableIntStateOf(0) }
+    var languageTag by remember {
+        mutableStateOf(preferences.effectiveLanguageTag(graph.localeService.currentLanguageTag()))
+    }
+    var screen by remember {
+        mutableStateOf(
+            DesktopPreferences.START_SCREENS.firstOrNull {
+                it.name == graph.keyValueStore.getString(DesktopPreferences.START_SCREEN)
+            } ?: Screen.LIBRARY,
+        )
+    }
     var settingsSection by remember { mutableStateOf(DesktopSettingsSection.GENERAL) }
     var sources by remember { mutableStateOf(session.sources()) }
     var library by remember { mutableStateOf(emptyList<Mangas>()) }
@@ -186,7 +197,11 @@ fun DesktopShell(
     var installedDesktopExtensions by remember { mutableStateOf(session.extensions.installedExtensions()) }
     var suwayomiExtensions by remember { mutableStateOf(emptyList<SuwayomiExtension>()) }
     var suwayomiSearch by remember { mutableStateOf("") }
-    var suwayomiStatus by remember { mutableStateOf("Starting local extension engine…") }
+    var suwayomiStatus by remember {
+        mutableStateOf(
+            "Starting local extension engine…",
+        )
+    }
     var extensionSection by remember { mutableIntStateOf(0) }
     var extensionLoading by remember { mutableStateOf(false) }
     var extensionError by remember { mutableStateOf<String?>(null) }
@@ -194,7 +209,6 @@ fun DesktopShell(
     var extensionBusyLabel by remember { mutableStateOf<String?>(null) }
     var fingerprint by remember { mutableStateOf("") }
     var categoryName by remember { mutableStateOf("") }
-    var backupPath by remember { mutableStateOf("") }
     var aniListCallback by remember { mutableStateOf("") }
     var aniListMediaId by remember { mutableStateOf("") }
     var kavitaApiKey by remember { mutableStateOf("") }
@@ -262,7 +276,9 @@ fun DesktopShell(
                 throw error
             } catch (error: Exception) {
                 if (requestId == libraryRequestId) {
-                    val detail = error.message ?: "Could not load library"
+                    val detail =
+                        error.message
+                            ?: roninCopy("Could not load library", "No se pudo cargar la biblioteca", languageTag)
                     libraryError = detail
                     notice.error(detail)
                 }
@@ -608,12 +624,24 @@ fun DesktopShell(
 
     val density = LocalDensity.current
     var compactNavigation by remember { mutableStateOf(false) }
-    RoninDesktopTheme {
+    var coverRevision by remember { mutableIntStateOf(0) }
+    RoninDesktopTheme(languageTag, session.customCovers, coverRevision) {
         RoninWindowSurface(
             modifier = Modifier.fillMaxSize().onSizeChanged { size ->
                 compactNavigation = with(density) { size.width.toDp() < RoninLayout.sidebarCompactBreakpoint }
             },
             readerMode = readerTarget != null,
+            notice = {
+                if (message.isNotBlank()) {
+                    RoninPanel(Modifier.fillMaxWidth()) {
+                        Text(
+                            message,
+                            Modifier.padding(horizontal = 12.dp, vertical = 9.dp),
+                            color = if (notice.isError) MaterialTheme.colorScheme.error else RoninColors.textMuted,
+                        )
+                    }
+                }
+            },
         ) {
             Row(
                 modifier = Modifier.fillMaxSize().onPreviewKeyEvent { event ->
@@ -642,15 +670,6 @@ fun DesktopShell(
                     readerMode = readerTarget != null,
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                 ) {
-                    if (message.isNotBlank()) {
-                        RoninPanel(Modifier.fillMaxWidth()) {
-                            Text(
-                                message,
-                                Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 9.dp),
-                                color = if (notice.isError) MaterialTheme.colorScheme.error else RoninColors.textMuted,
-                            )
-                        }
-                    }
                     when {
                         readerTarget != null -> DesktopReader(
                             session = session,
@@ -678,6 +697,21 @@ fun DesktopShell(
                             }
                             val storedManga = snapshot?.stored
                             val persistedChapterStates = snapshot?.chapterStates.orEmpty()
+                            var chapterQuery by remember(item.url) { mutableStateOf("") }
+                            var unreadOnly by remember(item.url) { mutableStateOf(false) }
+                            var reversedChapters by remember(item.url) { mutableStateOf(false) }
+                            val visibleChapters = remember(
+                                chapters,
+                                chapterQuery,
+                                unreadOnly,
+                                reversedChapters,
+                                persistedChapterStates,
+                            ) {
+                                chapters.filter { chapter ->
+                                    chapter.name.contains(chapterQuery, ignoreCase = true) &&
+                                        (!unreadOnly || persistedChapterStates[chapter.url]?.read != true)
+                                }.let { if (reversedChapters) it.reversed() else it }
+                            }
                             LazyColumn(
                                 modifier = Modifier.weight(1f).fillMaxWidth(),
                                 horizontalAlignment = Alignment.CenterHorizontally,
@@ -769,15 +803,18 @@ fun DesktopShell(
                                             categories = categories,
                                             linkedTrackers = linkedTrackers,
                                             continueLabel = if (recentChapter != null) {
-                                                "Continue reading"
+                                                roninText("Continue reading", "Continuar leyendo")
                                             } else {
-                                                "Start reading"
+                                                roninText("Start reading", "Comenzar lectura")
                                             },
                                             progressLabel = recentChapter?.let {
                                                 if (it.read) {
-                                                    "Last chapter finished"
+                                                    roninText("Last chapter finished", "Último capítulo terminado")
                                                 } else {
-                                                    "Continue from page ${it.last_page_read + 1}"
+                                                    roninText(
+                                                        "Continue from page ${it.last_page_read + 1}",
+                                                        "Continuar desde la página ${it.last_page_read + 1}",
+                                                    )
                                                 }
                                             },
                                             detailsLoading = detailsLoading,
@@ -823,6 +860,18 @@ fun DesktopShell(
                                             },
                                             onOpenBrowser = openBrowserAction,
                                             onCopyLink = copyLinkAction,
+                                            coverSourceId = stored?.source ?: selectedSource?.id,
+                                            coverActions = {
+                                                (stored?.source ?: selectedSource?.id)?.let { sourceId ->
+                                                    DesktopCoverControls(
+                                                        graph,
+                                                        session.customCovers,
+                                                        sourceId,
+                                                        item.url,
+                                                        onChanged = { coverRevision++ },
+                                                    )
+                                                }
+                                            },
                                         )
                                         if (
                                             trackingExpanded && stored != null &&
@@ -1307,7 +1356,33 @@ fun DesktopShell(
                                         modifier = Modifier.widthIn(max = 1440.dp).fillMaxWidth(),
                                     ) {
                                         RoninSectionHeader(
-                                            title = "Chapters",
+                                            title = roninText("Chapters", "Capítulos"),
+                                            trailing = {
+                                                FlowRow(
+                                                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
+                                                ) {
+                                                    RoninSearchField(
+                                                        chapterQuery,
+                                                        {
+                                                            chapterQuery = it
+                                                        },
+                                                        roninText(
+                                                            "Search chapters…",
+                                                            "Buscar capítulos…",
+                                                        ),
+                                                        Modifier.widthIn(max = 280.dp),
+                                                    )
+                                                    RoninFilterPill(roninText("Unread", "No leídos"), unreadOnly, {
+                                                        unreadOnly =
+                                                            !unreadOnly
+                                                    })
+                                                    RoninSecondaryButton(roninText("⇅ Order", "⇅ Ordenar"), {
+                                                        reversedChapters =
+                                                            !reversedChapters
+                                                    })
+                                                }
+                                            },
                                             subtitle = if (storedManga != null && persisted.isNotEmpty()) {
                                                 buildString {
                                                     append(chapters.size)
@@ -1345,7 +1420,7 @@ fun DesktopShell(
                                                     )
                                                     if (selectedSource != null) {
                                                         RoninSecondaryButton(
-                                                            label = "Retry",
+                                                            label = roninCopy("Retry", "Reintentar", languageTag),
                                                             onClick = {
                                                                 loadMangaDetails(selectedSource, item)
                                                             },
@@ -1360,7 +1435,8 @@ fun DesktopShell(
                                         }
                                     }
                                 }
-                                items(chapters, key = SChapter::url) { chapter ->
+                                if (visibleChapters.isNotEmpty()) item { RoninChapterTableHeader() }
+                                items(visibleChapters, key = SChapter::url) { chapter ->
                                     val queued = downloads.firstOrNull {
                                         it.sourceId == selectedSource?.id &&
                                             it.mangaUrl == item.url &&
@@ -1384,6 +1460,17 @@ fun DesktopShell(
                                     ) {
                                         RoninChapterRow(
                                             title = chapter.name,
+                                            number = chapter.chapter_number.takeIf { it.isFinite() && it >= 0 }
+                                                ?.let { if (it % 1f == 0f) it.toInt().toString() else it.toString() }
+                                                .orEmpty(),
+                                            date = chapter.date_upload.takeIf { it > 0 }?.let {
+                                                java.time.Instant.ofEpochMilli(it)
+                                                    .atZone(java.time.ZoneId.systemDefault())
+                                                    .format(java.time.format.DateTimeFormatter.ofPattern("d MMM yyyy"))
+                                            },
+                                            inProgress = storedChapter?.let {
+                                                !it.read && it.last_page_read > 0
+                                            } == true,
                                             subtitle = subtitle,
                                             read = if (storedManga != null) {
                                                 storedChapter?.read ?: false
@@ -1409,9 +1496,9 @@ fun DesktopShell(
                                                     if (storedChapter != null) {
                                                         RoninInlineAction(
                                                             label = if (storedChapter.bookmark) {
-                                                                "Unbookmark"
+                                                                roninText("Unbookmark", "Desmarcar")
                                                             } else {
-                                                                "Bookmark"
+                                                                roninText("Bookmark", "Marcar")
                                                             },
                                                             onClick = {
                                                                 session.library.setChapterBookmark(
@@ -1433,7 +1520,11 @@ fun DesktopShell(
                                                     ) {
                                                         when (queued?.status) {
                                                             DesktopDownloadStatus.COMPLETED -> RoninBadge(
-                                                                label = "Downloaded",
+                                                                label = roninCopy(
+                                                                    "Downloaded",
+                                                                    "Descargado",
+                                                                    languageTag,
+                                                                ),
                                                                 accent = true,
                                                             )
                                                             DesktopDownloadStatus.RUNNING -> RoninBadge(
@@ -1441,16 +1532,28 @@ fun DesktopShell(
                                                                 accent = true,
                                                             )
                                                             DesktopDownloadStatus.PENDING -> RoninBadge(
-                                                                label = "Queued",
+                                                                label = roninCopy("Queued", "En cola", languageTag),
                                                             )
                                                             DesktopDownloadStatus.PAUSED,
                                                             DesktopDownloadStatus.FAILED,
                                                             null,
                                                             -> RoninInlineAction(
                                                                 label = when (queued?.status) {
-                                                                    DesktopDownloadStatus.PAUSED -> "Resume"
-                                                                    DesktopDownloadStatus.FAILED -> "Retry"
-                                                                    else -> "Download"
+                                                                    DesktopDownloadStatus.PAUSED -> roninCopy(
+                                                                        "Resume",
+                                                                        "Continuar",
+                                                                        languageTag,
+                                                                    )
+                                                                    DesktopDownloadStatus.FAILED -> roninCopy(
+                                                                        "Retry",
+                                                                        "Reintentar",
+                                                                        languageTag,
+                                                                    )
+                                                                    else -> roninCopy(
+                                                                        "Download",
+                                                                        "Descargar",
+                                                                        languageTag,
+                                                                    )
                                                                 },
                                                                 onClick = {
                                                                     when (queued?.status) {
@@ -1503,7 +1606,11 @@ fun DesktopShell(
                                                                 category.id in selectedMangaCategories
                                                             RoninChip(
                                                                 label = category.name.ifBlank {
-                                                                    "Uncategorized"
+                                                                    roninCopy(
+                                                                        "Uncategorized",
+                                                                        "Sin categoría",
+                                                                        languageTag,
+                                                                    )
                                                                 },
                                                                 selected = selected,
                                                                 onClick = {
@@ -1573,6 +1680,24 @@ fun DesktopShell(
                                 onSearch = { source?.let { browse(it, query) } },
                                 onOpenManga = { manga ->
                                     source?.let { selected -> loadMangaDetails(selected, manga) }
+                                },
+                                libraryUrls = library.filter { it.source == source?.id }.map { it.url }.toSet(),
+                                onAddToLibrary = { manga ->
+                                    source?.let { selected ->
+                                        scope.launch {
+                                            runCatching {
+                                                withContext(Dispatchers.IO) {
+                                                    session.library.addToLibrary(selected.id, manga.copy())
+                                                }
+                                            }.onSuccess {
+                                                refreshLibrary()
+                                                message = "Library updated"
+                                            }.onFailure {
+                                                if (it is CancellationException) throw it
+                                                notice.error(it.message ?: "Could not add manga to library")
+                                            }
+                                        }
+                                    }
                                 },
                                 onLoadMore = {
                                     source?.let { selected ->
@@ -2007,121 +2132,58 @@ fun DesktopShell(
                                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                                 ) {
                                     RoninSectionHeader(
-                                        "Settings",
-                                        "${settingsSection.title} · ${settingsSection.description}",
+                                        Screen.SETTINGS.localizedTitle(),
+                                        "${settingsSection.localizedTitle()} · ${settingsSection.localizedDescription()}",
                                         pageHeading = true,
                                     )
                                     when (settingsSection) {
-                                        DesktopSettingsSection.GENERAL -> DesktopSettingsOverview(
-                                            graph = graph,
-                                            languageTag = graph.localeService.currentLanguageTag(),
-                                            mangaCount = library.size,
-                                            updateIntervalHours = updateInterval,
-                                            queuedDownloadCount = downloads.size,
-                                            activeDownloadCount = downloads.count {
-                                                it.status == DesktopDownloadStatus.RUNNING ||
-                                                    it.status == DesktopDownloadStatus.PENDING
-                                            },
-                                            failedDownloadCount = downloads.count {
-                                                it.status == DesktopDownloadStatus.FAILED
-                                            },
-                                            connectedTrackers = listOfNotNull(
-                                                "AniList".takeIf { aniListLoggedIn },
-                                                "MangaUpdates".takeIf { mangaUpdatesLoggedIn },
-                                                "Kitsu".takeIf { kitsuLoggedIn },
-                                                "MyAnimeList".takeIf { malLoggedIn },
-                                                "Shikimori".takeIf { shikimoriLoggedIn },
-                                                "Hikka".takeIf { hikkaLoggedIn },
-                                                "Bangumi".takeIf { bangumiLoggedIn },
-                                                "MangaBaka".takeIf { mangaBakaLoggedIn },
-                                            ),
-                                            installedExtensionCount = installedDesktopExtensions.size +
-                                                suwayomiExtensions.count { it.installed && !it.obsolete },
-                                            protocolRegistered = mihonProtocolRegistered,
-                                            onSelectSection = { settingsSection = it },
-                                            onOpenDownloads = { navigateToScreen(Screen.DOWNLOADS) },
-                                        )
-                                        DesktopSettingsSection.STORAGE -> {
-                                            RoninPanel(Modifier.fillMaxWidth()) {
-                                                Column(
-                                                    Modifier.fillMaxWidth().padding(RoninSpacing.large),
-                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                                                ) {
-                                                    Text("Migration", style = MaterialTheme.typography.titleMedium)
-                                                    Text(
-                                                        "Import a Mihon Android .tachibk backup. " +
-                                                            "Matching manga records are updated.",
-                                                        color = RoninColors.textMuted,
+                                        DesktopSettingsSection.GENERAL -> {
+                                            DesktopPreferencesSettings(graph, preferencesRevision) {
+                                                preferencesRevision++
+                                                languageTag =
+                                                    preferences.effectiveLanguageTag(
+                                                        graph.localeService.currentLanguageTag(),
                                                     )
-                                                    FlowRow(
-                                                        horizontalArrangement = Arrangement.spacedBy(
-                                                            RoninSpacing.small,
-                                                        ),
-                                                        verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
-                                                    ) {
-                                                        OutlinedTextField(
-                                                            backupPath,
-                                                            { backupPath = it },
-                                                            label = { Text("Android backup (.tachibk)") },
-                                                            modifier = Modifier.weight(1f),
-                                                        )
-                                                        RoninTextButton(onClick = {
-                                                            graph.fileDialogService.chooseOpenFile(
-                                                                OpenFileRequest(
-                                                                    "Import Mihon Android backup",
-                                                                    extensions = setOf("tachibk"),
-                                                                ),
-                                                            )?.let { backupPath = it }
-                                                        }) { Text("Choose…") }
-                                                        Button(onClick = {
-                                                            val path = backupPath.trim()
-                                                            scope.launch {
-                                                                runCatching {
-                                                                    withContext(Dispatchers.IO) {
-                                                                        DesktopBackupImporter.import(
-                                                                            Path.of(path),
-                                                                            session.library,
-                                                                        )
-                                                                    }
-                                                                }.onSuccess { result ->
-                                                                    refreshLibrary()
-                                                                    message = buildString {
-                                                                        append("Imported ${result.manga} manga")
-                                                                        append(", ${result.chapters} chapters")
-                                                                        append(
-                                                                            ", ${result.categories} categories",
-                                                                        )
-                                                                        append(", ")
-                                                                        append(result.trackerEntries)
-                                                                        append(" tracker entries")
-                                                                    }
-                                                                }.onFailure {
-                                                                    notice.error(it.message ?: "Backup import failed")
-                                                                }
-                                                            }
-                                                        }, enabled = backupPath.isNotBlank()) { Text("Import backup") }
-                                                    }
-                                                }
                                             }
-                                            HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                                            RoninPanel(Modifier.fillMaxWidth()) {
-                                                Column(
-                                                    Modifier.fillMaxWidth().padding(RoninSpacing.large),
-                                                    verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-                                                ) {
-                                                    Text(
-                                                        "Application and storage",
-                                                        style = MaterialTheme.typography.titleMedium,
+                                            DesktopSettingsOverview(
+                                                graph = graph,
+                                                languageTag = languageTag,
+                                                mangaCount = library.size,
+                                                updateIntervalHours = updateInterval,
+                                                queuedDownloadCount = downloads.size,
+                                                activeDownloadCount = downloads.count {
+                                                    it.status == DesktopDownloadStatus.RUNNING ||
+                                                        it.status == DesktopDownloadStatus.PENDING
+                                                },
+                                                failedDownloadCount = downloads.count {
+                                                    it.status == DesktopDownloadStatus.FAILED
+                                                },
+                                                connectedTrackers = listOfNotNull(
+                                                    "AniList".takeIf { aniListLoggedIn },
+                                                    "MangaUpdates".takeIf { mangaUpdatesLoggedIn },
+                                                    "Kitsu".takeIf { kitsuLoggedIn },
+                                                    "MyAnimeList".takeIf { malLoggedIn },
+                                                    "Shikimori".takeIf { shikimoriLoggedIn },
+                                                    "Hikka".takeIf { hikkaLoggedIn },
+                                                    "Bangumi".takeIf { bangumiLoggedIn },
+                                                    "MangaBaka".takeIf { mangaBakaLoggedIn },
+                                                ),
+                                                installedExtensionCount = installedDesktopExtensions.size +
+                                                    suwayomiExtensions.count { it.installed && !it.obsolete },
+                                                protocolRegistered = mihonProtocolRegistered,
+                                                onSelectSection = { settingsSection = it },
+                                                onOpenDownloads = { navigateToScreen(Screen.DOWNLOADS) },
+                                            )
+                                        }
+                                        DesktopSettingsSection.STORAGE -> {
+                                            DesktopBackupSettings(graph, session) {
+                                                refreshLibrary()
+                                                preferencesRevision++
+                                                languageTag =
+                                                    preferences.effectiveLanguageTag(
+                                                        graph.localeService.currentLanguageTag(),
                                                     )
-                                                    Text(
-                                                        "Local library: ${graph.appDirectories.localLibrary}",
-                                                        color = RoninColors.textMuted,
-                                                    )
-                                                    Text(
-                                                        "Database: ${graph.appDirectories.database}",
-                                                        color = RoninColors.textMuted,
-                                                    )
-                                                }
+                                                updateInterval = session.libraryUpdates.intervalHours()
                                             }
                                         }
                                         DesktopSettingsSection.TRACKING -> {
@@ -2131,11 +2193,19 @@ fun DesktopShell(
                                                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                                 ) {
                                                     Text(
-                                                        "Tracker integrations",
+                                                        roninCopy(
+                                                            "Tracker integrations",
+                                                            "Servicios de seguimiento",
+                                                            languageTag,
+                                                        ),
                                                         style = MaterialTheme.typography.titleLarge,
                                                     )
                                                     Text(
-                                                        "Tracker account sign-in status and actions.",
+                                                        roninCopy(
+                                                            "Tracker account sign-in status and actions.",
+                                                            "Estado de las cuentas y opciones de inicio de sesión.",
+                                                            languageTag,
+                                                        ),
                                                         color = RoninColors.textMuted,
                                                     )
                                                     Text(
@@ -2146,22 +2216,63 @@ fun DesktopShell(
                                                         RoninTextButton(onClick = {
                                                             session.aniListTracker.logout()
                                                             aniListLoggedIn = false
-                                                            message = "AniList signed out"
-                                                        }) { Text("Sign out of AniList") }
+                                                            message =
+                                                                roninCopy(
+                                                                    "AniList signed out",
+                                                                    "Sesión de AniList cerrada",
+                                                                    languageTag,
+                                                                )
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign out of AniList",
+                                                                    "Cerrar sesión en AniList",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     } else {
                                                         RoninTextButton(onClick = {
                                                             val browserOpened = graph.browserService.open(
                                                                 DesktopAniListTracker.AUTH_URL,
                                                             )
                                                             if (!browserOpened) {
-                                                                notice.error("Could not open AniList in the browser")
+                                                                notice.error(
+                                                                    roninCopy(
+                                                                        "Could not open AniList in the browser",
+                                                                        "No se pudo abrir AniList en el navegador",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
                                                             }
-                                                        }) { Text("Sign in to AniList in browser") }
-                                                        Text("If the redirect fails, paste its URL below.")
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign in to AniList in browser",
+                                                                    "Iniciar sesión en AniList en el navegador",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
+                                                        Text(
+                                                            roninCopy(
+                                                                "If the redirect fails, paste its URL below.",
+                                                                "Si falla la redirección, pega su enlace a continuación.",
+                                                                languageTag,
+                                                            ),
+                                                        )
                                                         OutlinedTextField(
                                                             aniListCallback,
                                                             { aniListCallback = it },
-                                                            label = { Text("Paste AniList redirect URL") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "Paste AniList redirect URL",
+                                                                        "Pegar enlace de redirección de AniList",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                             visualTransformation = PasswordVisualTransformation(),
                                                         )
                                                         RoninTextButton(onClick = {
@@ -2173,15 +2284,33 @@ fun DesktopShell(
                                                                 }
                                                                     .onSuccess { name ->
                                                                         aniListLoggedIn = true
-                                                                        message = "Signed in to AniList as $name"
+                                                                        message =
+                                                                            roninCopy(
+                                                                                "Signed in to AniList as $name",
+                                                                                "Sesión iniciada en AniList como $name",
+                                                                                languageTag,
+                                                                            )
                                                                     }
                                                                     .onFailure {
                                                                         notice.error(
-                                                                            it.message ?: "AniList sign-in failed",
+                                                                            it.message
+                                                                                ?: roninCopy(
+                                                                                    "AniList sign-in failed",
+                                                                                    "Falló el inicio de sesión en AniList",
+                                                                                    languageTag,
+                                                                                ),
                                                                         )
                                                                     }
                                                             }
-                                                        }) { Text("Complete AniList sign-in") }
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Complete AniList sign-in",
+                                                                    "Completar inicio de sesión en AniList",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     }
                                                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                                                     Text(
@@ -2192,18 +2321,47 @@ fun DesktopShell(
                                                         RoninTextButton(onClick = {
                                                             session.mangaUpdatesTracker.logout()
                                                             mangaUpdatesLoggedIn = false
-                                                            message = "MangaUpdates signed out"
-                                                        }) { Text("Sign out of MangaUpdates") }
+                                                            message =
+                                                                roninCopy(
+                                                                    "MangaUpdates signed out",
+                                                                    "Sesión de MangaUpdates cerrada",
+                                                                    languageTag,
+                                                                )
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign out of MangaUpdates",
+                                                                    "Cerrar sesión en MangaUpdates",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     } else {
                                                         OutlinedTextField(
                                                             mangaUpdatesUsername,
                                                             { mangaUpdatesUsername = it },
-                                                            label = { Text("MangaUpdates username") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "MangaUpdates username",
+                                                                        "Usuario de MangaUpdates",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                         )
                                                         OutlinedTextField(
                                                             mangaUpdatesPassword,
                                                             { mangaUpdatesPassword = it },
-                                                            label = { Text("MangaUpdates password") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "MangaUpdates password",
+                                                                        "Contraseña de MangaUpdates",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                             visualTransformation = PasswordVisualTransformation(),
                                                         )
                                                         RoninTextButton(onClick = {
@@ -2219,14 +2377,32 @@ fun DesktopShell(
                                                                 }
                                                                     .onSuccess { name ->
                                                                         mangaUpdatesLoggedIn = true
-                                                                        message = "Signed in to MangaUpdates as $name"
+                                                                        message =
+                                                                            roninCopy(
+                                                                                "Signed in to MangaUpdates as $name",
+                                                                                "Sesión iniciada en MangaUpdates como $name",
+                                                                                languageTag,
+                                                                            )
                                                                     }.onFailure {
                                                                         notice.error(
-                                                                            it.message ?: "MangaUpdates sign-in failed",
+                                                                            it.message
+                                                                                ?: roninCopy(
+                                                                                    "MangaUpdates sign-in failed",
+                                                                                    "Falló el inicio de sesión en MangaUpdates",
+                                                                                    languageTag,
+                                                                                ),
                                                                         )
                                                                     }
                                                             }
-                                                        }) { Text("Sign in to MangaUpdates") }
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign in to MangaUpdates",
+                                                                    "Iniciar sesión en MangaUpdates",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     }
                                                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                                                     Text(
@@ -2237,18 +2413,47 @@ fun DesktopShell(
                                                         RoninTextButton(onClick = {
                                                             session.kitsuTracker.logout()
                                                             kitsuLoggedIn = false
-                                                            message = "Kitsu signed out"
-                                                        }) { Text("Sign out of Kitsu") }
+                                                            message =
+                                                                roninCopy(
+                                                                    "Kitsu signed out",
+                                                                    "Sesión de Kitsu cerrada",
+                                                                    languageTag,
+                                                                )
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign out of Kitsu",
+                                                                    "Cerrar sesión en Kitsu",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     } else {
                                                         OutlinedTextField(
                                                             kitsuUsername,
                                                             { kitsuUsername = it },
-                                                            label = { Text("Kitsu username") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "Kitsu username",
+                                                                        "Usuario de Kitsu",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                         )
                                                         OutlinedTextField(
                                                             kitsuPassword,
                                                             { kitsuPassword = it },
-                                                            label = { Text("Kitsu password") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "Kitsu password",
+                                                                        "Contraseña de Kitsu",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                             visualTransformation = PasswordVisualTransformation(),
                                                         )
                                                         RoninTextButton(onClick = {
@@ -2261,14 +2466,32 @@ fun DesktopShell(
                                                                 }
                                                                     .onSuccess { name ->
                                                                         kitsuLoggedIn = true
-                                                                        message = "Signed in to Kitsu as $name"
+                                                                        message =
+                                                                            roninCopy(
+                                                                                "Signed in to Kitsu as $name",
+                                                                                "Sesión iniciada en Kitsu como $name",
+                                                                                languageTag,
+                                                                            )
                                                                     }.onFailure {
                                                                         notice.error(
-                                                                            it.message ?: "Kitsu sign-in failed",
+                                                                            it.message
+                                                                                ?: roninCopy(
+                                                                                    "Kitsu sign-in failed",
+                                                                                    "Falló el inicio de sesión en Kitsu",
+                                                                                    languageTag,
+                                                                                ),
                                                                         )
                                                                     }
                                                             }
-                                                        }) { Text("Sign in to Kitsu") }
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign in to Kitsu",
+                                                                    "Iniciar sesión en Kitsu",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     }
                                                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                                                     Text(
@@ -2279,22 +2502,64 @@ fun DesktopShell(
                                                         RoninTextButton(onClick = {
                                                             session.myAnimeListTracker.logout()
                                                             malLoggedIn = false
-                                                            message = "MyAnimeList signed out"
-                                                        }) { Text("Sign out of MyAnimeList") }
+                                                            message =
+                                                                roninCopy(
+                                                                    "MyAnimeList signed out",
+                                                                    "Sesión de MyAnimeList cerrada",
+                                                                    languageTag,
+                                                                )
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign out of MyAnimeList",
+                                                                    "Cerrar sesión en MyAnimeList",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     } else {
                                                         RoninTextButton(onClick = {
                                                             runCatching {
                                                                 val url = session.myAnimeListTracker.beginLogin()
                                                                 check(graph.browserService.open(url))
                                                             }.onFailure {
-                                                                notice.error(it.message ?: "Could not open MyAnimeList")
+                                                                notice.error(
+                                                                    it.message
+                                                                        ?: roninCopy(
+                                                                            "Could not open MyAnimeList",
+                                                                            "No se pudo abrir MyAnimeList",
+                                                                            languageTag,
+                                                                        ),
+                                                                )
                                                             }
-                                                        }) { Text("Sign in to MyAnimeList in browser") }
-                                                        Text("If the redirect fails, paste its URL below.")
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign in to MyAnimeList in browser",
+                                                                    "Iniciar sesión en MyAnimeList en el navegador",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
+                                                        Text(
+                                                            roninCopy(
+                                                                "If the redirect fails, paste its URL below.",
+                                                                "Si falla la redirección, pega su enlace a continuación.",
+                                                                languageTag,
+                                                            ),
+                                                        )
                                                         OutlinedTextField(
                                                             malCallback,
                                                             { malCallback = it },
-                                                            label = { Text("Paste MyAnimeList redirect URL") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "Paste MyAnimeList redirect URL",
+                                                                        "Pegar enlace de redirección de MyAnimeList",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                             visualTransformation = PasswordVisualTransformation(),
                                                         )
                                                         RoninTextButton(onClick = {
@@ -2308,14 +2573,32 @@ fun DesktopShell(
                                                                 }
                                                                     .onSuccess { name ->
                                                                         malLoggedIn = true
-                                                                        message = "Signed in to MyAnimeList as $name"
+                                                                        message =
+                                                                            roninCopy(
+                                                                                "Signed in to MyAnimeList as $name",
+                                                                                "Sesión iniciada en MyAnimeList como $name",
+                                                                                languageTag,
+                                                                            )
                                                                     }.onFailure {
                                                                         notice.error(
-                                                                            it.message ?: "MyAnimeList sign-in failed",
+                                                                            it.message
+                                                                                ?: roninCopy(
+                                                                                    "MyAnimeList sign-in failed",
+                                                                                    "Falló el inicio de sesión en MyAnimeList",
+                                                                                    languageTag,
+                                                                                ),
                                                                         )
                                                                     }
                                                             }
-                                                        }) { Text("Complete MyAnimeList sign-in") }
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Complete MyAnimeList sign-in",
+                                                                    "Completar inicio de sesión en MyAnimeList",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     }
                                                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                                                     Text(
@@ -2326,8 +2609,21 @@ fun DesktopShell(
                                                         RoninTextButton(onClick = {
                                                             session.shikimoriTracker.logout()
                                                             shikimoriLoggedIn = false
-                                                            message = "Shikimori signed out"
-                                                        }) { Text("Sign out of Shikimori") }
+                                                            message =
+                                                                roninCopy(
+                                                                    "Shikimori signed out",
+                                                                    "Sesión de Shikimori cerrada",
+                                                                    languageTag,
+                                                                )
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign out of Shikimori",
+                                                                    "Cerrar sesión en Shikimori",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     } else {
                                                         RoninTextButton(onClick = {
                                                             runCatching {
@@ -2335,14 +2631,43 @@ fun DesktopShell(
                                                                     session.shikimoriTracker.beginLogin()
                                                                 check(graph.browserService.open(authorizationUrl))
                                                             }.onFailure {
-                                                                notice.error(it.message ?: "Could not open Shikimori")
+                                                                notice.error(
+                                                                    it.message
+                                                                        ?: roninCopy(
+                                                                            "Could not open Shikimori",
+                                                                            "No se pudo abrir Shikimori",
+                                                                            languageTag,
+                                                                        ),
+                                                                )
                                                             }
-                                                        }) { Text("Sign in to Shikimori in browser") }
-                                                        Text("If the redirect fails, paste its URL below.")
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign in to Shikimori in browser",
+                                                                    "Iniciar sesión en Shikimori en el navegador",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
+                                                        Text(
+                                                            roninCopy(
+                                                                "If the redirect fails, paste its URL below.",
+                                                                "Si falla la redirección, pega su enlace a continuación.",
+                                                                languageTag,
+                                                            ),
+                                                        )
                                                         OutlinedTextField(
                                                             shikimoriCallback,
                                                             { shikimoriCallback = it },
-                                                            label = { Text("Paste Shikimori redirect URL") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "Paste Shikimori redirect URL",
+                                                                        "Pegar enlace de redirección de Shikimori",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                             visualTransformation = PasswordVisualTransformation(),
                                                         )
                                                         RoninTextButton(onClick = {
@@ -2354,14 +2679,32 @@ fun DesktopShell(
                                                                 }
                                                                     .onSuccess { name ->
                                                                         shikimoriLoggedIn = true
-                                                                        message = "Signed in to Shikimori as $name"
+                                                                        message =
+                                                                            roninCopy(
+                                                                                "Signed in to Shikimori as $name",
+                                                                                "Sesión iniciada en Shikimori como $name",
+                                                                                languageTag,
+                                                                            )
                                                                     }.onFailure {
                                                                         notice.error(
-                                                                            it.message ?: "Shikimori sign-in failed",
+                                                                            it.message
+                                                                                ?: roninCopy(
+                                                                                    "Shikimori sign-in failed",
+                                                                                    "Falló el inicio de sesión en Shikimori",
+                                                                                    languageTag,
+                                                                                ),
                                                                         )
                                                                     }
                                                             }
-                                                        }) { Text("Complete Shikimori sign-in") }
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Complete Shikimori sign-in",
+                                                                    "Completar inicio de sesión en Shikimori",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     }
                                                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                                                     Text(
@@ -2372,22 +2715,64 @@ fun DesktopShell(
                                                         RoninTextButton(onClick = {
                                                             session.hikkaTracker.logout()
                                                             hikkaLoggedIn = false
-                                                            message = "Hikka signed out"
-                                                        }) { Text("Sign out of Hikka") }
+                                                            message =
+                                                                roninCopy(
+                                                                    "Hikka signed out",
+                                                                    "Sesión de Hikka cerrada",
+                                                                    languageTag,
+                                                                )
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign out of Hikka",
+                                                                    "Cerrar sesión en Hikka",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     } else {
                                                         RoninTextButton(onClick = {
                                                             runCatching {
                                                                 val authorizationUrl = session.hikkaTracker.beginLogin()
                                                                 check(graph.browserService.open(authorizationUrl))
                                                             }.onFailure {
-                                                                notice.error(it.message ?: "Could not open Hikka")
+                                                                notice.error(
+                                                                    it.message
+                                                                        ?: roninCopy(
+                                                                            "Could not open Hikka",
+                                                                            "No se pudo abrir Hikka",
+                                                                            languageTag,
+                                                                        ),
+                                                                )
                                                             }
-                                                        }) { Text("Sign in to Hikka in browser") }
-                                                        Text("If the redirect fails, paste its URL below.")
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign in to Hikka in browser",
+                                                                    "Iniciar sesión en Hikka en el navegador",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
+                                                        Text(
+                                                            roninCopy(
+                                                                "If the redirect fails, paste its URL below.",
+                                                                "Si falla la redirección, pega su enlace a continuación.",
+                                                                languageTag,
+                                                            ),
+                                                        )
                                                         OutlinedTextField(
                                                             hikkaCallback,
                                                             { hikkaCallback = it },
-                                                            label = { Text("Paste Hikka redirect URL") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "Paste Hikka redirect URL",
+                                                                        "Pegar enlace de redirección de Hikka",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                             visualTransformation = PasswordVisualTransformation(),
                                                         )
                                                         RoninTextButton(onClick = {
@@ -2399,14 +2784,32 @@ fun DesktopShell(
                                                                 }
                                                                     .onSuccess { name ->
                                                                         hikkaLoggedIn = true
-                                                                        message = "Signed in to Hikka as $name"
+                                                                        message =
+                                                                            roninCopy(
+                                                                                "Signed in to Hikka as $name",
+                                                                                "Sesión iniciada en Hikka como $name",
+                                                                                languageTag,
+                                                                            )
                                                                     }.onFailure {
                                                                         notice.error(
-                                                                            it.message ?: "Hikka sign-in failed",
+                                                                            it.message
+                                                                                ?: roninCopy(
+                                                                                    "Hikka sign-in failed",
+                                                                                    "Falló el inicio de sesión en Hikka",
+                                                                                    languageTag,
+                                                                                ),
                                                                         )
                                                                     }
                                                             }
-                                                        }) { Text("Complete Hikka sign-in") }
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Complete Hikka sign-in",
+                                                                    "Completar inicio de sesión en Hikka",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     }
                                                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                                                     Text(
@@ -2417,8 +2820,21 @@ fun DesktopShell(
                                                         RoninTextButton(onClick = {
                                                             session.bangumiTracker.logout()
                                                             bangumiLoggedIn = false
-                                                            message = "Bangumi signed out"
-                                                        }) { Text("Sign out of Bangumi") }
+                                                            message =
+                                                                roninCopy(
+                                                                    "Bangumi signed out",
+                                                                    "Sesión de Bangumi cerrada",
+                                                                    languageTag,
+                                                                )
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign out of Bangumi",
+                                                                    "Cerrar sesión en Bangumi",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     } else {
                                                         RoninTextButton(onClick = {
                                                             runCatching {
@@ -2426,14 +2842,43 @@ fun DesktopShell(
                                                                     session.bangumiTracker.beginLogin()
                                                                 check(graph.browserService.open(authorizationUrl))
                                                             }.onFailure {
-                                                                notice.error(it.message ?: "Could not open Bangumi")
+                                                                notice.error(
+                                                                    it.message
+                                                                        ?: roninCopy(
+                                                                            "Could not open Bangumi",
+                                                                            "No se pudo abrir Bangumi",
+                                                                            languageTag,
+                                                                        ),
+                                                                )
                                                             }
-                                                        }) { Text("Sign in to Bangumi in browser") }
-                                                        Text("If the redirect fails, paste its URL below.")
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign in to Bangumi in browser",
+                                                                    "Iniciar sesión en Bangumi en el navegador",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
+                                                        Text(
+                                                            roninCopy(
+                                                                "If the redirect fails, paste its URL below.",
+                                                                "Si falla la redirección, pega su enlace a continuación.",
+                                                                languageTag,
+                                                            ),
+                                                        )
                                                         OutlinedTextField(
                                                             bangumiCallback,
                                                             { bangumiCallback = it },
-                                                            label = { Text("Paste Bangumi redirect URL") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "Paste Bangumi redirect URL",
+                                                                        "Pegar enlace de redirección de Bangumi",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                             visualTransformation = PasswordVisualTransformation(),
                                                         )
                                                         RoninTextButton(onClick = {
@@ -2445,14 +2890,32 @@ fun DesktopShell(
                                                                 }
                                                                     .onSuccess { name ->
                                                                         bangumiLoggedIn = true
-                                                                        message = "Signed in to Bangumi as $name"
+                                                                        message =
+                                                                            roninCopy(
+                                                                                "Signed in to Bangumi as $name",
+                                                                                "Sesión iniciada en Bangumi como $name",
+                                                                                languageTag,
+                                                                            )
                                                                     }.onFailure {
                                                                         notice.error(
-                                                                            it.message ?: "Bangumi sign-in failed",
+                                                                            it.message
+                                                                                ?: roninCopy(
+                                                                                    "Bangumi sign-in failed",
+                                                                                    "Falló el inicio de sesión en Bangumi",
+                                                                                    languageTag,
+                                                                                ),
                                                                         )
                                                                     }
                                                             }
-                                                        }) { Text("Complete Bangumi sign-in") }
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Complete Bangumi sign-in",
+                                                                    "Completar inicio de sesión en Bangumi",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     }
                                                     HorizontalDivider(Modifier.padding(vertical = 6.dp))
                                                     Text(
@@ -2463,8 +2926,21 @@ fun DesktopShell(
                                                         RoninTextButton(onClick = {
                                                             session.mangaBakaTracker.logout()
                                                             mangaBakaLoggedIn = false
-                                                            message = "MangaBaka signed out"
-                                                        }) { Text("Sign out of MangaBaka") }
+                                                            message =
+                                                                roninCopy(
+                                                                    "MangaBaka signed out",
+                                                                    "Sesión de MangaBaka cerrada",
+                                                                    languageTag,
+                                                                )
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign out of MangaBaka",
+                                                                    "Cerrar sesión en MangaBaka",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     } else {
                                                         RoninTextButton(onClick = {
                                                             runCatching {
@@ -2472,14 +2948,43 @@ fun DesktopShell(
                                                                     session.mangaBakaTracker.beginLogin()
                                                                 check(graph.browserService.open(authorizationUrl))
                                                             }.onFailure {
-                                                                notice.error(it.message ?: "Could not open MangaBaka")
+                                                                notice.error(
+                                                                    it.message
+                                                                        ?: roninCopy(
+                                                                            "Could not open MangaBaka",
+                                                                            "No se pudo abrir MangaBaka",
+                                                                            languageTag,
+                                                                        ),
+                                                                )
                                                             }
-                                                        }) { Text("Sign in to MangaBaka in browser") }
-                                                        Text("If the redirect fails, paste its URL below.")
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Sign in to MangaBaka in browser",
+                                                                    "Iniciar sesión en MangaBaka en el navegador",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
+                                                        Text(
+                                                            roninCopy(
+                                                                "If the redirect fails, paste its URL below.",
+                                                                "Si falla la redirección, pega su enlace a continuación.",
+                                                                languageTag,
+                                                            ),
+                                                        )
                                                         OutlinedTextField(
                                                             mangaBakaCallback,
                                                             { mangaBakaCallback = it },
-                                                            label = { Text("Paste MangaBaka redirect URL") },
+                                                            label = {
+                                                                Text(
+                                                                    roninCopy(
+                                                                        "Paste MangaBaka redirect URL",
+                                                                        "Pegar enlace de redirección de MangaBaka",
+                                                                        languageTag,
+                                                                    ),
+                                                                )
+                                                            },
                                                             visualTransformation = PasswordVisualTransformation(),
                                                         )
                                                         RoninTextButton(onClick = {
@@ -2491,14 +2996,32 @@ fun DesktopShell(
                                                                 }
                                                                     .onSuccess { name ->
                                                                         mangaBakaLoggedIn = true
-                                                                        message = "Signed in to MangaBaka as $name"
+                                                                        message =
+                                                                            roninCopy(
+                                                                                "Signed in to MangaBaka as $name",
+                                                                                "Sesión iniciada en MangaBaka como $name",
+                                                                                languageTag,
+                                                                            )
                                                                     }.onFailure {
                                                                         notice.error(
-                                                                            it.message ?: "MangaBaka sign-in failed",
+                                                                            it.message
+                                                                                ?: roninCopy(
+                                                                                    "MangaBaka sign-in failed",
+                                                                                    "Falló el inicio de sesión en MangaBaka",
+                                                                                    languageTag,
+                                                                                ),
                                                                         )
                                                                     }
                                                             }
-                                                        }) { Text("Complete MangaBaka sign-in") }
+                                                        }) {
+                                                            Text(
+                                                                roninCopy(
+                                                                    "Complete MangaBaka sign-in",
+                                                                    "Completar inicio de sesión en MangaBaka",
+                                                                    languageTag,
+                                                                ),
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
@@ -2509,7 +3032,7 @@ fun DesktopShell(
                                                 verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                             ) {
                                                 Text(
-                                                    "Library and downloads",
+                                                    roninText("Library and downloads", "Biblioteca y descargas"),
                                                     style = MaterialTheme.typography.titleMedium,
                                                 )
                                                 RoninTextButton(onClick = {
@@ -2521,15 +3044,23 @@ fun DesktopShell(
                                                 }) {
                                                     Text(
                                                         if (updateInterval == 0L) {
-                                                            "Scheduled library updates: off"
+                                                            roninText(
+                                                                "Scheduled library updates: off",
+                                                                "Actualizaciones programadas: desactivadas",
+                                                            )
                                                         } else {
-                                                            "Scheduled updates: every $updateInterval hours " +
-                                                                "while Ronin is open"
+                                                            roninText(
+                                                                "Scheduled updates: every $updateInterval hours while Ronin is open",
+                                                                "Actualización cada $updateInterval horas mientras Ronin esté abierto",
+                                                            )
                                                         },
                                                     )
                                                 }
                                                 Text(
-                                                    "Downloads wait for an active network connection.",
+                                                    roninText(
+                                                        "Downloads wait for an active network connection.",
+                                                        "Las descargas esperan a que haya conexión de red.",
+                                                    ),
                                                     color = RoninColors.textMuted,
                                                 )
                                             }
@@ -2540,14 +3071,19 @@ fun DesktopShell(
                                                 Modifier.fillMaxWidth().padding(RoninSpacing.large),
                                                 verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                             ) {
-                                                Text("Download queue", style = MaterialTheme.typography.titleMedium)
                                                 Text(
-                                                    "Downloads pause when the network is unavailable " +
-                                                        "and resume from the queue.",
+                                                    roninText("Download queue", "Cola de descargas"),
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                )
+                                                Text(
+                                                    roninText(
+                                                        "Downloads pause when the network is unavailable and resume from the queue.",
+                                                        "Las descargas se pausan sin conexión y se reanudan desde la cola.",
+                                                    ),
                                                     color = RoninColors.textMuted,
                                                 )
                                                 RoninTextButton(onClick = { navigateToScreen(Screen.DOWNLOADS) }) {
-                                                    Text("Open downloads")
+                                                    Text(roninText("Open downloads", "Abrir descargas"))
                                                 }
                                             }
                                         }
@@ -2556,15 +3092,30 @@ fun DesktopShell(
                                                 Modifier.fillMaxWidth().padding(RoninSpacing.large),
                                                 verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                                             ) {
-                                                Text("Windows links", style = MaterialTheme.typography.titleMedium)
+                                                Text(
+                                                    roninCopy("Windows links", "Enlaces de Windows", languageTag),
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                )
                                                 Text(
                                                     "Ronin keeps compatibility with existing mihon:// manga and " +
                                                         "tracker callback links for this Windows account.",
                                                     color = RoninColors.textMuted,
                                                 )
                                                 Text(
-                                                    "Status: " +
-                                                        if (mihonProtocolRegistered) "registered" else "not registered",
+                                                    roninCopy("Status: ", "Estado: ", languageTag) +
+                                                        if (mihonProtocolRegistered) {
+                                                            roninCopy(
+                                                                "registered",
+                                                                "registrados",
+                                                                languageTag,
+                                                            )
+                                                        } else {
+                                                            roninCopy(
+                                                                "not registered",
+                                                                "sin registrar",
+                                                                languageTag,
+                                                            )
+                                                        },
                                                     color = RoninColors.textMuted,
                                                 )
                                                 if (
@@ -2595,22 +3146,43 @@ fun DesktopShell(
                                                     }) {
                                                         Text(
                                                             if (mihonProtocolRegistered) {
-                                                                "Unregister browser links"
+                                                                roninCopy(
+                                                                    "Unregister browser links",
+                                                                    "Quitar registro de enlaces",
+                                                                    languageTag,
+                                                                )
                                                             } else {
-                                                                "Register browser links"
+                                                                roninCopy(
+                                                                    "Register browser links",
+                                                                    "Registrar enlaces del navegador",
+                                                                    languageTag,
+                                                                )
                                                             },
                                                         )
                                                     }
                                                 }
                                                 HorizontalDivider()
-                                                Text("Desktop extensions", style = MaterialTheme.typography.titleMedium)
+                                                Text(
+                                                    roninCopy(
+                                                        "Desktop extensions",
+                                                        "Extensiones de escritorio",
+                                                        languageTag,
+                                                    ),
+                                                    style = MaterialTheme.typography.titleMedium,
+                                                )
                                                 Text(
                                                     "A locally trusted signing fingerprint records a local trust " +
                                                         "decision; it does not verify a publisher identity.",
                                                     color = RoninColors.textMuted,
                                                 )
                                                 RoninTextButton(onClick = { navigateToScreen(Screen.EXTENSIONS) }) {
-                                                    Text("Manage extensions")
+                                                    Text(
+                                                        roninCopy(
+                                                            "Manage extensions",
+                                                            "Administrar extensiones",
+                                                            languageTag,
+                                                        ),
+                                                    )
                                                 }
                                             }
                                         }
@@ -2620,9 +3192,13 @@ fun DesktopShell(
                         }
                         screen == Screen.DOWNLOADS -> {
                             RoninSectionHeader(
-                                title = "Downloads",
+                                title = roninCopy("Downloads", "Descargas", languageTag),
                                 pageHeading = true,
-                                subtitle = "${downloads.size} chapters in the persisted queue",
+                                subtitle = roninCopy(
+                                    "${downloads.size} chapters in the persisted queue",
+                                    "${downloads.size} capítulos en la cola",
+                                    languageTag,
+                                ),
                                 trailing = {
                                     FlowRow(
                                         horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
@@ -2631,16 +3207,16 @@ fun DesktopShell(
                                         RoninTextButton(
                                             onClick = { session.downloads.clearFinished() },
                                             enabled = downloads.any { it.status == DesktopDownloadStatus.COMPLETED },
-                                        ) { Text("Clear finished") }
+                                        ) { Text(roninCopy("Clear finished", "Limpiar completadas", languageTag)) }
                                         RoninTextButton(
                                             onClick = { session.downloads.pause() },
                                             enabled = downloads.any {
                                                 it.status == DesktopDownloadStatus.RUNNING ||
                                                     it.status == DesktopDownloadStatus.PENDING
                                             },
-                                        ) { Text("Pause all") }
+                                        ) { Text(roninCopy("Pause all", "Pausar todas", languageTag)) }
                                         RoninButton(
-                                            label = "Resume all",
+                                            label = roninCopy("Resume all", "Reanudar todas", languageTag),
                                             onClick = { session.downloads.resume() },
                                             enabled = downloads.any {
                                                 it.status == DesktopDownloadStatus.PAUSED ||
@@ -2662,19 +3238,27 @@ fun DesktopShell(
                                 RoninSearchField(
                                     value = downloadQuery,
                                     onValueChange = { downloadQuery = it },
-                                    placeholder = "Search downloads",
+                                    placeholder = roninCopy("Search downloads", "Buscar descargas", languageTag),
                                     modifier = Modifier.fillMaxWidth(),
                                 )
                             }
                             if (downloads.isEmpty()) {
                                 RoninEmptyState(
-                                    "No downloads",
-                                    "Queue a chapter from its manga details or the Updates screen.",
+                                    roninCopy("No downloads", "No hay descargas", languageTag),
+                                    roninCopy(
+                                        "Queue a chapter from its manga details or the Updates screen.",
+                                        "Añade un capítulo desde su ficha o desde Actualizaciones.",
+                                        languageTag,
+                                    ),
                                 )
                             } else if (visibleDownloads.isEmpty()) {
                                 RoninEmptyState(
-                                    "No matching downloads",
-                                    "Try a different manga or chapter name.",
+                                    roninCopy("No matching downloads", "No se encontraron descargas", languageTag),
+                                    roninCopy(
+                                        "Try a different manga or chapter name.",
+                                        "Prueba otro nombre de manga o capítulo.",
+                                        languageTag,
+                                    ),
                                 )
                             } else {
                                 LazyColumn(
@@ -2682,13 +3266,16 @@ fun DesktopShell(
                                     verticalArrangement = Arrangement.spacedBy(8.dp),
                                 ) {
                                     listOf(
-                                        "In progress" to setOf(
+                                        roninCopy("In progress", "En curso", languageTag) to setOf(
                                             DesktopDownloadStatus.RUNNING,
                                             DesktopDownloadStatus.PENDING,
                                         ),
-                                        "Paused" to setOf(DesktopDownloadStatus.PAUSED),
-                                        "Failed" to setOf(DesktopDownloadStatus.FAILED),
-                                        "Completed" to setOf(DesktopDownloadStatus.COMPLETED),
+                                        roninCopy("Paused", "Pausadas", languageTag) to
+                                            setOf(DesktopDownloadStatus.PAUSED),
+                                        roninCopy("Failed", "Con errores", languageTag) to
+                                            setOf(DesktopDownloadStatus.FAILED),
+                                        roninCopy("Completed", "Completadas", languageTag) to
+                                            setOf(DesktopDownloadStatus.COMPLETED),
                                     ).forEach { (heading, statuses) ->
                                         val grouped = visibleDownloads.filter { it.status in statuses }
                                         if (grouped.isNotEmpty()) {

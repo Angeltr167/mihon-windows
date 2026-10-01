@@ -1,7 +1,6 @@
 package mihon.desktop
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -17,29 +16,31 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Surface
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.toComposeImageBitmap
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.unit.dp
 import mihon.desktop.design.RoninBorders
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninLayout
 import mihon.desktop.design.RoninSpacing
-import org.jetbrains.skia.Image as SkiaImage
 
 @Composable
 internal fun RoninWindowSurface(
     modifier: Modifier = Modifier,
     readerMode: Boolean,
+    notice: (@Composable () -> Unit)? = null,
     content: @Composable () -> Unit,
 ) {
     Surface(modifier = modifier, color = RoninColors.appBackground) {
         Box(Modifier.fillMaxSize()) {
             if (!readerMode) RoninAtmosphere(Modifier.fillMaxSize())
             content()
+            if (notice != null) {
+                Box(Modifier.align(Alignment.BottomEnd).padding(RoninSpacing.medium).widthIn(max = 400.dp)) {
+                    notice()
+                }
+            }
         }
     }
 }
@@ -72,13 +73,13 @@ internal fun RowScope.RoninMainContent(
         val showRightPanel =
             !readerMode && rightPanel != null && maxWidth >= RoninLayout.rightPanelBreakpoint
         val horizontalGutter = when {
-            readerMode -> RoninSpacing.small
+            readerMode -> 0.dp
             maxWidth >= RoninLayout.wideContentBreakpoint -> RoninLayout.gutterWide
             compactNavigation -> RoninLayout.gutterCompact
             else -> RoninLayout.gutterDesktop
         }
         val verticalGutter = when {
-            readerMode -> RoninSpacing.small
+            readerMode -> 0.dp
             compactNavigation -> RoninLayout.gutterCompact
             else -> RoninLayout.gutterDesktop
         }
@@ -119,37 +120,14 @@ internal fun RowScope.RoninMainContent(
     }
 }
 
-/** Original landscape artwork shared by the shell and reader. */
+/** Quiet charcoal background from the approved Ronin icon reference. */
 @Composable
-internal fun RoninAtmosphere(
-    modifier: Modifier = Modifier,
-) {
-    val landscape = remember {
-        runCatching {
-            requireNotNull(RoninColors::class.java.getResourceAsStream("/ronin/night-landscape.png"))
-                .use { SkiaImage.makeFromEncoded(it.readBytes()).toComposeImageBitmap() }
-        }.getOrNull()
-    }
-    Box(modifier.background(RoninColors.appBackground)) {
-        if (landscape != null) {
-            Image(
-                bitmap = landscape,
-                contentDescription = null,
-                modifier = Modifier.fillMaxSize(),
-                contentScale = ContentScale.Crop,
-                alignment = Alignment.Center,
-                alpha = 0.92f,
-            )
-        }
-        Box(
-            Modifier.fillMaxSize().background(
-                Brush.verticalGradient(
-                    listOf(
-                        RoninColors.appBackground.copy(alpha = 0.26f),
-                        RoninColors.appBackground.copy(alpha = 0.17f),
-                    ),
-                ),
+internal fun RoninAtmosphere(modifier: Modifier = Modifier) {
+    Box(
+        modifier.background(
+            Brush.verticalGradient(
+                listOf(RoninColors.appBackground, androidx.compose.ui.graphics.Color(0xFF070C0F)),
             ),
-        )
-    }
+        ),
+    )
 }

@@ -57,7 +57,7 @@ multiplatformResources {
 
 compose.desktop {
     application {
-        val windowsVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.19").get()
+        val windowsVersion = providers.gradleProperty("mihonWindowsVersion").orElse("1.0.23").get()
         mainClass = "mihon.desktop.MainKt"
         nativeDistributions {
             targetFormats(TargetFormat.Msi, TargetFormat.Exe)
@@ -77,6 +77,8 @@ compose.desktop {
                 perUserInstall = true
                 shortcut = true
                 menuGroup = "Ronin"
+                // Stable across Mihon/Ronin releases: Windows replaces the installed binaries.
+                // User data stays in the version-independent profile directories.
                 upgradeUuid = "c764cc56-8996-49ef-b813-1ee3815d9da2"
             }
         }

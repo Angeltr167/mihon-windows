@@ -5,9 +5,17 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Shapes
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import mihon.desktop.LocalRoninLanguage
+import java.util.Locale
 
 @Composable
-internal fun RoninDesktopTheme(content: @Composable () -> Unit) {
+internal fun RoninDesktopTheme(
+    languageTag: String = Locale.getDefault().toLanguageTag(),
+    covers: mihon.desktop.DesktopCustomCovers? = null,
+    coverRevision: Int = 0,
+    content: @Composable () -> Unit,
+) {
     val baseTypography = MaterialTheme.typography
 
     MaterialTheme(
@@ -56,6 +64,12 @@ internal fun RoninDesktopTheme(content: @Composable () -> Unit) {
             large = RoundedCornerShape(RoninRadius.panel),
             extraLarge = RoundedCornerShape(RoninRadius.panel),
         ),
-        content = content,
+        content = {
+            CompositionLocalProvider(
+                LocalRoninLanguage provides languageTag,
+                mihon.desktop.LocalRoninCovers provides covers,
+                mihon.desktop.LocalRoninCoverRevision provides coverRevision,
+            ) { content() }
+        },
     )
 }

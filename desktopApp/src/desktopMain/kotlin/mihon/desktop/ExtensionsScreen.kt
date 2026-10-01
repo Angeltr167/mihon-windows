@@ -76,6 +76,7 @@ internal fun ExtensionsScreen(
     onChoosePackage: () -> Unit,
     onInstallPackage: () -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val installedSuwayomi = remember(suwayomiExtensions) {
         suwayomiExtensions.filter { it.installed && !it.obsolete }.sortedBy { it.name.lowercase() }
     }
@@ -94,18 +95,35 @@ internal fun ExtensionsScreen(
 
     Column(Modifier.fillMaxSize()) {
         RoninSectionHeader(
-            title = "Extensions",
+            title = roninCopy("Extensions", "Extensiones", uiLanguage),
             pageHeading = true,
-            subtitle = "Install sources, manage updates, and configure repositories.",
+            subtitle = roninCopy(
+                "Install sources, manage updates, and configure repositories.",
+                "Instala fuentes, administra actualizaciones y configura repositorios.",
+                uiLanguage,
+            ),
             trailing = {
                 RoninBadge(
-                    label = if (engineRunning) "Engine ready" else "Engine offline",
+                    label = if (engineRunning) {
+                        roninCopy(
+                            "Engine ready",
+                            "Motor listo",
+                            uiLanguage,
+                        )
+                    } else {
+                        roninCopy("Engine offline", "Motor desconectado", uiLanguage)
+                    },
                     accent = engineRunning,
                 )
             },
         )
         RoninTabStrip(
-            labels = listOf("Installed", "Discover", "Updates", "Repository"),
+            labels = listOf(
+                roninCopy("Installed", "Instaladas", uiLanguage),
+                roninCopy("Discover", "Explorar", uiLanguage),
+                roninCopy("Updates", "Actualizaciones", uiLanguage),
+                roninCopy("Repository", "Repositorio", uiLanguage),
+            ),
             selectedIndex = selectedSection.coerceIn(0, 3),
             onSelect = onSelectSection,
             modifier = Modifier.fillMaxWidth().padding(bottom = RoninSpacing.medium),
@@ -113,7 +131,7 @@ internal fun ExtensionsScreen(
 
         if (error != null) {
             RoninErrorState(
-                title = "Extension operation failed",
+                title = roninCopy("Extension operation failed", "Falló la operación de extensión", uiLanguage),
                 detail = error,
                 modifier = Modifier.padding(bottom = RoninSpacing.medium),
             )
@@ -212,51 +230,78 @@ private fun ExtensionOperationsPanel(
     onOpenRepository: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     RoninPanel(modifier) {
         Column(
             Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(RoninSpacing.medium),
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
         ) {
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro)) {
-                Text("Extension engine", style = MaterialTheme.typography.titleLarge)
                 Text(
-                    "Live state from Ronin’s configured extension engine.",
+                    roninCopy("Extension engine", "Motor de extensiones", uiLanguage),
+                    style = MaterialTheme.typography.titleLarge,
+                )
+                Text(
+                    roninCopy(
+                        "Live state from Ronin’s configured extension engine.",
+                        "Estado actual del motor de extensiones de Ronin.",
+                        uiLanguage,
+                    ),
                     color = RoninColors.textMuted,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
             RoninBadge(
-                label = if (engineRunning) "Engine ready" else "Engine offline",
+                label = if (engineRunning) {
+                    roninCopy(
+                        "Engine ready",
+                        "Motor listo",
+                        uiLanguage,
+                    )
+                } else {
+                    roninCopy("Engine offline", "Motor desconectado", uiLanguage)
+                },
                 accent = engineRunning,
             )
             Text(
-                status,
+                roninUiText(status),
                 color = if (engineRunning) RoninColors.accentSage else RoninColors.error,
                 style = MaterialTheme.typography.bodySmall,
             )
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
-                DirectoryLabel("Installed", installedCount.toString())
-                DirectoryLabel("Updates", updateCount.toString())
+                DirectoryLabel(roninCopy("Installed", "Instaladas", uiLanguage), installedCount.toString())
+                DirectoryLabel(roninCopy("Updates", "Actualizaciones", uiLanguage), updateCount.toString())
             }
             if (busyLabel != null) {
                 RoninBadge(busyLabel, accent = true)
             }
             androidx.compose.material3.HorizontalDivider(color = RoninColors.borderSubtle)
             Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
-                Text("Repository management", style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "$repositoryCount repository entries are currently loaded.",
+                    roninCopy("Repository management", "Administrar repositorios", uiLanguage),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                Text(
+                    roninCopy(
+                        "$repositoryCount repository entries are currently loaded.",
+                        "$repositoryCount entradas de repositorio cargadas.",
+                        uiLanguage,
+                    ),
                     color = RoninColors.textSecondary,
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Text(
-                    "Manage package sources and local signing fingerprints.",
+                    roninCopy(
+                        "Manage package sources and local signing fingerprints.",
+                        "Administra repositorios de paquetes y huellas de firma locales.",
+                        uiLanguage,
+                    ),
                     color = RoninColors.textMuted,
                     style = MaterialTheme.typography.bodySmall,
                 )
             }
             RoninSecondaryButton(
-                label = "Open repositories",
+                label = roninCopy("Open repositories", "Abrir repositorios", uiLanguage),
                 onClick = onOpenRepository,
                 modifier = Modifier.fillMaxWidth(),
             )
@@ -273,6 +318,7 @@ private fun InstalledExtensions(
     onDiscover: () -> Unit,
     onAction: (SuwayomiExtension, ExtensionAction) -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     var pendingRemoval by remember { mutableStateOf<String?>(null) }
     val total = suwayomi.size + desktop.size
 
@@ -284,18 +330,25 @@ private fun InstalledExtensions(
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
                 ) {
-                    Text("Installed extensions", style = MaterialTheme.typography.headlineMedium)
                     Text(
-                        "No extensions installed",
+                        roninCopy("Installed extensions", "Extensiones instaladas", uiLanguage),
+                        style = MaterialTheme.typography.headlineMedium,
+                    )
+                    Text(
+                        roninCopy("No extensions installed", "No hay extensiones instaladas", uiLanguage),
                         color = RoninColors.textPrimary,
                         style = MaterialTheme.typography.titleLarge,
                     )
                     Text(
-                        "Discover community sources or load a signed Desktop package repository when you need one.",
+                        roninCopy(
+                            "Discover community sources or load a signed Desktop package repository when you need one.",
+                            "Explora las fuentes de la comunidad o carga un repositorio de paquetes firmados para escritorio.",
+                            uiLanguage,
+                        ),
                         color = RoninColors.textSecondary,
                         style = MaterialTheme.typography.bodyLarge,
                     )
-                    RoninButton("Explore catalog", onDiscover)
+                    RoninButton(roninCopy("Explore catalog", "Explorar catálogo", uiLanguage), onDiscover)
                 }
             }
         }
@@ -307,7 +360,10 @@ private fun InstalledExtensions(
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
     ) {
         item("installed-summary") {
-            DirectoryLabel("Installed", "$total extensions")
+            DirectoryLabel(
+                roninCopy("Installed", "Instaladas", uiLanguage),
+                roninCopy("$total extensions", "$total extensiones", uiLanguage),
+            )
         }
         items(suwayomi, key = { "suwayomi:${it.pkgName}" }) { entry ->
             ExtensionRow(
@@ -316,7 +372,13 @@ private fun InstalledExtensions(
                 badges = buildList {
                     entry.languageContext()?.let(::add)
                     add("Keiyoushi")
-                    if (entry.hasUpdate) add("Update available") else add("Installed")
+                    if (entry.hasUpdate) {
+                        add(
+                            roninCopy("Update available", "Actualización disponible", uiLanguage),
+                        )
+                    } else {
+                        add(roninCopy("Installed", "Instaladas", uiLanguage))
+                    }
                 },
                 accentLastBadge = entry.hasUpdate,
                 busy = busyPackage == entry.pkgName,
@@ -324,18 +386,18 @@ private fun InstalledExtensions(
                 actions = {
                     if (entry.hasUpdate) {
                         RoninInlineAction(
-                            label = "Update",
+                            label = roninCopy("Update", "Actualizar", uiLanguage),
                             onClick = { onAction(entry, ExtensionAction.UPDATE) },
                             enabled = busyPackage == null,
                         )
                     } else if (pendingRemoval == entry.pkgName) {
                         RoninInlineAction(
-                            label = "Cancel",
+                            label = roninCopy("Cancel", "Cancelar", uiLanguage),
                             onClick = { pendingRemoval = null },
                             enabled = busyPackage == null,
                         )
                         RoninInlineAction(
-                            label = "Confirm remove",
+                            label = roninCopy("Confirm remove", "Confirmar eliminación", uiLanguage),
                             onClick = {
                                 pendingRemoval = null
                                 onAction(entry, ExtensionAction.REMOVE)
@@ -344,7 +406,7 @@ private fun InstalledExtensions(
                         )
                     } else {
                         RoninInlineAction(
-                            label = "Remove",
+                            label = roninCopy("Remove", "Eliminar", uiLanguage),
                             onClick = { pendingRemoval = entry.pkgName },
                             enabled = busyPackage == null,
                         )
@@ -355,8 +417,15 @@ private fun InstalledExtensions(
         items(desktop, key = { "desktop:${it.id}" }) { entry ->
             ExtensionRow(
                 title = entry.id,
-                subtitle = "Version ${entry.versionCode} · ${entry.fingerprint.take(12)}…",
-                badges = listOf("Desktop .mihonext", "Locally trusted"),
+                subtitle = roninCopy(
+                    "Version ${entry.versionCode} · ${entry.fingerprint.take(12)}…",
+                    "Versión ${entry.versionCode} · ${entry.fingerprint.take(12)}…",
+                    uiLanguage,
+                ),
+                badges = listOf(
+                    roninCopy("Desktop .mihonext", "Escritorio .mihonext", uiLanguage),
+                    roninCopy("Locally trusted", "Confianza local", uiLanguage),
+                ),
                 accentLastBadge = true,
                 busy = busyPackage == entry.id,
                 busyLabel = busyLabel,
@@ -378,6 +447,7 @@ private fun DiscoverExtensions(
     onRefresh: () -> Unit,
     onAction: (SuwayomiExtension, ExtensionAction) -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val visible = remember(extensions, search) {
         extensions.asSequence()
             .filter { !it.obsolete || it.installed }
@@ -400,9 +470,12 @@ private fun DiscoverExtensions(
                         verticalArrangement = Arrangement.spacedBy(RoninSpacing.micro),
                         modifier = modifier,
                     ) {
-                        Text("Keiyoushi catalog", style = MaterialTheme.typography.titleMedium)
                         Text(
-                            status,
+                            roninCopy("Keiyoushi catalog", "Catálogo de Keiyoushi", uiLanguage),
+                            style = MaterialTheme.typography.titleMedium,
+                        )
+                        Text(
+                            roninUiText(status),
                             color = if (engineRunning) RoninColors.accentSage else RoninColors.error,
                             style = MaterialTheme.typography.bodySmall,
                         )
@@ -411,7 +484,12 @@ private fun DiscoverExtensions(
                 if (narrow) {
                     Column(verticalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
                         copy(Modifier.fillMaxWidth())
-                        RoninButton("Refresh catalog", onRefresh, enabled = engineRunning && !loading)
+                        RoninButton(
+                            roninCopy("Refresh catalog", "Actualizar catálogo", uiLanguage),
+                            onRefresh,
+                            enabled =
+                            engineRunning && !loading,
+                        )
                     }
                 } else {
                     Row(
@@ -419,7 +497,12 @@ private fun DiscoverExtensions(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         copy(Modifier.weight(1f))
-                        RoninButton("Refresh catalog", onRefresh, enabled = engineRunning && !loading)
+                        RoninButton(
+                            roninCopy("Refresh catalog", "Actualizar catálogo", uiLanguage),
+                            onRefresh,
+                            enabled =
+                            engineRunning && !loading,
+                        )
                     }
                 }
             }
@@ -428,25 +511,42 @@ private fun DiscoverExtensions(
         RoninSearchField(
             value = search,
             onValueChange = onSearchChange,
-            placeholder = "Search extensions or language",
+            placeholder = roninCopy("Search extensions or language", "Buscar extensiones o idioma", uiLanguage),
             modifier = Modifier.fillMaxWidth().padding(bottom = RoninSpacing.medium),
             enabled = !loading,
         )
 
         if (loading && extensions.isEmpty()) {
-            RoninLoadingState("Loading extension catalog…")
+            RoninLoadingState(roninCopy("Loading extension catalog…", "Cargando catálogo de extensiones…", uiLanguage))
             return
         }
         if (!engineRunning && extensions.isEmpty()) {
-            RoninErrorState("Extension engine unavailable", status)
+            RoninErrorState(
+                roninCopy("Extension engine unavailable", "Motor de extensiones no disponible", uiLanguage),
+                roninUiText(status),
+            )
             return
         }
         if (extensions.isEmpty()) {
-            RoninEmptyState("Catalog is not loaded", "Refresh the catalog to discover compatible sources.")
+            RoninEmptyState(
+                roninCopy("Catalog is not loaded", "El catálogo no está cargado", uiLanguage),
+                roninCopy(
+                    "Refresh the catalog to discover compatible sources.",
+                    "Actualiza el catálogo para descubrir fuentes compatibles.",
+                    uiLanguage,
+                ),
+            )
             return
         }
         if (visible.isEmpty()) {
-            RoninEmptyState("No matching extensions", "Try another name, package, or language.")
+            RoninEmptyState(
+                roninCopy("No matching extensions", "No se encontraron extensiones", uiLanguage),
+                roninCopy(
+                    "Try another name, package, or language.",
+                    "Prueba otro nombre, paquete o idioma.",
+                    uiLanguage,
+                ),
+            )
             return
         }
 
@@ -465,9 +565,13 @@ private fun DiscoverExtensions(
                         }
                         add(
                             when {
-                                entry.installed && entry.hasUpdate -> "Update available"
-                                entry.installed -> "Installed"
-                                else -> "Available"
+                                entry.installed && entry.hasUpdate -> roninCopy(
+                                    "Update available",
+                                    "Actualización disponible",
+                                    uiLanguage,
+                                )
+                                entry.installed -> roninCopy("Installed", "Instaladas", uiLanguage)
+                                else -> roninCopy("Available", "Disponible", uiLanguage)
                             },
                         )
                     },
@@ -477,9 +581,9 @@ private fun DiscoverExtensions(
                     actions = {
                         RoninInlineAction(
                             label = when {
-                                !entry.installed -> "Install"
-                                entry.hasUpdate -> "Update"
-                                else -> "Installed"
+                                !entry.installed -> roninCopy("Install", "Instalar", uiLanguage)
+                                entry.hasUpdate -> roninCopy("Update", "Actualizar", uiLanguage)
+                                else -> roninCopy("Installed", "Instaladas", uiLanguage)
                             },
                             onClick = {
                                 when {
@@ -507,13 +611,22 @@ private fun ExtensionUpdates(
     onSuwayomiAction: (SuwayomiExtension, ExtensionAction) -> Unit,
     onInstallDesktop: (DesktopRepositoryEntry) -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     if (suwayomi.isEmpty() && desktop.isEmpty()) {
         RoninEmptyState(
-            title = "No updates available",
+            title = roninCopy("No updates available", "No hay actualizaciones disponibles", uiLanguage),
             detail = if (repositoryLoaded) {
-                "Installed extensions match the currently loaded catalogs."
+                roninCopy(
+                    "Installed extensions match the currently loaded catalogs.",
+                    "Las extensiones instaladas están al día según los catálogos cargados.",
+                    uiLanguage,
+                )
             } else {
-                "Keiyoushi is current. Load a Desktop repository index to check signed .mihonext packages."
+                roninCopy(
+                    "Keiyoushi is current. Load a Desktop repository index to check signed .mihonext packages.",
+                    "Keiyoushi está al día. Carga un índice de escritorio para comprobar los paquetes .mihonext firmados.",
+                    uiLanguage,
+                )
             },
         )
         return
@@ -524,21 +637,26 @@ private fun ExtensionUpdates(
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
     ) {
         if (suwayomi.isNotEmpty()) {
-            item("suwayomi-updates-label") { DirectoryLabel("Keiyoushi", "${suwayomi.size} updates") }
+            item("suwayomi-updates-label") {
+                DirectoryLabel(
+                    "Keiyoushi",
+                    roninCopy("${suwayomi.size} updates", "${suwayomi.size} actualizaciones", uiLanguage),
+                )
+            }
             items(suwayomi, key = { "suwayomi-update:${it.pkgName}" }) { entry ->
                 ExtensionRow(
                     title = entry.name,
                     subtitle = "${entry.versionName} · ${entry.pkgName}",
                     badges = buildList {
                         entry.languageContext()?.let(::add)
-                        add("Update available")
+                        add(roninCopy("Update available", "Actualización disponible", uiLanguage))
                     },
                     accentLastBadge = true,
                     busy = busyPackage == entry.pkgName,
                     busyLabel = busyLabel,
                     actions = {
                         RoninInlineAction(
-                            "Update",
+                            roninCopy("Update", "Actualizar", uiLanguage),
                             { onSuwayomiAction(entry, ExtensionAction.UPDATE) },
                             enabled = busyPackage == null,
                         )
@@ -547,19 +665,31 @@ private fun ExtensionUpdates(
             }
         }
         if (desktop.isNotEmpty()) {
-            item("desktop-updates-label") { DirectoryLabel("Desktop packages", "${desktop.size} updates") }
+            item("desktop-updates-label") {
+                DirectoryLabel(
+                    roninCopy("Desktop packages", "Paquetes de escritorio", uiLanguage),
+                    roninCopy("${desktop.size} updates", "${desktop.size} actualizaciones", uiLanguage),
+                )
+            }
             items(desktop, key = { "desktop-update:${it.id}" }) { entry ->
                 val installed = installedDesktopById[entry.id]
                 ExtensionRow(
                     title = entry.name,
-                    subtitle = "Version ${installed?.versionCode ?: 0} → ${entry.versionCode} · ${entry.id}",
-                    badges = listOf("Signed .mihonext", "Update available"),
+                    subtitle = roninCopy(
+                        "Version ${installed?.versionCode ?: 0} → ${entry.versionCode} · ${entry.id}",
+                        "Versión ${installed?.versionCode ?: 0} → ${entry.versionCode} · ${entry.id}",
+                        uiLanguage,
+                    ),
+                    badges = listOf(
+                        roninCopy("Signed .mihonext", ".mihonext firmado", uiLanguage),
+                        roninCopy("Update available", "Actualización disponible", uiLanguage),
+                    ),
                     accentLastBadge = true,
                     busy = busyPackage == entry.id,
                     busyLabel = busyLabel,
                     actions = {
                         RoninInlineAction(
-                            "Update",
+                            roninCopy("Update", "Actualizar", uiLanguage),
                             { onInstallDesktop(entry) },
                             enabled = busyPackage == null,
                         )
@@ -589,6 +719,7 @@ private fun RepositoryManagement(
     onChoosePackage: () -> Unit,
     onInstallPackage: () -> Unit,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
         verticalArrangement = Arrangement.spacedBy(RoninSpacing.medium),
@@ -599,9 +730,16 @@ private fun RepositoryManagement(
                     Modifier.fillMaxWidth().padding(RoninSpacing.medium),
                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                 ) {
-                    Text("Desktop repository index", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Ronin accepts HTTPS indexes for signed .mihonext packages. The URL is session state, not a saved repository list.",
+                        roninCopy("Desktop repository index", "Índice de repositorio de escritorio", uiLanguage),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        roninCopy(
+                            "Ronin accepts HTTPS indexes for signed .mihonext packages. The URL is session state, not a saved repository list.",
+                            "Ronin acepta índices HTTPS de paquetes .mihonext firmados. El enlace se utiliza en esta sesión.",
+                            uiLanguage,
+                        ),
                         color = RoninColors.textMuted,
                         style = MaterialTheme.typography.bodySmall,
                     )
@@ -613,7 +751,15 @@ private fun RepositoryManagement(
                         enabled = !loading && busyPackage == null,
                     )
                     RoninButton(
-                        label = if (loading) "Loading…" else "Load index",
+                        label = if (loading) {
+                            roninCopy(
+                                "Loading…",
+                                "Cargando…",
+                                uiLanguage,
+                            )
+                        } else {
+                            roninCopy("Load index", "Cargar índice", uiLanguage)
+                        },
                         onClick = onDiscover,
                         enabled = repositoryUrl.isNotBlank() && !loading && busyPackage == null,
                     )
@@ -623,25 +769,36 @@ private fun RepositoryManagement(
 
         if (available.isNotEmpty()) {
             item("repository-results-label") {
-                DirectoryLabel("Repository packages", "${available.size} entries")
+                DirectoryLabel(
+                    roninCopy("Repository packages", "Paquetes del repositorio", uiLanguage),
+                    roninCopy("${available.size} entries", "${available.size} entradas", uiLanguage),
+                )
             }
             items(available, key = { "repository:${it.id}" }) { entry ->
                 val installed = installedDesktopById[entry.id]
                 val action = when {
-                    installed == null -> "Install"
-                    entry.versionCode > installed.versionCode -> "Update"
-                    else -> "Installed"
+                    installed == null -> roninCopy("Install", "Instalar", uiLanguage)
+                    entry.versionCode > installed.versionCode -> roninCopy("Update", "Actualizar", uiLanguage)
+                    else -> roninCopy("Installed", "Instaladas", uiLanguage)
                 }
                 ExtensionRow(
                     title = entry.name,
-                    subtitle = "Version ${entry.versionCode} · ${entry.id}",
+                    subtitle = roninCopy(
+                        "Version ${entry.versionCode} · ${entry.id}",
+                        "Versión ${entry.versionCode} · ${entry.id}",
+                        uiLanguage,
+                    ),
                     badges = buildList {
-                        add("Signed index")
+                        add(roninCopy("Signed index", "Índice firmado", uiLanguage))
                         add(
                             when {
-                                installed == null -> "Available"
-                                entry.versionCode > installed.versionCode -> "Update available"
-                                else -> "Installed"
+                                installed == null -> roninCopy("Available", "Disponible", uiLanguage)
+                                entry.versionCode > installed.versionCode -> roninCopy(
+                                    "Update available",
+                                    "Actualización disponible",
+                                    uiLanguage,
+                                )
+                                else -> roninCopy("Installed", "Instaladas", uiLanguage)
                             },
                         )
                     },
@@ -650,14 +807,14 @@ private fun RepositoryManagement(
                     busyLabel = busyLabel,
                     actions = {
                         RoninInlineAction(
-                            label = "Fingerprint",
+                            label = roninCopy("Fingerprint", "Huella de firma", uiLanguage),
                             onClick = { onFingerprintChange(entry.fingerprint) },
                             enabled = busyPackage == null,
                         )
                         RoninInlineAction(
                             label = action,
                             onClick = { onInstallEntry(entry) },
-                            enabled = action != "Installed" && busyPackage == null,
+                            enabled = action != roninCopy("Installed", "Instaladas", uiLanguage) && busyPackage == null,
                         )
                     },
                 )
@@ -665,8 +822,12 @@ private fun RepositoryManagement(
         } else if (!loading) {
             item("repository-empty") {
                 RoninEmptyState(
-                    "No Desktop repository loaded",
-                    "Load a valid HTTPS index to discover or update signed Desktop extensions.",
+                    roninCopy("No Desktop repository loaded", "No hay repositorio de escritorio cargado", uiLanguage),
+                    roninCopy(
+                        "Load a valid HTTPS index to discover or update signed Desktop extensions.",
+                        "Carga un índice HTTPS válido para descubrir o actualizar extensiones de escritorio firmadas.",
+                        uiLanguage,
+                    ),
                 )
             }
         }
@@ -677,21 +838,32 @@ private fun RepositoryManagement(
                     Modifier.fillMaxWidth().padding(RoninSpacing.medium),
                     verticalArrangement = Arrangement.spacedBy(RoninSpacing.small),
                 ) {
-                    Text("Local package trust", style = MaterialTheme.typography.titleMedium)
                     Text(
-                        "Trusting a fingerprint records a local decision only; it does not verify a publisher identity.",
+                        roninCopy("Local package trust", "Confianza en paquetes locales", uiLanguage),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                    Text(
+                        roninCopy(
+                            "Trusting a fingerprint records a local decision only; it does not verify a publisher identity.",
+                            "Confiar en una huella registra tu decisión local; no verifica la identidad del autor.",
+                            uiLanguage,
+                        ),
                         color = RoninColors.textMuted,
                         style = MaterialTheme.typography.bodySmall,
                     )
                     RoninSearchField(
                         value = fingerprint,
                         onValueChange = onFingerprintChange,
-                        placeholder = "64-character SHA-256 signing fingerprint",
+                        placeholder = roninCopy(
+                            "64-character SHA-256 signing fingerprint",
+                            "Huella de firma SHA-256 de 64 caracteres",
+                            uiLanguage,
+                        ),
                         modifier = Modifier.fillMaxWidth(),
                         enabled = busyPackage == null,
                     )
                     RoninSecondaryButton(
-                        "Trust fingerprint",
+                        roninCopy("Trust fingerprint", "Confiar en la huella", uiLanguage),
                         onTrustFingerprint,
                         enabled = fingerprint.isNotBlank() && busyPackage == null,
                     )
@@ -707,12 +879,12 @@ private fun RepositoryManagement(
                         verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
                     ) {
                         RoninSecondaryButton(
-                            label = "Choose package…",
+                            label = roninCopy("Choose package…", "Elegir paquete…", uiLanguage),
                             onClick = onChoosePackage,
                             enabled = busyPackage == null,
                         )
                         RoninButton(
-                            label = "Install local package",
+                            label = roninCopy("Install local package", "Instalar paquete local", uiLanguage),
                             onClick = onInstallPackage,
                             enabled = packagePath.isNotBlank() && busyPackage == null,
                         )
@@ -745,6 +917,7 @@ private fun ExtensionRow(
     busyLabel: String?,
     actions: (@Composable () -> Unit)? = null,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val interactionSource = remember(title, subtitle) { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
 
@@ -778,7 +951,12 @@ private fun ExtensionRow(
                             RoninBadge(badge, accent = accentLastBadge && index == badges.lastIndex)
                         }
                         if (busy) {
-                            RoninBadge(busyLabel ?: "Working…", accent = true)
+                            RoninBadge(
+                                busyLabel?.let {
+                                    roninUiText(it)
+                                } ?: roninCopy("Working…", "Procesando…", uiLanguage),
+                                accent = true,
+                            )
                         }
                     }
                 }

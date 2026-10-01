@@ -4,6 +4,7 @@ import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -27,7 +28,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import dev.icerock.moko.resources.StringResource
-import dev.icerock.moko.resources.compose.stringResource
 import mihon.desktop.design.RoninBorders
 import mihon.desktop.design.RoninColors
 import mihon.desktop.design.RoninLayout
@@ -49,31 +49,45 @@ internal enum class Screen(val title: StringResource) {
 }
 
 @Composable
+internal fun Screen.localizedTitle(): String = when (this) {
+    Screen.LIBRARY -> roninText("Library", "Biblioteca")
+    Screen.UPDATES -> roninText("Updates", "Actualizaciones")
+    Screen.HISTORY -> roninText("History", "Historial")
+    Screen.SOURCES -> roninText("Sources", "Fuentes")
+    Screen.SEARCH -> roninText("Search", "Buscar")
+    Screen.EXTENSIONS -> roninText("Extensions", "Extensiones")
+    Screen.CATEGORIES -> roninText("Categories", "Categorías")
+    Screen.SETTINGS -> roninText("Settings", "Ajustes")
+    Screen.DOWNLOADS -> roninText("Downloads", "Descargas")
+}
+
+@Composable
 internal fun DesktopNavigation(
     selected: Screen,
     compact: Boolean,
     onNavigate: (Screen) -> Unit,
 ) {
-    Box(
+    BoxWithConstraints(
         Modifier.width(if (compact) RoninLayout.sidebarCompact else RoninLayout.sidebarExpanded)
             .fillMaxHeight()
             .background(
                 Brush.verticalGradient(
                     listOf(
-                        RoninColors.sidebarSurface.copy(alpha = 0.88f),
-                        RoninColors.sidebarSurface.copy(alpha = 0.80f),
-                        RoninColors.sidebarSurface.copy(alpha = 0.48f),
+                        RoninColors.sidebarSurface,
+                        RoninColors.sidebarSurface,
+                        RoninColors.appBackground,
                     ),
                 ),
             ),
     ) {
+        val shortWindow = maxHeight < 680.dp
         Column(
             Modifier.fillMaxWidth()
                 .fillMaxHeight()
                 .verticalScroll(rememberScrollState())
                 .padding(
                     horizontal = if (compact) RoninSpacing.xSmall else RoninSpacing.medium,
-                    vertical = RoninSpacing.large,
+                    vertical = if (shortWindow) RoninSpacing.small else RoninSpacing.large,
                 ),
             verticalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
         ) {
@@ -85,21 +99,34 @@ internal fun DesktopNavigation(
                         start = if (compact) RoninSpacing.xSmall else RoninSpacing.small,
                         end = if (compact) RoninSpacing.xSmall else RoninSpacing.small,
                         top = RoninSpacing.small,
-                        bottom = RoninSpacing.medium,
+                        bottom = if (shortWindow) RoninSpacing.xSmall else RoninSpacing.medium,
                     )
                     .height(RoninBorders.hairline)
                     .background(RoninColors.borderSubtle),
             )
 
-            Screen.entries.forEachIndexed { index, item ->
-                val title = stringResource(item.title)
-                RoninSidebarItem(
-                    title = title,
-                    selected = selected == item,
-                    compact = compact,
-                    onClick = { onNavigate(item) },
-                ) { color ->
-                    DesktopNavigationIcon(index, color)
+            val groups = listOf(
+                listOf(Screen.LIBRARY, Screen.UPDATES, Screen.HISTORY),
+                listOf(Screen.SOURCES, Screen.SEARCH, Screen.EXTENSIONS),
+                listOf(Screen.CATEGORIES, Screen.DOWNLOADS, Screen.SETTINGS),
+            )
+            groups.forEachIndexed { groupIndex, group ->
+                if (groupIndex > 0) {
+                    Box(
+                        Modifier.fillMaxWidth().padding(
+                            vertical = if (shortWindow) RoninSpacing.xSmall else RoninSpacing.medium,
+                        )
+                            .height(RoninBorders.hairline).background(RoninColors.borderSubtle),
+                    )
+                }
+                group.forEach { item ->
+                    RoninSidebarItem(
+                        title = item.localizedTitle(),
+                        selected = selected == item,
+                        compact = compact,
+                        dense = shortWindow,
+                        onClick = { onNavigate(item) },
+                    ) { color -> DesktopNavigationIcon(item.ordinal, color) }
                 }
             }
         }
@@ -134,20 +161,6 @@ private fun RoninNavigationBrand(compact: Boolean) {
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.6.sp,
                 )
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(RoninSpacing.xSmall),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        Modifier.width(18.dp).height(RoninBorders.hairline).background(RoninColors.accentCoral),
-                    )
-                    Text(
-                        "MANGA READER",
-                        color = RoninColors.textMuted,
-                        style = MaterialTheme.typography.labelSmall,
-                        letterSpacing = 0.8.sp,
-                    )
-                }
             }
         }
     }

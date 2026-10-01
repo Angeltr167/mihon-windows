@@ -43,24 +43,30 @@ internal fun DesktopUpdateCard(
     onRead: () -> Unit,
     onDownload: () -> Unit,
     onResumeDownload: () -> Unit,
+    mangaUrl: String? = null,
 ) {
+    val uiLanguage = LocalRoninLanguage.current
     val interactionSource = remember { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
-    val published = formatUpdateTimestamp(entry.dateUpload)
+    val published = formatUpdateTimestamp(entry.dateUpload, uiLanguage)
     val sourceLabel = source?.let {
-        if (it.lang == "localsourcelang") it.name else "${it.name} · ${it.lang.uppercase()}"
+        "${localizedSourceName(it, uiLanguage)} · ${it.roninSourceLanguage()}"
     }
     val downloadLabel = when (download?.status) {
-        null -> "Download"
-        DesktopDownloadStatus.PENDING -> "Queued"
+        null -> roninCopy("Download", "Descargar", uiLanguage)
+        DesktopDownloadStatus.PENDING -> roninCopy("Queued", "En cola", uiLanguage)
         DesktopDownloadStatus.RUNNING -> if (download.pageCount > 0) {
-            "Downloading ${download.pagesDone}/${download.pageCount}"
+            roninCopy(
+                "Downloading ${download.pagesDone}/${download.pageCount}",
+                "Descargando ${download.pagesDone}/${download.pageCount}",
+                uiLanguage,
+            )
         } else {
-            "Downloading"
+            roninCopy("Downloading", "Descargando", uiLanguage)
         }
-        DesktopDownloadStatus.PAUSED -> "Resume download"
-        DesktopDownloadStatus.FAILED -> "Retry download"
-        DesktopDownloadStatus.COMPLETED -> "Downloaded"
+        DesktopDownloadStatus.PAUSED -> roninCopy("Resume download", "Reanudar descarga", uiLanguage)
+        DesktopDownloadStatus.FAILED -> roninCopy("Retry download", "Reintentar descarga", uiLanguage)
+        DesktopDownloadStatus.COMPLETED -> roninCopy("Downloaded", "Descargado", uiLanguage)
     }
     val downloadEnabled = download == null ||
         download.status == DesktopDownloadStatus.PAUSED ||
@@ -105,6 +111,8 @@ internal fun DesktopUpdateCard(
                                 entry.thumbnailUrl,
                                 source,
                                 Modifier.fillMaxWidth().height(100.dp),
+                                mangaUrl = mangaUrl,
+                                sourceId = entry.source,
                             )
                         }
                         Column(
@@ -135,7 +143,7 @@ internal fun DesktopUpdateCard(
                                     RoninBadge(label = it)
                                 }
                                 if (entry.read) {
-                                    RoninBadge(label = "Read", accent = true)
+                                    RoninBadge(label = roninCopy("Read", "Leer", uiLanguage), accent = true)
                                 }
                             }
                             if (compact) {
@@ -166,7 +174,7 @@ internal fun DesktopUpdateCard(
                                         enabled = downloadEnabled,
                                     )
                                     RoninButton(
-                                        label = "Read",
+                                        label = roninCopy("Read", "Leer", uiLanguage),
                                         onClick = onRead,
                                     )
                                 }
@@ -185,7 +193,7 @@ internal fun DesktopUpdateCard(
                                 enabled = downloadEnabled,
                             )
                             RoninButton(
-                                label = "Read",
+                                label = roninCopy("Read", "Leer", uiLanguage),
                                 onClick = onRead,
                             )
                         }
@@ -197,9 +205,9 @@ internal fun DesktopUpdateCard(
     }
 }
 
-private fun formatUpdateTimestamp(epochMillis: Long): String {
-    if (epochMillis <= 0L) return "Date unavailable"
+private fun formatUpdateTimestamp(epochMillis: Long, languageTag: String): String {
+    if (epochMillis <= 0L) return localizeRoninLabel("Date unavailable", languageTag)
     return Instant.ofEpochMilli(epochMillis)
         .atZone(ZoneId.systemDefault())
-        .format(DateTimeFormatter.ofPattern("MMM d · HH:mm"))
+        .format(DateTimeFormatter.ofPattern("MMM d · HH:mm", java.util.Locale.forLanguageTag(languageTag)))
 }

@@ -27,6 +27,7 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
 
     val library = DesktopMangaRepository.open(Path.of(graph.appDirectories.database).resolve("tachiyomi.db"))
     val extensions = DesktopExtensionManager(graph.appDirectories)
+    internal val customCovers = DesktopCustomCovers(Path.of(graph.appDirectories.data).resolve("custom-covers"))
     internal val suwayomiEngine = LocalSuwayomiEngine(graph.appDirectories)
     private val localFileSystem = DesktopLocalSourceFileSystem(Path.of(graph.appDirectories.localLibrary))
     private val localSource = DesktopLocalSource(localFileSystem)
@@ -75,7 +76,11 @@ class DesktopSession(graph: DesktopPlatformGraph) : Closeable {
         downloadStore,
         DesktopDownloadEngine(downloadStore, DesktopPageFetcher(localPages)),
         sourceForId = { id -> sources().firstOrNull { it.id == id } },
-        notify = downloadNotifications::show,
+        notify = { item ->
+            if (graph.keyValueStore.getBoolean(DesktopPreferences.NOTIFICATIONS, true)) {
+                downloadNotifications.show(item)
+            }
+        },
     )
     internal val libraryUpdates = DesktopLibraryUpdateScheduler(
         library,

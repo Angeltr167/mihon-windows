@@ -74,9 +74,10 @@ internal fun CategoriesScreen(
         }
         result.mapValues { (_, manga) -> manga.toList() }
     }
-    val visibleCategories = remember(categories, search) {
+    val uncategorizedLabel = roninText("Uncategorized", "Sin categoría")
+    val visibleCategories = remember(categories, search, uncategorizedLabel) {
         categories.filter { category ->
-            val displayName = category.name.ifBlank { "Uncategorized" }
+            val displayName = category.name.ifBlank { uncategorizedLabel }
             search.isBlank() || displayName.contains(search, ignoreCase = true)
         }
     }
@@ -86,7 +87,7 @@ internal fun CategoriesScreen(
 
     Column(Modifier.fillMaxSize()) {
         RoninSectionHeader(
-            title = "Categories",
+            title = Screen.CATEGORIES.localizedTitle(),
             pageHeading = true,
             subtitle = "$customCount custom categories · $uncategorizedCount uncategorized manga",
         )
@@ -242,7 +243,8 @@ private fun CategoryRow(
     val interactionSource = remember(category.id) { MutableInteractionSource() }
     val hovered by interactionSource.collectIsHoveredAsState()
     val systemCategory = category.id == 0L
-    val displayName = category.name.ifBlank { "Uncategorized" }
+    val uncategorizedLabel = roninText("Uncategorized", "Sin categoría")
+    val displayName = category.name.ifBlank { uncategorizedLabel }
 
     Surface(
         modifier = Modifier.fillMaxWidth()
@@ -317,6 +319,8 @@ private fun CategoryRow(
                                 item.thumbnail_url,
                                 sourceById[item.source],
                                 Modifier.width(52.dp).height(74.dp),
+                                mangaUrl = item.url,
+                                sourceId = item.source,
                             )
                         }
                         if (manga.size > 5) {

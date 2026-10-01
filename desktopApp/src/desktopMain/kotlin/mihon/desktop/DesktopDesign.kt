@@ -65,7 +65,7 @@ internal object MihonSizes {
 
 @Composable
 internal fun MihonDesktopTheme(content: @Composable () -> Unit) {
-    RoninDesktopTheme(content)
+    RoninDesktopTheme(content = content)
 }
 
 /**
@@ -153,12 +153,15 @@ internal fun MihonTabStrip(
     )
 }
 
-internal fun desktopDateGroup(epochMillis: Long): String {
+internal fun desktopDateGroup(
+    epochMillis: Long,
+    languageTag: String = java.util.Locale.getDefault().toLanguageTag(),
+): String {
     if (epochMillis <= 0L) return "Date unavailable"
     val date = Instant.ofEpochMilli(epochMillis).atZone(ZoneId.systemDefault()).toLocalDate()
     return when (date) {
         LocalDate.now() -> "Today"
         LocalDate.now().minusDays(1) -> "Yesterday"
-        else -> date.format(DateTimeFormatter.ofPattern("MMM d, yyyy"))
+        else -> date.format(DateTimeFormatter.ofPattern("MMM d, yyyy", java.util.Locale.forLanguageTag(languageTag)))
     }
 }

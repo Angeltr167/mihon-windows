@@ -646,7 +646,7 @@ internal fun DesktopReader(
         wheelAccumulator = 0f
         wheelGestureActive = false
     }
-    Box(
+    BoxWithConstraints(
         Modifier.fillMaxSize()
             .background(RoninColors.appBackground)
             .onPointerEvent(PointerEventType.Move) {
@@ -684,8 +684,8 @@ internal fun DesktopReader(
                 true
             }.focusRequester(focusRequester).focusable(),
     ) {
+        val readerBottomInset = if (maxWidth < 960.dp) 136.dp else 84.dp
         RoninAtmosphere(Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(RoninColors.appBackground.copy(alpha = 0.46f)))
         when {
             loadState is ReaderPageLoadState.Failed -> Box(
                 Modifier.fillMaxSize().padding(RoninReaderMetrics.chromeHorizontalMargin),
@@ -752,7 +752,7 @@ internal fun DesktopReader(
                         sliderTargetPage = null
                     }
                 }
-                BoxWithConstraints(Modifier.fillMaxSize().padding(top = 66.dp, bottom = 84.dp)) {
+                BoxWithConstraints(Modifier.fillMaxSize().padding(top = 66.dp, bottom = readerBottomInset)) {
                     LazyColumn(
                         state = listState,
                         modifier = Modifier.fillMaxSize(),
@@ -784,7 +784,7 @@ internal fun DesktopReader(
                 }
                 BoxWithConstraints(
                     Modifier.fillMaxSize()
-                        .padding(top = 66.dp, bottom = 84.dp)
+                        .padding(top = 66.dp, bottom = readerBottomInset)
                         .pointerInput(pageIndex, mode) {
                             detectTapGestures { offset ->
                                 if (offset.x < size.width / 3) {
@@ -929,9 +929,6 @@ internal fun DesktopReader(
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         RoninBrandMark(Modifier.size(30.dp))
-                        if (!narrowHeader) {
-                            Text("RONIN", style = MaterialTheme.typography.titleSmall)
-                        }
                         RoninTextButton(label = "←", onClick = onClose)
                         Box(Modifier.weight(1f), contentAlignment = Alignment.Center) {
                             Text(
@@ -984,7 +981,7 @@ internal fun DesktopReader(
         AnimatedVisibility(
             visible = controlsVisible,
             modifier = Modifier.align(Alignment.BottomCenter)
-                .widthIn(max = RoninReaderMetrics.chromeBottomMaxWidth)
+                .widthIn(max = 1120.dp)
                 .fillMaxWidth()
                 .padding(
                     start = RoninReaderMetrics.chromeHorizontalMargin,
@@ -1057,30 +1054,30 @@ internal fun DesktopReader(
                             ) {
                                 Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
                                     RoninTextButton(
-                                        label = if (compactControls) "‹ Ch." else "‹ Chapter",
+                                        label = "|‹",
                                         onClick = ::previousChapter,
                                         enabled = chapterIndex > 0,
                                     )
                                     RoninSecondaryButton(
-                                        label = if (compactControls) "‹" else "‹ Page",
+                                        label = "‹",
                                         onClick = ::previous,
                                         enabled = boundaryState.canPrevious,
                                     )
                                     RoninSecondaryButton(
-                                        label = if (compactControls) "›" else "Page ›",
+                                        label = "›",
                                         onClick = ::next,
                                         enabled = boundaryState.canNext,
                                     )
                                     RoninTextButton(
-                                        label = if (compactControls) "Ch. ›" else "Chapter ›",
+                                        label = "›|",
                                         onClick = ::nextChapter,
                                         enabled = chapterIndex < chapters.lastIndex,
                                     )
                                 }
-                                Row(horizontalArrangement = Arrangement.spacedBy(RoninSpacing.small)) {
+                                run {
                                     Box {
                                         RoninTextButton(
-                                            label = readingModeLabel(mode),
+                                            label = localizedReadingModeLabel(mode),
                                             onClick = { showModeMenu = true },
                                         )
                                         DropdownMenu(
@@ -1089,7 +1086,7 @@ internal fun DesktopReader(
                                         ) {
                                             ReadingMode.entries.forEach { option ->
                                                 DropdownMenuItem(
-                                                    text = { Text(readingModeLabel(option)) },
+                                                    text = { Text(localizedReadingModeLabel(option)) },
                                                     onClick = {
                                                         if (pages.isNotEmpty()) {
                                                             val currentPage =
@@ -1109,7 +1106,7 @@ internal fun DesktopReader(
                                     }
                                     Box {
                                         RoninTextButton(
-                                            label = fitModeLabel(fit),
+                                            label = localizedFitModeLabel(fit),
                                             onClick = { showFitMenu = true },
                                         )
                                         DropdownMenu(
@@ -1118,7 +1115,7 @@ internal fun DesktopReader(
                                         ) {
                                             FitMode.entries.forEach { option ->
                                                 DropdownMenuItem(
-                                                    text = { Text(fitModeLabel(option)) },
+                                                    text = { Text(localizedFitModeLabel(option)) },
                                                     onClick = {
                                                         fit = option
                                                         graph.keyValueStore.putString("desktop.reader.fit", fit.name)
@@ -1128,9 +1125,16 @@ internal fun DesktopReader(
                                             }
                                         }
                                     }
-                                    RoninBadge(label = (zoom * 100).roundToInt().toString() + "%")
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        progressControl(Modifier.width(if (compactControls) 180.dp else 240.dp))
+                                        Text(
+                                            "${pageIndex + 1} / ${pages.size}",
+                                            color = RoninColors.textSecondary,
+                                            style = MaterialTheme.typography.labelMedium,
+                                        )
+                                    }
                                     Box {
-                                        RoninTextButton(label = "More…", onClick = { showMore = true })
+                                        RoninTextButton(label = "⋯", onClick = { showMore = true })
                                         DropdownMenu(expanded = showMore, onDismissRequest = { showMore = false }) {
                                             ReaderMoreActions(
                                                 onClose = {
@@ -1178,20 +1182,7 @@ internal fun DesktopReader(
                         }
                     }
                 }
-                if (maxWidth >= 1500.dp) {
-                    Row(
-                        Modifier.fillMaxWidth().background(RoninColors.appBackground.copy(alpha = 0.82f)),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        progressControl(Modifier.weight(1f))
-                        controlStrip(Modifier.width(900.dp))
-                    }
-                } else {
-                    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        progressControl(Modifier.fillMaxWidth())
-                        controlStrip(Modifier.fillMaxWidth())
-                    }
-                }
+                controlStrip(Modifier.fillMaxWidth())
             }
         }
     }
